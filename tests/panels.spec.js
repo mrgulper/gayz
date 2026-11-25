@@ -973,6 +973,58 @@ test('Shop: Gun Skins buy and use, Gallery Weapon tab shows them', async ({ page
   expect(r.gallery).toEqual({ shown: true, cards: 8, camo: 'Using', soonTag: false })
 })
 
+// 2026-11-25: Shop > Hats, Capes and Back Items - coins or gems, worn
+// right away; a new Back slot (wings / packs) worn WITH a cape; Inventory
+// > Cosmetics lists them; the body really wears all three.
+test('Shop: Hats, Capes and Back Items buy and wear', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 20000
+    g.gems = 600
+    g.shopCosmetics = {}
+    Object.assign(g.settings, { cosmeticHat: '', cosmeticCape: '', cosmeticBack: '' })
+    g._openShopPanel()
+    await wait(300)
+    const counts = ['shop-hats', 'shop-capes', 'shop-backs'].map((id) => document.querySelectorAll(`#${id} [data-shop-cosmetic]`).length)
+    document.querySelector('[data-shop-cosmetic="topHat"]').click() // 25,000 coins - too few
+    await wait(100)
+    document.querySelector('[data-shop-cosmetic="beanie"]').click() // 10,000 coins
+    document.querySelector('[data-shop-cosmetic="angelWings"]').click() // 500 gems
+    document.querySelector('[data-shop-cosmetic="zebraCape"]').click() // 10,000 coins
+    await wait(300)
+    const after = { coins: g.coins, gems: g.gems, owned: { ...g.shopCosmetics }, hat: g.settings.cosmeticHat, cape: g.settings.cosmeticCape, back: g.settings.cosmeticBack }
+    const label = document.querySelector('[data-shop-cosmetic="angelWings"] .inv-skin-card-price').textContent
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const backs = document.querySelectorAll('#cosmetics-backs [data-cosmetic]').length
+    const jetLocked = document.querySelector('#cosmetics-backs [data-cosmetic="jetpack"]').classList.contains('locked')
+    document.querySelector('#cosmetics-backs [data-cosmetic="angelWings"]').click() // take it off
+    return { counts, after, label, backs, jetLocked, off: g.settings.cosmeticBack, saved: JSON.parse(localStorage.getItem('gayz-settings')).cosmeticBack }
+  })
+  expect(r.counts).toEqual([10, 6, 8])
+  expect(r.after).toEqual({ coins: 0, gems: 100, owned: { beanie: 1, angelWings: 1, zebraCape: 1 }, hat: 'beanie', cape: 'zebraCape', back: 'angelWings' })
+  expect(r.label).toBe('Wearing')
+  // On a body: all three, the wings pushed out past the cape.
+  const C = await import('../src/game/Cosmetics.js')
+  const THREE = await import('three')
+  const char = new THREE.Group()
+  C.wearCosmetics(char, 'beanie', '', 'angelWings')
+  const zNoCape = char.userData.worn.backObj.position.z
+  C.wearCosmetics(char, 'beanie', 'zebraCape', 'angelWings')
+  expect(char.children.map((c) => c.name).sort()).toEqual(['cosmeticBack', 'cosmeticCape', 'zombieHat'])
+  expect(char.userData.worn.backObj.position.z).toBeLessThan(zNoCape)
+  C.wearCosmetics(char, '', '', '')
+  expect(char.children.length).toBe(0)
+  expect(r.backs).toBe(8)
+  expect(r.jetLocked).toBe(true)
+  expect(r.off).toBe('')
+  expect(r.saved).toBe('')
+})
+
 // 2026-10-24: right-column number badges, leaderboard rows that open a
 // player's profile, no account row on General, Terms/Privacy without the
 // disclaimer and with a build-dated "Last updated", the clan list preloaded.

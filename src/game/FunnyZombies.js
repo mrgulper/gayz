@@ -99,7 +99,49 @@ const HAT_BOXES = {
     [1.4, 2, 1.4, 1, 0xe8e0c8, 2.6], [1.2, 2, 1.2, 2.8, 0xd8cfb0, 3, -0.5], [0.9, 1.6, 0.9, 4.4, 0xc8bf9e, 3.3, -1.1],
     [1, 1.2, 1, 0.6, 0x2e8a3a, 0, -1.5], [1, 1.2, 1, 0.6, 0x2e8a3a, 0, 1],
   ],
+  // Shop > Hats (ShopCosmetics.js, 2026-11-25) - players only.
+  topHat: [
+    [10, 0.8, 10, 0.4, 0x1a1a1a], [6, 5, 6, 3.3, 0x1a1a1a], [6.2, 1, 6.2, 1.4, 0xc8282e],
+  ],
+  cowboyHat: [
+    [12, 0.8, 10, 0.4, 0x8a5a2e], [7, 3, 6, 2.3, 0x9a6a3a], [7.2, 0.8, 6.2, 1.2, 0x3a2414],
+    [5, 0.6, 4, 4.1, 0x9a6a3a],
+  ],
+  wizardHat: [
+    [11, 0.6, 11, 0.3, 0x2a2a7a], [7, 2.5, 7, 1.85, 0x3a3a9a], [5, 2.5, 5, 4.35, 0x3a3a9a],
+    [3, 2.5, 3, 6.85, 0x3a3a9a, 0.6], [1.6, 2, 1.6, 9, 0x3a3a9a, 1.4],
+    [1.4, 1.4, 0.4, 2.2, 0xffd23f, 0, 3.6], [1, 1, 0.4, 4.6, 0xffd23f, -1, 2.6],
+  ],
+  vikingHelmet: [
+    [8.6, 3, 8.6, 1.5, 0x8a929c], [9, 0.8, 9, 0.4, 0x6a4a2a], [1, 3.2, 1, 1.6, 0x6a4a2a, 0, 4.2],
+    [1.4, 1.4, 1.4, 2, 0xe8e0c8, -5], [1.2, 1.8, 1.2, 3.4, 0xe8e0c8, -5.6], [1, 1.6, 1, 4.9, 0xd8cfb0, -5.4],
+    [1.4, 1.4, 1.4, 2, 0xe8e0c8, 5], [1.2, 1.8, 1.2, 3.4, 0xe8e0c8, 5.6], [1, 1.6, 1, 4.9, 0xd8cfb0, 5.4],
+  ],
+  chefHat: [
+    [8, 2, 8, 1, 0xffffff], [9.4, 3, 9.4, 3.5, 0xf6f4ee], [8, 1, 8, 5.5, 0xffffff],
+  ],
+  beanie: [
+    [8.8, 1, 8.8, 0.5, 0x1f6a44], [8.4, 2.4, 8.4, 2.2, 0x2a8a5a], [2, 2, 2, 4.4, 0xffffff],
+  ],
+  pirateHat: [
+    [11, 1.2, 6, 0.6, 0x1a1a1a], [8, 2.6, 5, 2.5, 0x1a1a1a], [9, 0.6, 5.4, 3.9, 0xd4a52c],
+    [1.6, 1.6, 0.4, 2.2, 0xffffff, 0, 2.7],
+  ],
+  halo: [
+    [6, 0.6, 1, 3, 0xffe14d, 0, -2.5], [6, 0.6, 1, 3, 0xffe14d, 0, 2.5],
+    [1, 0.6, 4, 3, 0xffe14d, -2.5], [1, 0.6, 4, 3, 0xffe14d, 2.5],
+  ],
+  bunnyEars: [
+    [8.4, 0.8, 1.4, 0.4, 0xff5ca8], [1.6, 5, 1, 3.3, 0xffffff, -2], [1.6, 5, 1, 3.3, 0xffffff, 2],
+    [0.8, 3.6, 0.2, 3.4, 0xffb3c8, -2, 0.55], [0.8, 3.6, 0.2, 3.4, 0xffb3c8, 2, 0.55],
+  ],
+  headphones: [
+    [9.6, 0.8, 1.2, 0.8, 0x2a2a2a], [0.8, 3.6, 1.2, -1.2, 0x2a2a2a, -4.6], [0.8, 3.6, 1.2, -1.2, 0x2a2a2a, 4.6],
+    [1.4, 3, 3, -3.6, 0xff5ca8, -4.8], [1.4, 3, 3, -3.6, 0xff5ca8, 4.8],
+  ],
 }
+// Hats that sit straight (round ones, or ones that hug the head).
+const STRAIGHT_HATS = new Set(['halo', 'headphones', 'vikingHelmet', 'chefHat'])
 // The boxes of a hat, for its Inventory picture (Cosmetics.cosmeticIcon).
 export const HAT_BOX_COLORS = (kind) => HAT_BOXES[kind] || []
 
@@ -119,7 +161,7 @@ export function makeHat(kind) {
   const hat = new THREE.Group()
   hat.name = 'zombieHat'
   // Tipped a little, at a jaunty angle.
-  hat.rotation.z = kind === 'crown' ? 0.12 : -0.18
+  hat.rotation.z = STRAIGHT_HATS.has(kind) ? 0 : kind === 'crown' ? 0.12 : -0.18
   hat.position.y = HEAD_TOP
   for (const [w, h, d, y, color, x = 0, z = 0, spin] of boxes) {
     const mesh = new THREE.Mesh(boxGeo(w, h, d), new THREE.MeshLambertMaterial({ color }))

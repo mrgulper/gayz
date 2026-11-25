@@ -15,6 +15,7 @@ import { levelFromXp } from './Xp.js'
 import { BODY_WIDE, HEAD_BIG, HEAD_TOP_Y } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
 import { ownedWorldGoalRewards } from './WorldGoal.js'
+import { makeBack, placeBack, drawBackIcon } from './BackItems.js'
 
 // need: { level | kills | runs | deaths: n } - reach it to unlock.
 // need: { worldGoal: id } - a World Goal reward (WorldGoal.js, 2026-11-19):
@@ -42,6 +43,34 @@ export const COSMETICS = {
   safetyCape: { slot: 'cape', need: { shop: 'survivor' }, colors: [0xff7a1a, 0xffe14d, 0xff7a1a, 0xffe14d, 0xff7a1a] },
   dragonHorns: { slot: 'hat', need: { shop: 'creatures' } },
   dragonCape: { slot: 'cape', need: { shop: 'creatures' }, colors: [0x1f6a2a, 0x2e8a3a, 0x7a1a1a, 0xb82a1a] },
+  // need: { shop: 'buy' } - sold one by one in Shop > Hats / Capes / Back
+  // Items (ShopCosmetics.js, 2026-11-25). price: [currency, amount]; coins
+  // for the plain ones, gems for the fancy ones (prices are a guess).
+  beanie: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 10000] },
+  chefHat: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 10000] },
+  bunnyEars: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 15000] },
+  headphones: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 15000] },
+  cowboyHat: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 25000] },
+  pirateHat: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 25000] },
+  topHat: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 25000] },
+  vikingHelmet: { slot: 'hat', need: { shop: 'buy' }, price: ['coins', 50000] },
+  wizardHat: { slot: 'hat', need: { shop: 'buy' }, price: ['gems', 250] },
+  halo: { slot: 'hat', need: { shop: 'buy' }, price: ['gems', 500] },
+  zebraCape: { slot: 'cape', need: { shop: 'buy' }, price: ['coins', 10000], colors: [0x1a1a1a, 0xffffff, 0x1a1a1a, 0xffffff, 0x1a1a1a, 0xffffff, 0x1a1a1a] },
+  toxicCape: { slot: 'cape', need: { shop: 'buy' }, price: ['coins', 15000], colors: [0x2a3a0a, 0x5a8a1a, 0x9aff3a, 0x5a8a1a, 0x2a3a0a] },
+  iceCape: { slot: 'cape', need: { shop: 'buy' }, price: ['coins', 25000], colors: [0xffffff, 0xcfe8ff, 0x9fd0ff, 0x5cc8ff, 0x2a8ad8] },
+  flameCape: { slot: 'cape', need: { shop: 'buy' }, price: ['coins', 50000], colors: [0xffe14d, 0xffa31a, 0xff5a1a, 0xd0202a, 0x7a0f14] },
+  royalCape: { slot: 'cape', need: { shop: 'buy' }, price: ['gems', 250], colors: [0x6a1f8a, 0x6a1f8a, 0xf2c94c, 0x6a1f8a, 0x4a0f6a] },
+  galaxyCape: { slot: 'cape', need: { shop: 'buy' }, price: ['gems', 500], colors: [0x0a0a2a, 0x2a1a5a, 0x5a2a9a, 0xff5ca8, 0x2a1a5a, 0x0a0a2a] },
+  // Back items (BackItems.js): wings and backpacks, their own slot.
+  survivalPack: { slot: 'back', need: { shop: 'buy' }, price: ['coins', 15000] },
+  teddyPack: { slot: 'back', need: { shop: 'buy' }, price: ['coins', 25000] },
+  guitar: { slot: 'back', need: { shop: 'buy' }, price: ['coins', 25000] },
+  jetpack: { slot: 'back', need: { shop: 'buy' }, price: ['coins', 50000] },
+  butterflyWings: { slot: 'back', need: { shop: 'buy' }, price: ['coins', 50000] },
+  batWings: { slot: 'back', need: { shop: 'buy' }, price: ['gems', 250] },
+  angelWings: { slot: 'back', need: { shop: 'buy' }, price: ['gems', 500] },
+  dragonWings: { slot: 'back', need: { shop: 'buy' }, price: ['gems', 1000] },
 }
 export const COSMETIC_IDS = Object.keys(COSMETICS)
 
@@ -75,7 +104,7 @@ export function isUnlocked(id, career) {
 export function needText(id) {
   const [k, n] = Object.entries(COSMETICS[id].need)[0]
   if (k === 'worldGoal') return t('cosmeticNeedWorldGoal')
-  if (k === 'shop') return t('cosmeticNeedBundle')
+  if (k === 'shop') return t(n === 'buy' ? 'killFxBuyInShop' : 'cosmeticNeedBundle')
   return t(`cosmeticNeed${k.charAt(0).toUpperCase()}${k.slice(1)}`, { n })
 }
 
@@ -101,9 +130,10 @@ export function nextUnlockText(u) {
   return t(key, { n: u.kind === 'level' ? u.need : u.left, name: cosmeticName(u.id) })
 }
 
-// The ones `after` has unlocked that `before` hadn't.
+// The ones `after` has unlocked that `before` hadn't (by playing - a
+// Shop buy isn't an unlock).
 export function newlyUnlocked(before, after) {
-  return COSMETIC_IDS.filter((id) => isUnlocked(id, after) && !isUnlocked(id, before))
+  return COSMETIC_IDS.filter((id) => !COSMETICS[id].need.shop && isUnlocked(id, after) && !isUnlocked(id, before))
 }
 
 export function cosmeticName(id) {
@@ -116,10 +146,14 @@ export function cleanWorn(id, slot) {
   return COSMETICS[id]?.slot === slot ? id : ''
 }
 
-// What I wear in a slot ('hat' / 'cape'): the one picked in Inventory,
-// as long as it's really unlocked (a hand-edited save can't skip ahead).
+// The setting that holds what's worn in each slot.
+export const WORN_SETTING = { hat: 'cosmeticHat', cape: 'cosmeticCape', back: 'cosmeticBack' }
+
+// What I wear in a slot ('hat' / 'cape' / 'back'): the one picked in
+// Inventory, as long as it's really unlocked (a hand-edited save can't
+// skip ahead).
 export function myWorn(game, slot) {
-  const id = cleanWorn(game?.settings?.[slot === 'hat' ? 'cosmeticHat' : 'cosmeticCape'], slot)
+  const id = cleanWorn(game?.settings?.[WORN_SETTING[slot]], slot)
   return id && isUnlocked(id, game.careerStats) ? id : ''
 }
 
@@ -148,14 +182,16 @@ export function makeCape(id) {
   return cape
 }
 
-// Puts `hat` and `cape` (ids, '' = none) on a blocky body, swapping out
-// what it wore. Remembers them on the body (userData.worn) so calling
-// it every frame with the same ones does nothing.
-export function wearCosmetics(char, hat, cape) {
+// Puts `hat`, `cape` and `back` (ids, '' = none) on a blocky body,
+// swapping out what it wore. Remembers them on the body (userData.worn)
+// so calling it every frame with the same ones does nothing.
+export function wearCosmetics(char, hat, cape, back = '') {
   if (!char) return
-  const worn = char.userData.worn || (char.userData.worn = { hat: '', cape: '', hatObj: null, capeObj: null })
+  const worn = char.userData.worn || (char.userData.worn = { hat: '', cape: '', back: '', hatObj: null, capeObj: null, backObj: null })
   hat = cleanWorn(hat, 'hat')
   cape = cleanWorn(cape, 'cape')
+  back = cleanWorn(back, 'back')
+  const capeWas = worn.cape
   if (worn.hat !== hat) {
     if (worn.hatObj) {
       char.remove(worn.hatObj)
@@ -179,6 +215,18 @@ export function wearCosmetics(char, hat, cape) {
     if (worn.capeObj) char.add(worn.capeObj)
     worn.cape = cape
   }
+  if ((worn.back || '') !== back) {
+    if (worn.backObj) {
+      char.remove(worn.backObj)
+      disposeHat(worn.backObj)
+    }
+    worn.backObj = back ? makeBack(back) : null
+    if (worn.backObj) {
+      placeBack(worn.backObj, back, !!cape)
+      char.add(worn.backObj)
+    }
+    worn.back = back
+  } else if (worn.backObj && !!capeWas !== !!cape) placeBack(worn.backObj, back, !!cape)
 }
 
 // A small flat picture of one (Inventory card): its boxes seen from the
@@ -190,7 +238,9 @@ export function cosmeticIcon(id) {
   c.width = c.height = 48
   const g = c.getContext('2d')
   const hex = (n) => `#${n.toString(16).padStart(6, '0')}`
-  if (COSMETICS[id]?.slot === 'cape') {
+  if (COSMETICS[id]?.slot === 'back') {
+    drawBackIcon(g, id)
+  } else if (COSMETICS[id]?.slot === 'cape') {
     const colors = COSMETICS[id].colors
     colors.forEach((col, i) => {
       g.fillStyle = hex(col)

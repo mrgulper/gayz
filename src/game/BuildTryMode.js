@@ -1791,7 +1791,7 @@ export class BuildTryMode {
     const speed = Math.hypot(this.vel.x, this.vel.z)
     // Hats & Capes (Cosmetics.js), in a game.
     const playing = this.bm.survival?.active
-    wearCosmetics(body.char, playing ? myWorn(this.bm.game, 'hat') : '', playing ? myWorn(this.bm.game, 'cape') : '')
+    wearCosmetics(body.char, playing ? myWorn(this.bm.game, 'hat') : '', playing ? myWorn(this.bm.game, 'cape') : '', playing ? myWorn(this.bm.game, 'back') : '')
     // An emote (Emotes.js) keeps playing while you walk (legs walk).
     const emotes = playing ? this.bm.survival.emotes : null
     // Sitting in a vehicle or on an animal (poseSit): legs out, hips on
