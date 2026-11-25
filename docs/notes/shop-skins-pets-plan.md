@@ -29,7 +29,28 @@ Cosmetics.js have `need: { shop: bundleId }`; owned ones are
 Hat/cape worth (`PART_VALUES`) is a guess. Test: panels.spec "Shop: Bundles".
 Batches 4-5 answers: kill effects + walk trails are BOUGHT in the Shop
 (coins), picked in Inventory, and everyone online sees them.
-Next: batch 4 (Kill effects).
+Batch 4 shipped 2026-11-25 (Kill effects): `KillEffects.js` (data, burst,
+icon), `ShopEffects.js` fills `#shop-effects`; Inventory > Hats & Capes
+has a Kill Effects row (`#cosmetics-kills`). Owned in `shopCosmetics`, used
+= `settings.killEffect`. Online: PlayNet state `kfx`; host sets `z.kfx` to
+the last hitter's effect and sends `fx` in the zombie snapshot; clients
+burst it when the zombie leaves the snapshot. Prices (1,500/1,500/2,500
+coins) are a guess. Tests: panels "Shop: Kill Effects", zombies "Kill effects".
+Batch 5 shipped 2026-11-25 (Walk trails): `WalkTrails.js` (`TrailMaker`
+per walker; sparkles + snow puffs are PlayFx sparks, footprints are a pool
+of 48 flat prints per scene that fade in 4 s). `ShopEffects.js` now handles
+both kinds (`EFFECT_KINDS`), `#shop-trails`, `#cosmetics-trails`. Used =
+`settings.walkTrail`; online state `trail` (server passes `kfx`, `trail`,
+zombie `fx`; hat ids with capitals pass too since this batch). Prices
+(2,000/1,500/2,000 coins) are a guess. Tests: panels "Shop: Walk Trails",
+play "Walk trails", servers "hats with capitals".
+All 5 batches done.
+
+Prices tuned 2026-11-25 (Gaymi: "way higher"): bundles Winter 10,000 /
+Firefighter 25,000 coins, Dragon 1,000 gems (`BUNDLES[].price`, shown as
+30% off price/0.7; an owned skin's Shop price comes off). Kill effects
+10k / 25k / 50k, trails Footprints 10k / Snow Puffs 25k / Sparkle 100k coins.
+Inventory tab "Hats & Capes" renamed "Cosmetics" (same `#inventory-tab-cosmetics`).
 
 ## Big shop plan (2026-11-25, Gaymi: "make the shop have everything")
 Gaymi picked all 8 new sections, one batch per session, in this order:
@@ -47,5 +68,6 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
 6. Jump + death effects (like Kill Effects).
 7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
 8. Sounds + music packs (kill sounds, menu music).
-Open: PRs #475-477 (Kill Effects, Walk Trails, higher prices) still not
-merged on 2026-11-25 - CI failed (#477: panels "homepage unlock ladder").
+PRs #475-477 (Kill Effects, Walk Trails, higher prices) shipped together in
+#477 on 2026-11-25 after main was merged in; the ladder test's CI failure was
+timing (now waits with expect.poll).

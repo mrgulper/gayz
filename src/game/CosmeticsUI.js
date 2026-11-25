@@ -4,6 +4,8 @@
 import { COSMETIC_IDS, COSMETICS, isUnlocked, needText, cosmeticName, cosmeticIcon } from './Cosmetics.js'
 import { saveSettings } from './Game.js'
 import { t } from './i18n.js'
+import { ownsShopCosmetic } from './Cosmetics.js'
+import { EFFECT_KINDS, toggleEffect } from './ShopEffects.js'
 
 const byId = (id) => document.getElementById(id)
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c])
@@ -21,6 +23,20 @@ function card(game, id) {
   </button>`
 }
 
+// Kill effects and walk trails (ShopEffects.js): bought in the Shop, used
+// from here too.
+function effectCard(game, kind, id) {
+  const K = EFFECT_KINDS[kind]
+  const open = ownsShopCosmetic(id)
+  const used = game.settings[K.setting] === id
+  const line = !open ? t('killFxBuyInShop') : used ? t('killFxUsing') : t('killFxUse')
+  return `<button type="button" class="perk-option team-card${used ? ' picked' : ''}${open ? '' : ' locked'}" data-effect="${id}"${open ? '' : ' aria-disabled="true"'}>
+    <img src="${K.icon(id)}" alt="" draggable="false" />
+    <span class="team-card-name">${esc(K.name(id))}</span>
+    <span class="team-card-type">${esc(line)}</span>
+  </button>`
+}
+
 export function renderCosmetics(game) {
   const page = byId('cosmetics-page')
   if (!page) return
@@ -30,9 +46,15 @@ export function renderCosmetics(game) {
   }
   set('cosmetics-hats-title', t('cosmeticHatsTitle'))
   set('cosmetics-capes-title', t('cosmeticCapesTitle'))
+  set('cosmetics-kills-title', t('killFxHeading'))
+  set('cosmetics-trails-title', t('trailHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails']]) {
+    const row = byId(rowId)
+    if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
+  }
 }
 
 export function bindCosmeticsUI(game) {
@@ -40,6 +62,12 @@ export function bindCosmeticsUI(game) {
   if (!page) return
   byId('inventory-tab-cosmetics')?.addEventListener('click', () => renderCosmetics(game))
   page.addEventListener('click', (e) => {
+    const k = e.target.closest('[data-effect]')
+    if (k) {
+      if (ownsShopCosmetic(k.dataset.effect)) toggleEffect(game, k.dataset.effect)
+      renderCosmetics(game)
+      return
+    }
     const c = e.target.closest('[data-cosmetic]')
     if (!c) return
     const id = c.dataset.cosmetic

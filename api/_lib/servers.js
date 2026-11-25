@@ -404,6 +404,8 @@ function cleanZombie(z) {
     ...(typeof z.rt === 'string' && KIND_RE.test(z.rt) ? { rt: z.rt } : {}),
     ...(Number.isInteger(z.nm) && z.nm >= 0 && z.nm < 10000 ? { nm: z.nm } : {}),
     ...(ZOMBIE_SHINE_IDS.has(z.sh) ? { sh: z.sh } : {}),
+    // The kill effect it bursts with (src/game/KillEffects.js).
+    ...(typeof z.fx === 'string' && /^[A-Za-z]{1,20}$/.test(z.fx) ? { fx: z.fx } : {}),
   }
 }
 
@@ -680,7 +682,12 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/away`]: !!s.away,
     // An emote playing and the hat / cape worn (Emotes.js, Cosmetics.js).
     [`${base}/players/${playerId}/emote`]: typeof s.emote === 'string' && /^[a-z]{1,12}$/.test(s.emote) ? s.emote : '',
-    [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && ID_RE.test(s.hat) ? s.hat : '',
+    // (Hat ids have capitals - santaHat, hunterHat - so the same rule as capes.)
+    [`${base}/players/${playerId}/hat`]: typeof s.hat === 'string' && /^[A-Za-z]{1,20}$/.test(s.hat) ? s.hat : '',
+    // Their kill effect (src/game/KillEffects.js).
+    [`${base}/players/${playerId}/kfx`]: typeof s.kfx === 'string' && /^[A-Za-z]{1,20}$/.test(s.kfx) ? s.kfx : '',
+    // Their walk trail (src/game/WalkTrails.js).
+    [`${base}/players/${playerId}/trail`]: typeof s.trail === 'string' && /^[A-Za-z]{1,20}$/.test(s.trail) ? s.trail : '',
     [`${base}/players/${playerId}/cape`]: typeof s.cape === 'string' && /^[A-Za-z]{1,20}$/.test(s.cape) ? s.cape : '',
     // Sitting in a vehicle: the seat's eye height in blocks, 0 standing.
     [`${base}/players/${playerId}/sit`]: num(s.sit, 0, 4),
@@ -892,7 +899,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', kfx: p.kfx || '', trail: p.trail || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

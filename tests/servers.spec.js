@@ -1009,6 +1009,9 @@ test('Infection: a friend joins by link, gets tagged and stuns the zombie', asyn
   const sync = (page) => page.evaluate(() => window.__game.buildMode.survival.net._sync())
   await sync(b)
   await a.evaluate(() => window.__game.buildMode.survival.lobby?._sync() || window.__game.buildMode.survival.net._sync())
+  // The host's own game may have had a sync going already (then the call
+  // above does nothing): wait until it has seen Bo and became a server.
+  await a.waitForFunction(() => { const s = window.__game.buildMode.survival; if (!s.net) s.lobby?._sync(); return !!s.net }, null, { timeout: 20000, polling: 200 })
   await sync(b)
   const guest = await b.evaluate(() => {
     const s = window.__game.buildMode.survival
@@ -2685,4 +2688,21 @@ test('chat: /trade posts, accepts, confirms and swaps skins', async ({ page }) =
   expect(r.pill).toBe('/trade accept 10001')
   expect(r.filled).toBe('/trade accept 10001')
   expect(r.rowText).toContain('Panda')
+})
+
+// 2026-11-25: hats with capitals (santaHat, hunterHat) and kill effects
+// (KillEffects.js) reach the other players; the host's zombies carry the
+// kill effect they'll burst with.
+test('servers: hats with capitals, kill effects and zombie bursts go through', async () => {
+  const db = fakeServerDb()
+  const now = Date.now()
+  const a = await createServer(db, { nickname: 'Ann' }, now)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, now + 1)
+  await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1, hat: 'santaHat', kfx: 'pixelKill', trail: 'snowTrail' }, zombies: { z1: { x: 2, y: 1, z: 2, r: 0, hp: 10, max: 100, fx: 'confettiKill' }, z2: { x: 3, y: 1, z: 3, r: 0, hp: 10, max: 100, fx: '<b>' } } }, now + 2)
+  const rb = await syncServer(db, { ...b, state: { x: 5, y: 1, z: 5 } }, now + 3)
+  expect(rb.players[a.playerId].hat).toBe('santaHat')
+  expect(rb.players[a.playerId].kfx).toBe('pixelKill')
+  expect(rb.players[a.playerId].trail).toBe('snowTrail')
+  expect(rb.zombies.z1.fx).toBe('confettiKill')
+  expect(rb.zombies.z2.fx).toBeUndefined()
 })

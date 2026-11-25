@@ -32,4 +32,20 @@ export default {
   cosmeticSafetyCape: "Safety Stripe Cape",
   cosmeticDragonHorns: "Dragon Horns",
   cosmeticDragonCape: "Dragon Wing Cape",
+  // Kill effects (KillEffects.js, ShopEffects.js, 2026-11-25).
+  killFxHeading: "Kill Effects",
+  killFxConfettiKill: "Confetti Pop",
+  killFxSnowKill: "Snowflake Burst",
+  killFxPixelKill: "Pixel Shatter",
+  killFxUsing: "Using",
+  killFxUse: "Click to use",
+  killFxOwned: "Owned - click to use",
+  killFxBuyInShop: "Locked: buy it in the Shop",
+  killFxBoughtToast: "{name} is yours - zombies you take down burst with it now",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "Walk Trails",
+  trailSparkleTrail: "Sparkle Trail",
+  trailFootprintTrail: "Footprints",
+  trailSnowTrail: "Snow Puffs",
+  trailBoughtToast: "{name} is yours - you leave it behind you when you walk now",
 }

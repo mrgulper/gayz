@@ -4,7 +4,10 @@
 // don't own yet, in the skin's own currency (coins or gems). Buying adds
 // the skin to Inventory > Character, the hat and cape to game.shopCosmetics
 // (shop save), and puts all three on. An owned bundle: click to wear it.
-// Hat and cape "worth" prices are a guess to start with (PART_VALUES).
+// Prices (Gaymi 2026-11-25: "way higher", coins 10k-50k, Dragon stays in
+// gems): `price` is what the whole bundle costs; it's shown as 30% off a
+// "worth" of price / 0.7. Already own the skin? Its own Shop price comes
+// off that worth, and you pay 30% off what's left.
 import { INVENTORY_SKINS, SKIN_RARITIES, _escapeHtml, skinFrontIconURL, saveSettings } from './Game.js'
 import { SHOP_SKINS } from './ShopSkins.js'
 import { shopSkinCost } from './ShopSkinPrices.js'
@@ -14,15 +17,11 @@ import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 
 export const BUNDLE_DISCOUNT = 0.3
-// What a bundle's hat and cape are worth, per currency (a guess).
-export const PART_VALUES = {
-  coins: { hat: 1000, cape: 1500 },
-  gems: { hat: 100, cape: 150 },
-}
+// price is in the skin's own currency (coins, or gems for the Dragon).
 export const BUNDLES = [
-  { id: 'winter', key: 'bundleWinter', skin: 'snowman', hat: 'santaHat', cape: 'snowCape' },
-  { id: 'survivor', key: 'bundleSurvivor', skin: 'firefighter', hat: 'fireHelmet', cape: 'safetyCape' },
-  { id: 'creatures', key: 'bundleCreatures', skin: 'dragon', hat: 'dragonHorns', cape: 'dragonCape' },
+  { id: 'winter', key: 'bundleWinter', skin: 'snowman', hat: 'santaHat', cape: 'snowCape', price: 10000 },
+  { id: 'survivor', key: 'bundleSurvivor', skin: 'firefighter', hat: 'fireHelmet', cape: 'safetyCape', price: 25000 },
+  { id: 'creatures', key: 'bundleCreatures', skin: 'dragon', hat: 'dragonHorns', cape: 'dragonCape', price: 1000 },
 ]
 
 const skinOf = (b) => SHOP_SKINS.find((s) => s.id === b.skin)
@@ -31,18 +30,19 @@ const ownsPart = (game, id) => (Number(game.shopCosmetics?.[id]) || 0) > 0
 const wallet = (game, currency) => (currency === 'gems' ? game.gems : game.coins) || 0
 const roundTo = (n, step) => Math.max(step, Math.round(n / step) * step)
 
-// { currency, full, amount }: full = the price of the parts you don't own
-// yet, added up; amount = what you'd pay now (30% off that; 0 = all owned).
+// { currency, full, amount }: full = what the parts you don't own yet are
+// worth; amount = what you'd pay now (30% off that; 0 = all owned).
 export function bundleCost(game, b) {
   const skinCost = shopSkinCost(skinOf(b))
   const currency = skinCost.currency
-  const parts = PART_VALUES[currency]
-  let missing = 0
-  if (!ownsSkin(game, b.skin)) missing += skinCost.amount
-  if (!ownsPart(game, b.hat)) missing += parts.hat
-  if (!ownsPart(game, b.cape)) missing += parts.cape
   const step = currency === 'gems' ? 5 : 50
-  const amount = missing ? roundTo(missing * (1 - BUNDLE_DISCOUNT), step) : 0
+  const worth = roundTo(b.price / (1 - BUNDLE_DISCOUNT), step)
+  const skinWorth = Math.min(skinCost.amount, worth)
+  let missing = 0
+  if (!ownsSkin(game, b.skin)) missing += skinWorth
+  if (!ownsPart(game, b.hat) || !ownsPart(game, b.cape)) missing += worth - skinWorth
+  if (!missing) return { currency, full: 0, amount: 0 }
+  const amount = missing === worth ? b.price : roundTo(missing * (1 - BUNDLE_DISCOUNT), step)
   return { currency, full: missing, amount }
 }
 

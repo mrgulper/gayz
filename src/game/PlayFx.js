@@ -111,6 +111,24 @@ function getTextures() {
       g.fillStyle = '#ffffff'
       g.fillRect(16, 24, 32, 16)
     }),
+    // A solid square, tinted per piece (the Pixels kill effect).
+    pixel: canvasTexture((g) => {
+      g.fillStyle = '#ffffff'
+      g.fillRect(16, 16, 32, 32)
+    }),
+    // A tiny six-armed snowflake (the Snowflakes kill effect).
+    flake: canvasTexture((g) => {
+      g.strokeStyle = '#ffffff'
+      g.lineWidth = 5
+      g.lineCap = 'round'
+      for (let i = 0; i < 3; i++) {
+        const a = (i * Math.PI) / 3
+        g.beginPath()
+        g.moveTo(32 - Math.cos(a) * 24, 32 - Math.sin(a) * 24)
+        g.lineTo(32 + Math.cos(a) * 24, 32 + Math.sin(a) * 24)
+        g.stroke()
+      }
+    }),
     debris: canvasTexture((g) => {
       g.fillStyle = '#2b2520'
       g.fillRect(18, 20, 28, 24)
@@ -151,10 +169,10 @@ export class PlayFx {
     this._next = (this._next + 1) % POOL
     const d = s.userData
     const tex = getTextures()
-    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti' && kind !== 'drop'
+    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti' && kind !== 'drop' && kind !== 'pixel' && kind !== 'flake'
     d.flame = kind === 'flame'
     d.gravity = gravity * this.B
-    d.solid = kind === 'debris' || kind === 'confetti' || kind === 'drop'
+    d.solid = kind === 'debris' || kind === 'confetti' || kind === 'drop' || kind === 'pixel' || kind === 'flake'
     d.rise = rise * this.B
     d.wob = Math.random() * 10
     d.wobble = wobble
@@ -299,6 +317,25 @@ export class PlayFx {
       const a = Math.random() * Math.PI * 2
       const out = 1.5 + Math.random() * 3
       this._emit('confetti', x, y, z, { life: 1.6 + Math.random() * 0.8, from: 0.22, to: 0.18, gravity: 4, drag: 0, color: colors[i % colors.length], delay: Math.random() * 0.08, vel: new THREE.Vector3(Math.cos(a) * out * this.B, (4 + Math.random() * 4) * this.B, Math.sin(a) * out * this.B) })
+    }
+  }
+
+  // Kill effects (KillEffects.js, 2026-11-25): snowflakes puffed out that
+  // drift slowly down, and square pixels flung out that fall and shrink.
+  snowBurst(x, y, z) {
+    const colors = [0xffffff, 0xe6f4ff, 0xcfe8ff]
+    for (let i = 0; i < 36; i++) {
+      const a = Math.random() * Math.PI * 2
+      const out = 1 + Math.random() * 2.2
+      this._emit('flake', x, y, z, { life: 1.8 + Math.random() * 0.8, from: 0.3, to: 0.22, gravity: 0.8, drag: 1.6, color: colors[i % colors.length], delay: Math.random() * 0.06, vel: new THREE.Vector3(Math.cos(a) * out * this.B, (1.5 + Math.random() * 2.5) * this.B, Math.sin(a) * out * this.B) })
+    }
+  }
+
+  pixelBurst(x, y, z, colors) {
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2
+      const out = 1.5 + Math.random() * 3
+      this._emit('pixel', x, y, z, { life: 0.9 + Math.random() * 0.5, from: 0.26, to: 0.06, gravity: 9, drag: 0.4, stretch: 1, color: colors[i % colors.length], vel: new THREE.Vector3(Math.cos(a) * out * this.B, (2.5 + Math.random() * 3.5) * this.B, Math.sin(a) * out * this.B) })
     }
   }
 

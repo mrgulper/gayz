@@ -40,6 +40,8 @@ import { BuildCamp, COIN_PER_KILL, COIN_PER_WAVE } from './BuildCamp.js'
 import { PlayShop } from './PlayShop.js'
 import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPlayWeapon, weaponBars } from './PlayWeapons.js'
 import { PlayFx } from './PlayFx.js'
+import { myKillEffect, cleanKillEffect, playKillEffect } from './KillEffects.js'
+import { TrailMaker, myTrail, clearTrails } from './WalkTrails.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
@@ -878,6 +880,7 @@ export class BuildSurvival {
     this.vehicles?.clear()
     this.pins?.clear()
     this._fx?.clear()
+    clearTrails(this.bm.scene)
     this.throws?.clear()
     this.catcher?.clear()
     this.hpBars?.clear()
@@ -2009,6 +2012,8 @@ export class BuildSurvival {
       const hurtBy = z.hurtBy || (z.hurtBy = new Map())
       hurtBy.set(by || '', (hurtBy.get(by || '') || 0) + Math.min(amount, z.health))
     }
+    // Whose kill effect it bursts with (KillEffects.js): its last hitter's.
+    if (amount > 0 && z.health > 0) z.kfx = by ? this.net?.killEffectOf?.(by) || '' : myKillEffect(this.bm.game)
     // Lit by a Searchlight: hit harder (BuildSpecials.js).
     if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
     // My hits on a zombie geared against my weapon (ZombieLearning.js).
@@ -2075,12 +2080,20 @@ export class BuildSurvival {
     if (!sunOnly) this._creditAssists(z, by || '')
     // My Nemesis: beaten by me, or it got away (NemesisZombie.js).
     if (z.nemesis) this.nemesis?.onKilled(z, !by && !sunOnly && !p2Gear)
+    if (!sunOnly) this._killEffect(z)
     // A bloater bursts instead of falling over.
     if (MONSTER_KINDS[z.kind]?.burst) this._burst(z)
     else this._spawnCorpse(z, dir)
     this._removeZombie(z)
     this.zombies = this.zombies.filter((o) => o !== z)
     this._renderHud()
+  }
+
+  // Its killer's kill effect (KillEffects.js), from its middle.
+  _killEffect(z) {
+    if (!z.kfx) return
+    const B = this.B
+    playKillEffect(this._fx, z.kfx, z.x * B, (z.y + ZOMBIE_HEIGHT * 0.5 * (z.size || 1)) * B, z.z * B, B)
   }
 
   // A bloater (ZombieKinds.js) bursts where it died: players and other
@@ -3765,6 +3778,10 @@ export class BuildSurvival {
     this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    // My walk trail (WalkTrails.js) - not while dead or flying around spectating.
+    if (!this._trail) this._trail = new TrailMaker()
+    const feet = this.bm.tryMode.pos
+    if (feet) this._trail.step(this, this.dead || this.spectating ? '' : myTrail(this.bm.game), feet.x, feet.y, feet.z, Math.min(dt, 0.1))
     this.tricks?.update(Math.min(dt, 0.1))
     this.damageNumbers?.update(Math.min(dt, 0.1))
     this._updateOwnBubble(Math.min(dt, 0.1))
@@ -4284,7 +4301,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}), ...(z.mutant ? { mu: 1 } : {}) }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}), ...(z.mutant ? { mu: 1 } : {}), ...(z.kfx ? { fx: z.kfx } : {}) }
     }
     return out
   }
@@ -4316,9 +4333,11 @@ export class BuildSurvival {
       z.yell = d.ys ? 1 : 0
       // A meteor's mutant (WorldEvents.js): just its size here.
       if (d.mu) this.events?.mutate(z, true)
+      z.kfx = cleanKillEffect(d.fx)
     }
     for (const z of [...this.zombies]) {
       if (seen.has(z.id)) continue
+      this._killEffect(z)
       this._spawnCorpse(z, null)
       this._removeZombie(z)
       this.zombies = this.zombies.filter((o) => o !== z)

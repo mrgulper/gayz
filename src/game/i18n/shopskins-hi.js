@@ -32,4 +32,20 @@ export default {
   cosmeticSafetyCape: "सेफ्टी पट्टी केप",
   cosmeticDragonHorns: "ड्रैगन के सींग",
   cosmeticDragonCape: "ड्रैगन पंख केप",
+  // Kill effects (KillEffects.js, ShopEffects.js, 2026-11-25).
+  killFxHeading: "किल इफ़ेक्ट",
+  killFxConfettiKill: "कॉन्फ़ेटी धमाका",
+  killFxSnowKill: "बर्फ़ का धमाका",
+  killFxPixelKill: "पिक्सेल बिखराव",
+  killFxUsing: "इस्तेमाल में",
+  killFxUse: "इस्तेमाल करने के लिए क्लिक करें",
+  killFxOwned: "आपके पास है - इस्तेमाल करने के लिए क्लिक करें",
+  killFxBuyInShop: "लॉक: दुकान से खरीदें",
+  killFxBoughtToast: "{name} अब आपका है - आपके गिराए ज़ॉम्बी अब ऐसे फटेंगे",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "चलने के निशान",
+  trailSparkleTrail: "चमक का निशान",
+  trailFootprintTrail: "पैरों के निशान",
+  trailSnowTrail: "बर्फ़ के गुबार",
+  trailBoughtToast: "{name} अब आपका है - चलते समय यह आपके पीछे छूटेगा",
 }

@@ -32,4 +32,20 @@ export default {
   cosmeticSafetyCape: "Capa reflectante",
   cosmeticDragonHorns: "Cuernos de dragón",
   cosmeticDragonCape: "Capa de alas de dragón",
+  // Kill effects (KillEffects.js, ShopEffects.js, 2026-11-25).
+  killFxHeading: "Efectos al matar",
+  killFxConfettiKill: "Estallido de confeti",
+  killFxSnowKill: "Explosión de copos",
+  killFxPixelKill: "Lluvia de píxeles",
+  killFxUsing: "En uso",
+  killFxUse: "Haz clic para usarlo",
+  killFxOwned: "Tuyo - haz clic para usarlo",
+  killFxBuyInShop: "Bloqueado: cómpralo en la tienda",
+  killFxBoughtToast: "{name} es tuyo - los zombis que derribes estallarán así",
+  // Walk trails (WalkTrails.js, ShopEffects.js, 2026-11-25).
+  trailHeading: "Rastros al caminar",
+  trailSparkleTrail: "Rastro brillante",
+  trailFootprintTrail: "Huellas",
+  trailSnowTrail: "Nubes de nieve",
+  trailBoughtToast: "{name} es tuyo - lo dejas detrás al caminar",
 }
