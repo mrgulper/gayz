@@ -1196,7 +1196,8 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   })
   await page.reload()
   await page.waitForFunction(() => window.__game)
-  expect(await page.evaluate(() => document.documentElement.dataset.homeTier)).toBe('0')
+  // Slow CI machines can set the tier a moment after __game exists.
+  await expect.poll(() => page.evaluate(() => document.documentElement.dataset.homeTier), { timeout: 15000 }).toBe('0')
   await page.evaluate(() => document.getElementById('menu-more-btn').click())
   await page.reload()
   await page.waitForFunction(() => window.__game)

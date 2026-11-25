@@ -68,5 +68,6 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
 6. Jump + death effects (like Kill Effects).
 7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
 8. Sounds + music packs (kill sounds, menu music).
-Open: PRs #475-477 (Kill Effects, Walk Trails, higher prices) still not
-merged on 2026-11-25 - CI failed (#477: panels "homepage unlock ladder").
+PRs #475-477 (Kill Effects, Walk Trails, higher prices) shipped together in
+#477 on 2026-11-25 after main was merged in; the ladder test's CI failure was
+timing (now waits with expect.poll).
