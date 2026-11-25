@@ -1949,13 +1949,17 @@ test('admin live events: calendar, sale, staff message, gift, map pin', async ()
 
 test('live config: sale, staff message, gift, ended event, map pin', async ({ page }) => {
   await page.addInitScript(() => {
-    window.__liveCfg = { banner: null, events: { doubleCoins: true, doubleXp: true }, ends: { doubleXp: Date.now() - 1000 }, sale: { pct: 20, until: 0 }, staffMsg: { id: 's1', text: 'Server restart in 5 min' }, gift: { id: 'g1', coins: 250, gems: 3, text: '', until: Date.now() + 600000 }, mapWeek: { code: 'ABC123', title: 'Pinned map', by: 'Zed' }, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, mute: null, warnings: [] }
+    window.__liveCfg = { banner: null, events: { doubleCoins: true, doubleXp: true }, ends: { doubleXp: Date.now() - 1000 }, sale: { pct: 20, until: 0 }, staffMsg: { id: 's1', text: 'Server restart in 5 min' }, gift: null, mapWeek: { code: 'ABC123', title: 'Pinned map', by: 'Zed' }, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, mute: null, warnings: [] }
     window.__liveConfigForTests = async () => window.__liveCfg
   })
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
+    // The gift only shows up now: the game's own first ask (a few seconds
+    // after load) can land any time on slow CI, and would hand the gift out
+    // before this baseline was taken.
     const before = { coins: g.coins, gems: g.gems }
+    window.__liveCfg = { ...window.__liveCfg, gift: { id: 'g1', coins: 250, gems: 3, text: '', until: Date.now() + 600000 } }
     await g.__liveAsk()
     const toast = g.loreToast.textContent
     const got = { coins: g.coins - before.coins, gems: g.gems - before.gems }
@@ -2270,7 +2274,7 @@ test('inbox: feedback, polls, errors and alerts', async () => {
 test('feedback box, poll popup and error reports on the page', async ({ page }) => {
   await page.addInitScript(() => {
     window.__sent = []
-    window.__liveCfg = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, warnings: [], poll: { id: 'p1', q: 'Which next?', options: ['Pets', 'Cars'], until: 0 } }
+    window.__liveCfg = { banner: null, events: {}, hidden: { maps: [], builds: [] }, ban: null, off: [], maintenance: null, warnings: [], poll: null }
     window.__liveConfigForTests = async () => window.__liveCfg
     window.__playerVoiceForTests = async (body) => {
       window.__sent.push(body)
@@ -2318,6 +2322,9 @@ test('feedback box, poll popup and error reports on the page', async ({ page }) 
   await expect(box).toBeHidden()
   const r = await page.evaluate(async () => {
     const g = window.__game
+    // The poll only shows up now: with it there from the start, the game's
+    // own first ask (any time on slow CI) popped it over the Feedback button.
+    window.__liveCfg = { ...window.__liveCfg, poll: { id: 'p1', q: 'Which next?', options: ['Pets', 'Cars'], until: 0 } }
     await g.__liveAsk()
     g.__renderPoll()
     const p = document.getElementById('poll-screen')
@@ -2355,7 +2362,7 @@ test('helper accounts: login, reports, checks; language check', async () => {
   expect(made.password).toMatch(/^[a-z0-9]{6}-[A-Za-z0-9]{24}$/)
   expect(JSON.stringify(db.root.helpers)).not.toContain(made.password.split('-')[1])
   expect((await A.helperLogin(db, { helperPw: made.password })).name).toBe('Sam')
-  expect((await A.helperLogin(db, { helperPw: made.password.slice(0, -1) + 'x' })).ok).toBe(false)
+  expect((await A.helperLogin(db, { helperPw: made.password.slice(0, -1) + (made.password.endsWith('x') ? 'y' : 'x') })).ok).toBe(false)
   expect((await A.helperLogin(db, { helperPw: 'nope' })).ok).toBe(false)
   // What a helper sees.
   const seen = await A.helperReports(db, { helperPw: made.password }, null)
