@@ -2240,6 +2240,33 @@ html.ui-theme-clean .shop-more-skins-set { color: var(--clean-fg); }
   gap: 8px;
 }
 .inv-skin-card.owned.shop-more-skin-card { cursor: pointer; }
+/* Set filter buttons above the skins (All, Winter, ... Spooky). Wrap on
+   phones; same size in every theme, only colours change. */
+.shop-skin-set-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 4px 0 8px;
+}
+.shop-skin-set-chip {
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  color: var(--menu-gold, #d9bc4a);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid currentColor;
+  opacity: 0.75;
+}
+.shop-skin-set-chip:hover { opacity: 1; }
+.shop-skin-set-chip.active { opacity: 1; color: #0c130c; background: var(--ui-gold-bright, #f2d46b); border-color: var(--ui-gold-bright, #f2d46b); }
+html.ui-theme-old .shop-skin-set-chip { color: var(--old-ink, #2e1d0e); background: rgba(46, 29, 14, 0.06); }
+html.ui-theme-old .shop-skin-set-chip.active { color: var(--old-paper, #f3e6c8); background: var(--old-ink, #2e1d0e); border-color: var(--old-ink, #2e1d0e); }
+html.ui-theme-clean .shop-skin-set-chip { color: var(--clean-fg); background: transparent; }
+html.ui-theme-clean .shop-skin-set-chip.active { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
 @media (max-width: 700px) {
   .shop-more-skins-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
