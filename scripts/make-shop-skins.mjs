@@ -6,6 +6,7 @@
 // skin's palette. Faces not drawn get filled from the front (see paint()).
 import { deflateSync } from 'node:zlib'
 import { writeFileSync } from 'node:fs'
+import { SKINS_2 } from './shop-skins-sets-2.mjs'
 
 // ---------- the skins ----------
 const R12 = (s) => Array(12).fill(s)
@@ -137,6 +138,18 @@ const SKINS = [
   },
 ]
 
+SKINS.push(...SKINS_2.map((s) => ({ ...s, steps: 3 })))
+
+// Every grid must be the right size (a short row would draw see-through holes).
+for (const s of SKINS) {
+  const want = { head: [8, 8], headTop: [8, 8], body: [12, 8], bodyBack: [12, 8], arm: [12, 4], leg: [12, 4] }
+  for (const [k, [h, w]] of Object.entries(want)) {
+    if (!s[k]) continue
+    if (s[k].length !== h || s[k].some((r) => r.length !== w)) throw new Error(`${s.id}.${k}: needs ${h} rows of ${w}`)
+  }
+  if (s.headBack && s.headBack.length !== 8) throw new Error(`${s.id}.headBack: needs 8 letters`)
+}
+
 // ---------- drawing ----------
 const W = 64
 const H = 64
@@ -162,7 +175,10 @@ function makeSkin(skin) {
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const ch = at(x, y)
       const [r, g, b] = colorAt(ch, ox + x, oy + y)
-      const f = 1 + (rand() * 2 - 1) * amp
+      // `steps` (second-wave skins): only a few shade levels instead of any
+      // shade - looks the same, but the picture packs ~3x smaller.
+      const n = rand() * 2 - 1
+      const f = 1 + (skin.steps ? Math.round(n * (skin.steps - 1) / 2) / ((skin.steps - 1) / 2) : n) * amp
       const i = ((oy + y) * W + ox + x) * 4
       px[i] = Math.min(255, Math.round(r * f))
       px[i + 1] = Math.min(255, Math.round(g * f))
@@ -233,7 +249,8 @@ function png(px, w, h) {
 const made = SKINS.map((s) => ({ s, px: makeSkin(s) }))
 const lines = made.map(({ s, px }) =>
   `  { id: '${s.id}', name: '${s.name}', rarity: '${s.rarity}', set: '${s.set}', dataUrl: 'data:image/png;base64,${png(px, W, H).toString('base64')}' },`)
-writeFileSync(new URL('../src/game/ShopSkins.js', import.meta.url), `// Shop > More Skins (2026-11-25): Winter, Survivor and Creature skins.
+writeFileSync(new URL('../src/game/ShopSkins.js', import.meta.url), `// Shop > More Skins (2026-11-25): 11 sets of 4 (Winter, Survivor, Creatures,
+// Pirates, Space, Food, Sports, Royalty, Ninja, Robots, Spooky).
 // MADE BY scripts/make-shop-skins.mjs - change the drawings there and run
 // it again; don't edit the data URLs by hand. They join MARKET_SKINS
 // (MarketSkins.js), so Inventory, trades and gifts know them too.
