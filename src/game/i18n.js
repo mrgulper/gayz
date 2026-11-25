@@ -43,6 +43,10 @@ import raidEn from './i18n/raid-en.js'
 import raidZh from './i18n/raid-zh.js'
 import raidHi from './i18n/raid-hi.js'
 import raidEs from './i18n/raid-es.js'
+import shopSkinsEn from './i18n/shopskins-en.js'
+import shopSkinsZh from './i18n/shopskins-zh.js'
+import shopSkinsHi from './i18n/shopskins-hi.js'
+import shopSkinsEs from './i18n/shopskins-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -106,6 +110,10 @@ Object.assign(en, raidEn)
 Object.assign(zh, raidZh)
 Object.assign(hi, raidHi)
 Object.assign(es, raidEs)
+Object.assign(en, shopSkinsEn)
+Object.assign(zh, shopSkinsZh)
+Object.assign(hi, shopSkinsHi)
+Object.assign(es, shopSkinsEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.
