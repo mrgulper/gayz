@@ -940,10 +940,13 @@ test('run perks, an escort mission and a camp siege in Zombie Survival', async (
     const middle = s.perks.offer[1]
     document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Digit2', bubbles: true }))
     out.picked = s.perks.n(middle) === 1 && !s.perks.open
+    // The random middle card may have been Hard Hitter already, so check
+    // one more step of +20% on top of however many there are.
     s.perks.offer = ['hardHitter']
+    const had = s.perks.n('hardHitter')
     const dmg = s._damageMult()
     s.perks.pick('hardHitter')
-    out.harder = +(s._damageMult() / dmg).toFixed(2)
+    out.harder = +(s._damageMult() / dmg).toFixed(2) === +((1 + 0.2 * (had + 1)) / (1 + 0.2 * had)).toFixed(2)
     // An escort: someone to walk to an exit, that zombies go for.
     s._breakTimer = 9999
     out.escort = s.events.start('escort')
@@ -966,5 +969,5 @@ test('run perks, an escort mission and a camp siege in Zombie Survival', async (
     }
     return out
   })
-  expect(r).toEqual({ cards: 3, waits: true, picked: true, harder: 1.2, escort: true, path: true, chases: true, lost: true, ...(r.siege !== undefined ? { siege: true, unsafe: true, held: true } : {}) })
+  expect(r).toEqual({ cards: 3, waits: true, picked: true, harder: true, escort: true, path: true, chases: true, lost: true, ...(r.siege !== undefined ? { siege: true, unsafe: true, held: true } : {}) })
 })
