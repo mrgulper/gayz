@@ -705,8 +705,15 @@ export async function setMaintenance(db, { on, text } = {}, now = Date.now()) {
 export async function logAction(db, text, now = Date.now()) {
   const clean = cleanText(text, 300)
   if (!clean) return
-  await db.update({ [`adminLog/${now}${Math.random().toString(36).slice(2, 6)}`]: { at: now, text: clean } })
+  // Two actions in the same millisecond (a Console button that does two
+  // things) still list in the order they happened: each line is at least 1ms
+  // after the newest one.
   const all = (await db.get('adminLog')) || {}
+  let at = now
+  for (const e of Object.values(all)) at = Math.max(at, (Number(e?.at) || 0) + 1)
+  const id = `${at}${Math.random().toString(36).slice(2, 6)}`
+  all[id] = { at, text: clean }
+  await db.update({ [`adminLog/${id}`]: all[id] })
   const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
   if (ids.length > LOG_KEPT) {
     const drop = {}
