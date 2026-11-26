@@ -2,7 +2,8 @@
 # homepage and its live data). When it stops answering, and again when it
 # comes back, it posts once to a private Discord channel through the
 # DISCORD_ALERT_WEBHOOK repository secret (Settings > Secrets and
-# variables > Actions). Without the secret it only checks.
+# variables > Actions). Without the secret it only checks. Each working
+# check is also the site's uptime heartbeat (api/_lib/uptime.js).
 #
 # The last result ("up" or "down") is remembered in the Actions cache,
 # saved only when it changes, so each outage sends one "down" and one
@@ -56,16 +57,32 @@ jobs:
               -d "{\"content\":\"$1\",\"allowed_mentions\":{\"parse\":[]}}" "$WEBHOOK" || true
           }
           if [ "$now" = down ] && [ "$prev" = up ]; then send "🔴 **GayZ is DOWN** - $why. Checking again every 10 minutes."; fi
-          if [ "$now" = up ] && [ "$prev" = down ]; then send "🟢 **GayZ is back up.**"; fi
+          # "Back up" is posted by the site itself (next step), with how long
+          # it was down; the plain message here is only the fallback.
+          if [ "$now" = up ] && [ "$prev" = down ]; then echo "back=yes" >> "$GITHUB_OUTPUT"; fi
           echo "$now" > .site-state
           echo "state=$now" >> "$GITHUB_OUTPUT"
           if [ "$now" != "$prev" ]; then echo "changed=yes" >> "$GITHUB_OUTPUT"; fi
 
-      # The owner's daily summary: the site posts it once a day after 9am
-      # Los Angeles time (api/_lib/inbox.js dailySummary); earlier pokes do nothing.
-      - name: Daily summary
+      # Heartbeat for the uptime history (api/_lib/uptime.js), the owner's
+      # daily summary (once a day after 9am Los Angeles time, inbox.js) and
+      # the Monday weekly report (weekly.js); other pokes post nothing.
+      # After an outage it sends back=true and the site posts "back up"
+      # with how long it was down.
+      - name: Heartbeat and summaries
         if: steps.check.outputs.state == 'up'
-        run: curl -s -o /dev/null --max-time 20 -X POST -H 'content-type: application/json' -d '{"action":"dailySummary"}' https://gayz.vercel.app/api/live || true
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_ALERT_WEBHOOK }}
+          BACK: ${{ steps.check.outputs.back }}
+        run: |
+          body='{"action":"dailySummary"}'
+          [ "$BACK" = yes ] && body='{"action":"dailySummary","back":true}'
+          out=$(curl -s --max-time 20 -X POST -H 'content-type: application/json' -d "$body" https://gayz.vercel.app/api/live || true)
+          echo "$out" | head -c 300; echo
+          if [ "$BACK" = yes ] && [ -n "$WEBHOOK" ] && ! echo "$out" | grep -q '"reported":true'; then
+            curl -s -o /dev/null --max-time 15 -X POST -H 'content-type: application/json' \
+              -d '{"content":"🟢 **GayZ is back up.**","allowed_mentions":{"parse":[]}}' "$WEBHOOK" || true
+          fi
 
       - name: Remember the result
         if: steps.check.outputs.changed == 'yes'

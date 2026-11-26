@@ -91,6 +91,8 @@ import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/LiveLists.js'
 import { statsReport } from './playStats.js'
 import { leaderboardState, hideFromBoards, unhideFromBoards, dismissCheat, runCheatScan, chatState, deleteChatMessage } from './leaderboardAdmin.js'
+import { uptimeReport } from './uptime.js'
+import { weeklyPreview } from './weekly.js'
 import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
@@ -1590,6 +1592,8 @@ const ACTION_FNS = {
   dailySet: (db, body) => setDaily(db, body),
   dailyRemove: (db, body) => removeDaily(db, body),
   stats: (db, body) => statsReport(db, body),
+  uptime: (db) => uptimeReport(db),
+  weeklyPreview: (db) => weeklyPreview(db),
   inbox: (db) => inboxState(db),
   feedbackDone: (db, body) => setFeedbackDone(db, body),
   feedbackDelete: (db, body) => deleteFeedback(db, body),
