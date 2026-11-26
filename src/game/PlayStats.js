@@ -1,6 +1,7 @@
 // Anonymous play counts (2026-11-13) - api/_lib/playStats.js keeps only
 // totals per day: players and visits, the hour (UTC), phone/tablet/computer,
-// language, new vs coming back (days away), the mode/map/skin/weapon of
+// language, new vs coming back (days away, days played in all, days since
+// the first day, and phone or computer), the mode/map/skin/weapon of
 // each game, and where the game was
 // closed. Nothing that names the player (no Player ID, nickname or
 // account) is sent. Off when Settings' "Share Anonymous Usage Stats" is
@@ -17,6 +18,10 @@ const FLUSH_EVERY_MS = 60 * 1000
 const SEND_MAX = 40
 // This device's last counted day (device-only: never synced by Cloud Save).
 export const STATS_DAY_KEY = 'gayz-stats-day'
+// How many different days this device has played, and its first day
+// (2026-11-26, device-only like the one above).
+export const STATS_DAYS_KEY = 'gayz-stats-days'
+export const STATS_FIRST_KEY = 'gayz-stats-first'
 
 let game = null
 let queue = []
@@ -116,6 +121,27 @@ export function backKind(last, today) {
   return gap === 1 ? 'd1' : gap <= 6 ? 'd2-6' : gap <= 29 ? 'd7-29' : 'd30up'
 }
 
+// Days played on this device, today included. A device that was already
+// playing before this was counted starts at 2 (it has at least 2).
+export function daysPlayed(saved, kind) {
+  const n = Math.floor(Number(saved))
+  if (Number.isFinite(n) && n >= 1) return n + 1
+  return kind === 'new' ? 1 : 2
+}
+export function daysBucket(n) {
+  return n <= 1 ? '1' : n === 2 ? '2' : n <= 6 ? '3-6' : n <= 29 ? '7-29' : '30up'
+}
+
+// Days since this device's first day, for a device coming back. Exact days
+// 1-7, 14 and 30 so the Console can say "of the new players on a day, how
+// many were back 1 / 7 / 30 days later"; ranges between them.
+export function sinceKind(first, today) {
+  const gap = Math.round((Date.parse(today) - Date.parse(first)) / 86400000)
+  if (!Number.isFinite(gap) || gap < 1) return null
+  if (gap <= 7) return `d${gap}`
+  return gap <= 13 ? 'd8-13' : gap === 14 ? 'd14' : gap <= 29 ? 'd15-29' : gap === 30 ? 'd30' : 'd31up'
+}
+
 // Once per page: a visit and its hour; once per device per day (UTC): a
 // player, with their device and language.
 export function hello() {
@@ -130,7 +156,20 @@ export function hello() {
     count('sum', 'players')
     count('device', deviceKind())
     count('lang', game?.settings?.language || 'en')
-    count('back', backKind(last, today))
+    const kind = backKind(last, today)
+    count('back', kind)
+    count('backdev', `${deviceKind()}-${kind === 'new' ? 'new' : 'back'}`)
+    const store = (k, v) => { try { localStorage.setItem(k, v) } catch { /* no storage */ } }
+    const read = (k) => { try { return localStorage.getItem(k) } catch { return null } }
+    const played = daysPlayed(read(STATS_DAYS_KEY), kind)
+    store(STATS_DAYS_KEY, String(played))
+    count('days', daysBucket(played))
+    // First day: a device from before this was counted has no first day
+    // ("old") and is left out, so the return rates stay honest.
+    let first = read(STATS_FIRST_KEY)
+    if (!first) first = kind === 'new' ? today : 'old'
+    store(STATS_FIRST_KEY, first)
+    if (kind !== 'new') count('since', sinceKind(first, today))
   }
   flushStats()
 }
