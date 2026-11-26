@@ -1325,6 +1325,7 @@ export class OpenWorld {
     } : null
     const plan = planStructure(gx, gz, { land, hash: hash2, sea: SEA, cityDistance, chunk: CHUNK, placeAt })
     this._plans.set(key, plan)
+    if (plan) this._forgetTilesOver(plan)
     return plan
   }
 
@@ -1349,6 +1350,7 @@ export class OpenWorld {
     }
     plan.nameKey = nameKey
     this._landmarks.push(plan)
+    this._forgetTilesOver(plan)
     return plan
   }
 
@@ -1468,6 +1470,29 @@ export class OpenWorld {
       if (out.length === n * n) return out
     }
     return null
+  }
+
+  // A place planned after the map drew its land: the tiles it reaches into
+  // (any zoom) were drawn without it, so they're drawn again - and one still
+  // being drawn is dropped when it comes. Without this a zoomed-out tile drawn
+  // early kept missing a village until the next new seed.
+  _forgetTilesOver(plan) {
+    if (!this._tiles.size && !this._tileJobs?.size) return
+    const over = (key) => {
+      const c = key.indexOf(':')
+      const k = key.indexOf(',', c)
+      const T = +key.slice(0, c)
+      const x0 = +key.slice(c + 1, k) * T
+      const z0 = +key.slice(k + 1) * T
+      const m = T / 16 + 1 // the sample ring just outside the tile
+      return plan.x1 >= x0 - m && plan.x0 <= x0 + T + m && plan.z1 >= z0 - m && plan.z0 <= z0 + T + m
+    }
+    for (const [key, old] of this._tiles) {
+      if (!over(key)) continue
+      this._tiles.delete(key)
+      this._tilePixels -= old.canvas.width * old.canvas.height
+    }
+    for (const key of [...(this._tileJobs?.keys() || [])]) if (over(key)) this._tileJobs.delete(key)
   }
 
   // A new seed (or the real Earth's heights arriving) redraws the map, and
