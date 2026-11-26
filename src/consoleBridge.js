@@ -525,7 +525,7 @@ window.addEventListener('message', (event) => {
       if (selectedEls.length) broadcastSelection()
     }
   } else if (msg.type === 'gzc-set-theme') {
-    // Every homepage theme: old, clean (golden = clean, its old name),
+    // Every homepage theme: old, clean,
     // sakura, and monthly with an optional month (0-11) to preview.
     const uiTheme = ['old', 'sakura', 'monthly'].includes(msg.theme) ? msg.theme : 'clean'
     applyUiTheme({ uiTheme, cleanColor: msg.color, previewMonth: msg.month })

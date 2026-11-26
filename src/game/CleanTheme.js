@@ -1,8 +1,7 @@
 // The two menu themes (2026-10-23): Old (the default - rust, paper, Rye)
 // and Clean (flat and plain, one colour the player picks - Gaymi: "just
 // plain colour whatever colour they pick"; starts on apple.com's light
-// grey #f5f5f7 since 2026-10-23, was white). Golden was
-// deleted the same day; a save that still says 'golden' lands on Clean.
+// grey #f5f5f7 since 2026-10-23, was white).
 //
 // Clean's whole palette comes from that one colour: the page is the
 // colour, text/buttons are its opposite on the painter's colour wheel
@@ -48,7 +47,7 @@ export function normalizeHex(value) {
 export function uiThemeOf(settings) {
   const t = settings && settings.uiTheme
   if (t === 'sakura' || t === 'monthly') return t
-  return t === 'clean' || t === 'golden' ? 'clean' : 'old'
+  return t === 'clean' ? 'clean' : 'old'
 }
 
 // Sakura Dream (2026-11-07, Gaymi: "adding a new theme for both in

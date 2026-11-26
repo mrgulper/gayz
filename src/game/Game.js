@@ -511,8 +511,7 @@ function loadSettings() {
       highVisCursor: parsed.highVisCursor ?? false,
       captionBackground: parsed.captionBackground ?? false,
       themePreset: parsed.themePreset || 'none',
-      // Old by default; Clean when picked. Golden was deleted 2026-10-23 -
-      // a saved 'golden' becomes Clean (CleanTheme.js uiThemeOf).
+      // Old by default; Clean when picked (CleanTheme.js uiThemeOf).
       uiTheme: uiThemeOf(parsed),
       // Clean theme's one colour (General > Theme), '#rrggbb'.
       cleanColor: normalizeHex(parsed.cleanColor) || CLEAN_DEFAULT_COLOR,
