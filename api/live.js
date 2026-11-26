@@ -14,6 +14,8 @@
 //                                  "Staff replied" popup
 //   { action: 'dailySummary' }  -> GitHub's site check, every 10 minutes:
 //                                  posts the owner's daily summary once a day
+//                                  and runs the cheat alarm (leaderboardAdmin.js)
+//                                  every few hours
 //   { action: 'hof' }           -> the Hall of Fame cards (HallOfFame.js)
 //   { action: 'claimGift', pid, id } -> picks up a gift the team left for
 //                                  this Player ID (ownerPowers.js)
@@ -21,6 +23,8 @@
 import { handle } from './_lib/handle.js'
 import { publicConfig, reportPlayer, seenWarning, redeemCode, publicHallOfFame, claimGiftFor } from './_lib/admin.js'
 import { recordStats } from './_lib/playStats.js'
+import { cheatScan } from './_lib/leaderboardAdmin.js'
+import * as firestoreRest from './_lib/firestoreRest.js'
 import { sendFeedback, votePoll, recordError, contentReportAlert, seenReply, dailySummary } from './_lib/inbox.js'
 
 export default handle((db, body) => {
@@ -33,7 +37,11 @@ export default handle((db, body) => {
   if (body.action === 'error') return recordError(db, body)
   if (body.action === 'contentReport') return contentReportAlert(db, body)
   if (body.action === 'seenReply') return seenReply(db, body)
-  if (body.action === 'dailySummary') return dailySummary(db)
+  if (body.action === 'dailySummary') {
+    // The cheat scan reads Firestore; a hiccup there never stops the summary.
+    const fs = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? firestoreRest : null
+    return Promise.all([dailySummary(db), cheatScan(db, fs).catch(() => null)]).then(([summary]) => summary)
+  }
   if (body.action === 'hof') return publicHallOfFame(db)
   if (body.action === 'claimGift') return claimGiftFor(db, body)
   return publicConfig(db, body)

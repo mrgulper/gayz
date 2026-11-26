@@ -31,7 +31,7 @@
 //    much more than keeping this object private.
 import { clanMonthKey, entryClanXp } from './Xp.js'
 // switchedOff: the Console's feature off-switches (LiveConfig.js).
-import { isHidden, switchedOff, switchedOffError } from './LiveConfig.js'
+import { isHidden, hiddenPlayerCount, switchedOff, switchedOffError } from './LiveConfig.js'
 import { entryWar } from './ClanWar.js'
 
 export const FIREBASE_CONFIG = {
@@ -1420,16 +1420,22 @@ export async function fetchLeaderboardEntryByUid(uid) {
   return snap.exists() ? { ...snap.data(), uid } : null
 }
 
+// Accounts the team hid from the leaderboards (a cheated score,
+// LiveConfig isHidden('player', uid)) are left out of every list. Each
+// query asks for a few extra so the list stays full.
+const boardLimit = (n) => n + Math.min(hiddenPlayerCount(), 20)
+const shownRows = (rows, n) => rows.filter((r) => !isHidden('player', r.uid)).slice(0, n)
+
 // region: optional, one of REGION_OPTIONS (Game.js) - omitted or 'global'
 // means worldwide, no filter applied.
 export async function fetchTopLeaderboard(n, region) {
   if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
-  const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
+  const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(boardLimit(n))]
   if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
   const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map((d) => d.data())
+  return shownRows(snap.docs.map((d) => ({ ...d.data(), uid: d.id })), n)
 }
 
 // Live subscription variant of fetchTopLeaderboard - used only while the
@@ -1462,10 +1468,10 @@ export function subscribeTopLeaderboard(n, region, callback) {
   let cancelled = false
   ensureApp().then(({ db, fsMod }) => {
     if (cancelled) return
-    const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n)]
+    const constraints = [fsMod.orderBy('bestNight', 'desc'), fsMod.limit(boardLimit(n))]
     if (region && region !== 'global') constraints.unshift(fsMod.where('region', '==', region))
     const q = fsMod.query(fsMod.collection(db, 'leaderboard'), ...constraints)
-    unsub = fsMod.onSnapshot(q, (snap) => callback(snap.docs.map(withUid)), () => callback(null))
+    unsub = fsMod.onSnapshot(q, (snap) => callback(shownRows(snap.docs.map(withUid), n)), () => callback(null))
   })
   return () => {
     cancelled = true
@@ -1481,35 +1487,35 @@ export function subscribeTopLeaderboard(n, region, callback) {
 export async function fetchTopSpeedruns(n) {
   if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('speedrunMs', 'asc'), fsMod.limit(n))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('speedrunMs', 'asc'), fsMod.limit(boardLimit(n)))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map(withUid).filter((e) => Number.isFinite(e.speedrunMs))
+  return shownRows(snap.docs.map(withUid).filter((e) => Number.isFinite(e.speedrunMs)), n)
 }
 
 // The Obstacle Course's fastest times (PartyParkour.js), lowest first.
 export async function fetchTopParkour(n) {
   if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('parkourMs', 'asc'), fsMod.limit(n))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('parkourMs', 'asc'), fsMod.limit(boardLimit(n)))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map(withUid).filter((e) => Number.isFinite(e.parkourMs))
+  return shownRows(snap.docs.map(withUid).filter((e) => Number.isFinite(e.parkourMs)), n)
 }
 
 // The Duel Arena's best ratings (PartyDuel.js), highest first.
 export async function fetchTopDuels(n) {
   if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('duelRating', 'desc'), fsMod.limit(n))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('duelRating', 'desc'), fsMod.limit(boardLimit(n)))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map(withUid).filter((e) => Number.isFinite(e.duelRating))
+  return shownRows(snap.docs.map(withUid).filter((e) => Number.isFinite(e.duelRating)), n)
 }
 
 export async function fetchTopByAchievements(n) {
   if (switchedOff('leaderboards', { quiet: true })) throw switchedOffError('leaderboards')
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(n))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.orderBy('achievementCount', 'desc'), fsMod.limit(boardLimit(n)))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map(withUid)
+  return shownRows(snap.docs.map(withUid), n)
 }
 
 // Global average comparison - a real server-side AVG aggregation (not a
@@ -2629,9 +2635,9 @@ export async function fetchMyGlobalRank(bestNight) {
 // above me in rank), for the "N nights to pass X" nudge.
 export async function fetchNearestRivalAbove(bestNight) {
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(1))
+  const q = fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(boardLimit(1)))
   const snap = await fsMod.getDocs(q)
-  return snap.empty ? null : snap.docs[0].data()
+  return shownRows(snap.docs.map(withUid), 1)[0] || null
 }
 
 // Nearby Rank mini-leaderboard (Cloud Save panel) - same two-directional
@@ -2643,12 +2649,12 @@ export async function fetchNearestRivalAbove(bestNight) {
 export async function fetchNearbyRank(bestNight, n) {
   const { db, fsMod } = await ensureApp()
   const [aboveSnap, belowSnap] = await Promise.all([
-    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(n))),
-    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '<', bestNight), fsMod.orderBy('bestNight', 'desc'), fsMod.limit(n))),
+    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '>', bestNight), fsMod.orderBy('bestNight', 'asc'), fsMod.limit(boardLimit(n)))),
+    fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leaderboard'), fsMod.where('bestNight', '<', bestNight), fsMod.orderBy('bestNight', 'desc'), fsMod.limit(boardLimit(n)))),
   ])
   return {
-    above: aboveSnap.docs.map(withUid),
-    below: belowSnap.docs.map(withUid),
+    above: shownRows(aboveSnap.docs.map(withUid), n),
+    below: shownRows(belowSnap.docs.map(withUid), n),
   }
 }
 
@@ -2662,9 +2668,9 @@ export async function pushWeeklyLeaderboardEntry(weekStr, uid, entry) {
 
 export async function fetchTopWeeklyLeaderboard(weekStr, n) {
   const { db, fsMod } = await ensureApp()
-  const q = fsMod.query(fsMod.collection(db, 'weeklyLeaderboard', weekStr, 'entries'), fsMod.orderBy('progress', 'desc'), fsMod.limit(n))
+  const q = fsMod.query(fsMod.collection(db, 'weeklyLeaderboard', weekStr, 'entries'), fsMod.orderBy('progress', 'desc'), fsMod.limit(boardLimit(n)))
   const snap = await fsMod.getDocs(q)
-  return snap.docs.map(withUid)
+  return shownRows(snap.docs.map(withUid), n)
 }
 
 // Global Kill Counter - a single doc, bumped via Firestore's atomic

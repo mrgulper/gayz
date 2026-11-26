@@ -73,7 +73,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], replies: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
+const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [], players: [] }, ban: null, mute: null, warnings: [], replies: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -86,12 +86,10 @@ function readCache() {
 
 let config = readCache()
 setDailyOverrides(config.daily)
-let hiddenSets = { maps: new Set(), builds: new Set() }
+let hiddenSets = { maps: new Set(), builds: new Set(), players: new Set() }
 function rebuildHidden() {
-  hiddenSets = {
-    maps: new Set(Array.isArray(config.hidden?.maps) ? config.hidden.maps : []),
-    builds: new Set(Array.isArray(config.hidden?.builds) ? config.hidden.builds : []),
-  }
+  const list = (k) => new Set(Array.isArray(config.hidden?.[k]) ? config.hidden[k].filter((v) => typeof v === 'string') : [])
+  hiddenSets = { maps: list('maps'), builds: list('builds'), players: list('players') }
 }
 rebuildHidden()
 
@@ -175,9 +173,13 @@ export function hordeMult() {
   return eventOn('hordeNight') ? HORDE_MULT : 1
 }
 
-// A map/build the Console hid ('map' code, or 'build' id).
+// A map/build the team hid ('map' code, or 'build' id), or an account
+// ('player' uid) left out of every leaderboard list (a cheated score).
 export function isHidden(kind, id) {
-  return (kind === 'map' ? hiddenSets.maps : hiddenSets.builds).has(id)
+  return ({ map: hiddenSets.maps, build: hiddenSets.builds, player: hiddenSets.players }[kind] || hiddenSets.builds).has(id)
+}
+export function hiddenPlayerCount() {
+  return hiddenSets.players.size
 }
 
 // A paused feature ('online' | 'chat' | 'market' | 'sharing' | 'gallery'

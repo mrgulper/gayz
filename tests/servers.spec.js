@@ -2921,3 +2921,69 @@ test('auto-mod: flags rude feedback and reports, hides them in alerts', async ()
     else process.env.DISCORD_ALERT_WEBHOOK = hook
   }
 })
+
+// Leaderboard cleanup, the cheat alarm and the chat viewer (2026-11-26).
+test('leaderboard cleanup: hide, cheat alarm, chat viewer', async () => {
+  const lb = await import('../api/_lib/leaderboardAdmin.js')
+  const { ACHIEVEMENTS } = await import('../src/game/Achievements.js')
+  const db = fakeServerDb()
+  const t0 = Date.UTC(2026, 10, 26, 20, 0)
+  // Impossible scores give reasons; normal ones don't.
+  expect(lb.cheatReasons({ bestNight: 12, bestKills: 300, bestKillStreak: 40, achievementCount: 10 })).toEqual([])
+  expect(lb.cheatReasons({ achievementCount: ACHIEVEMENTS.length + 1 }).length).toBe(1)
+  expect(lb.cheatReasons({ bestNight: 2, bestKills: 5000 }).length).toBe(1)
+  expect(lb.cheatReasons({ bestKills: 10, bestKillStreak: 50 }).length).toBe(1)
+  expect(lb.cheatReasons({ speedrunMs: 5000, parkourMs: 3000 }).length).toBe(2)
+
+  // A pretend Firestore: two players on the boards, one cheater.
+  const rows = [
+    { uid: 'cheater01', name: 'Cheaty', pid: 'CHEAT1', bestNight: 999, bestKills: 50 },
+    { uid: 'honest001', name: 'Honest', pid: 'GOOD01', bestNight: 20, bestKills: 400 },
+  ]
+  const deleted = []
+  const fs = {
+    topBy: async () => rows,
+    accountsByPid: async (pid) => rows.filter((r) => r.pid === pid).map((r) => ({ uid: r.uid, nickname: r.name })),
+    recentChat: async (room) => (room === 'globalChat' ? [{ id: 'msg000001', uid: 'cheater01', nick: 'Cheaty', text: 'hello', at: t0 }, { id: 'msg000002', uid: 'gayzTeam', nick: 'GayZ Team', text: 'hi all', at: t0 }] : []),
+    boardRowsByUids: async (uids) => rows.filter((r) => uids.includes(r.uid)),
+    deleteChat: async (room, id) => deleted.push(`${room}/${id}`),
+  }
+  // The scan saves one alert, and the same score never alerts twice.
+  expect((await lb.cheatScan(db, fs, t0)).found).toBe(1)
+  expect((await lb.cheatScan(db, fs, t0 + 1000)).scanned).toBe(false) // too soon
+  expect((await lb.runCheatScan(db, fs, t0 + 2000)).found).toBe(0)
+  let st = await lb.leaderboardState(db, fs, t0)
+  expect(st.alerts.map((a) => a.pid)).toEqual(['CHEAT1'])
+  expect(st.boards[0].rows.find((r) => r.uid === 'cheater01').why.length).toBeGreaterThan(0)
+  // A new impossible score alerts again.
+  rows[0].bestNight = 1000
+  expect((await lb.runCheatScan(db, fs, t0 + 3000)).found).toBe(1)
+
+  // Hide by Player ID: every game is told, and the scan skips them.
+  await ADMIN_ACTIONS.lbHide(db, { pid: 'CHEAT1', why: 'night 999' }, fs)
+  expect((await publicConfig(db, {})).hidden.players).toEqual(['cheater01'])
+  rows[0].bestNight = 998
+  expect((await lb.runCheatScan(db, fs, t0 + 4000)).found).toBe(0)
+  st = await lb.leaderboardState(db, fs, t0)
+  expect(st.hidden[0]).toMatchObject({ uid: 'cheater01', pid: 'CHEAT1', why: 'night 999' })
+  await expect(lb.hideFromBoards(db, fs, { pid: 'NOBODY1' })).rejects.toMatchObject({ status: 404 })
+  await expect(lb.hideFromBoards(db, fs, { uid: 'x' })).rejects.toMatchObject({ status: 400 })
+  // Un-hide puts them back; dismissing removes the alert.
+  await ADMIN_ACTIONS.lbUnhide(db, { uid: 'cheater01' }, fs)
+  expect((await publicConfig(db, {})).hidden.players).toEqual([])
+  await ADMIN_ACTIONS.cheatDismiss(db, { id: st.alerts[0].id }, fs)
+  expect((await lb.leaderboardState(db, fs, t0)).alerts.length).toBe(st.alerts.length - 1)
+
+  // Chat: Player IDs filled in, the team's own line marked, delete works.
+  const chat = await ADMIN_ACTIONS.chat(db, {}, fs)
+  const msgs = chat.rooms.find((r) => r.room === 'globalChat').messages
+  expect(msgs[0]).toMatchObject({ pid: 'CHEAT1', staff: false, rude: false })
+  expect(msgs[1].staff).toBe(true)
+  await ADMIN_ACTIONS.chatDelete(db, { room: 'globalChat', id: 'msg000001', nick: 'Cheaty', text: 'hello' }, fs)
+  expect(deleted).toEqual(['globalChat/msg000001'])
+  await expect(ADMIN_ACTIONS.chatDelete(db, { room: 'clanChat', id: 'msg000001' }, fs)).rejects.toMatchObject({ status: 400 })
+  // Every change is in the history.
+  const log = Object.values((await db.get('adminLog')) || {}).map((l) => l.text).join('\n')
+  expect(log).toContain('Hid')
+  expect(log).toContain('Deleted a chat message by Cheaty')
+})

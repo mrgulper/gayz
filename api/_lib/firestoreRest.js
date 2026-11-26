@@ -270,3 +270,58 @@ export async function claimPlayerIdFor(uid, id, now = Date.now()) {
 export async function setLeaderboardPid(uid, pid) {
   await call(`/leaderboard/${encodeURIComponent(uid)}?updateMask.fieldPaths=playerId&currentDocument.exists=true`, { fields: { playerId: { stringValue: pid } } }, 'PATCH')
 }
+
+// --- Leaderboard cleanup + chat viewer (2026-11-26, leaderboardAdmin.js) ---
+
+// The score fields the cheat alarm and the Console's Leaderboard tab read.
+export const SCORE_FIELDS = ['bestNight', 'bestKills', 'bestKillStreak', 'achievementCount', 'speedrunMs', 'parkourMs', 'duelRating', 'duelWins']
+const BOARD_FIELDS = ['name', 'nickname', 'playerId', 'lastActiveAt', ...SCORE_FIELDS]
+function boardRow(d) {
+  const f = d.fields || {}
+  const row = { uid: d.name.split('/').pop(), name: str(f.name) || str(f.nickname), pid: str(f.playerId), lastActiveAt: int(f.lastActiveAt) }
+  for (const k of SCORE_FIELDS) if (f[k]) row[k] = int(f[k])
+  return row
+}
+
+// The top `limit` leaderboard docs by one score field ('DESCENDING' or
+// 'ASCENDING'). Docs without that field aren't listed (Firestore's own rule).
+export async function topBy(field, direction = 'DESCENDING', limit = 10) {
+  const rows = await call(':runQuery', {
+    structuredQuery: {
+      from: [{ collectionId: 'leaderboard' }],
+      select: { fields: BOARD_FIELDS.map((f) => ({ fieldPath: f })) },
+      orderBy: [{ field: { fieldPath: field }, direction }],
+      limit,
+    },
+  })
+  return (rows || []).filter((r) => r.document?.name).map((r) => boardRow(r.document))
+}
+
+// Name + Player ID for a list of uids (one batch read; missing ones left out).
+export async function boardRowsByUids(uids) {
+  const list = [...new Set(uids)].filter(Boolean).slice(0, 100)
+  if (!list.length) return []
+  const got = await call(':batchGet', { documents: list.map((u) => `${DOCS}/leaderboard/${u}`), mask: { fieldPaths: BOARD_FIELDS } })
+  return (got || []).filter((d) => d.found).map((d) => boardRow(d.found))
+}
+
+// The newest `limit` messages of one chat room ('globalChat' | 'serverChat').
+export async function recentChat(room, limit = 40) {
+  const rows = await call(':runQuery', {
+    structuredQuery: {
+      from: [{ collectionId: room }],
+      orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }],
+      limit,
+    },
+  })
+  return (rows || [])
+    .filter((r) => r.document?.name && r.document.name.includes(`/documents/${room}/`))
+    .map((r) => {
+      const f = r.document.fields || {}
+      return { id: r.document.name.split('/').pop(), uid: str(f.uid), nick: str(f.nickname), text: str(f.text), at: int(f.createdAt) }
+    })
+}
+
+export async function deleteChat(room, id) {
+  await call(`/${room}/${enc(id)}`, undefined, 'DELETE')
+}
