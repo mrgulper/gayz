@@ -18,6 +18,8 @@ import { zombieModel, animalModel } from './TeamBattle.js'
 import { loadSkinTexture } from './MenuAvatar3D.js'
 import { SKELETON_KINDS, loadSkeletons } from './SkeletonModels.js'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { myPetLook, addPetHat, removePetHat, paintModel, unpaint } from './PetRideLooks.js'
+import { animalKind } from './PlayAnimals.js'
 
 // Same file as BuildSurvival's ZOMBIE_SKIN_URL (not imported: that would
 // pull the whole game into this small chunk).
@@ -42,13 +44,15 @@ export function chosenPet(setting) {
 }
 
 // Builds the model -> { group, tick(dt), dispose() } or null.
-async function buildPet(choice) {
+// dress: the pet hat and paint bought in the Shop (PetRideLooks.js).
+async function buildPet(choice, dress) {
   if (choice.kind === 'pet') {
     if (SKELETON_KINDS[choice.look.kind]) await loadSkeletons()
     const holder = new THREE.Group()
     const fake = { B, _skin: await zombieSkin(), bm: { scene: holder } }
     const pz = new PetZombie(fake)
     pz.data = choice.look
+    pz.dress = dress
     if (!pz._spawn(0, 0, 0) || !pz.pet) return null
     const p = pz.pet
     // Its floating name tag is for the game world - the homepage already
@@ -72,7 +76,10 @@ async function buildPet(choice) {
     const group = new THREE.Group()
     built.group.scale.setScalar(B)
     group.add(built.group)
-    return { group, tick() {}, dispose() {} }
+    const k = animalKind(c.k)
+    const hat = dress.hat && k ? addPetHat(built.head, dress.hat, k.head[1] / 2, k.head[0]) : null
+    if (dress.paint) paintModel(built.group, dress.paint, 'pet')
+    return { group, tick() {}, dispose() { removePetHat(hat); unpaint(built.group) } }
   }
   const z = zombieModel(c)
   const group = new THREE.Group()
@@ -80,10 +87,14 @@ async function buildPet(choice) {
   group.add(z.group)
   // Arms down while it waits (battles hold them out).
   for (const a of z.arms) a.rotation.x = 0
+  const hat = dress.hat ? addPetHat(z.head, dress.hat, 0.24, 0.48) : null
+  if (dress.paint) paintModel(z.group, dress.paint, 'pet')
   return {
     group,
     tick() {},
     dispose() {
+      removePetHat(hat)
+      unpaint(z.group)
       z.group.traverse((o) => { if (o.isMesh) o.geometry.dispose() })
       for (const m of z.mats) m.dispose()
     },
@@ -97,7 +108,7 @@ export async function refreshHomePet(game) {
   if (!avatar) return
   const my = ++_token
   const choice = chosenPet(game.settings.homePet)
-  const built = choice ? await buildPet(choice).catch(() => null) : null
+  const built = choice ? await buildPet(choice, myPetLook(game)).catch(() => null) : null
   if (my !== _token) {
     built?.dispose()
     return

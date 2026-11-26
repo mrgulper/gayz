@@ -1977,3 +1977,64 @@ test('Gun skins: my gun in hand and on my body wear my skin', async ({ page }) =
   })
   expect(r).toEqual({ hand: 'all', body: 'all', handOff: 'none', bodyOff: 'none', unowned: 'none' })
 })
+
+// Pet + ride looks (PetRideLooks.js, 2026-11-25): my pet hat and paint go
+// on the Pet Zombie and my tamed animals, my ride paint on the go-kart -
+// only if I own them; taking the look off puts the pet's own colours back.
+test('Pet and ride looks: hats and paint on my pets, paint on my kart', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = { petCrown: 1, petGold: 1, rideNeon: 1 }
+    Object.assign(g.settings, { petHat: 'petCrown', petPaint: 'petGold', ridePaint: 'rideNeon' })
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const gold = (o) => o.material?.color?.getHexString?.()
+    const out = {}
+    // The kart: its red frame is neon now, the black wheels stay black.
+    s.kart.dispose()
+    const me = s.bodyPos()
+    s.kart.placeAt(me.x + 3, me.y, me.z + 3, 0)
+    const kartCols = new Set()
+    s.kart.group.traverse((o) => { if (o.isMesh) kartCols.add(gold(o)) })
+    out.kartNeon = s.kart.group.userData.paintId === 'rideNeon' && !kartCols.has('c0392b') && kartCols.has('151515')
+    s.kart.dispose()
+    // The Pet Zombie: wears the crown (no bow), painted.
+    s.pet.data = { name: 0 }
+    s.pet._despawn()
+    for (let i = 0; i < 50 && !s.pet.pet; i++) {
+      s.pet._spawn(me.x + 1, me.y, me.z + 1)
+      if (!s.pet.pet) await new Promise((res) => setTimeout(res, 100))
+    }
+    out.petHat = !!s.pet.pet?.look.petHat
+    out.petPainted = s.pet.pet?.group.userData.paintId === 'petGold'
+    s.pet.release()
+    // A tamed cow: crown on its head, painted; looks come off with none.
+    const a = s.animals.placeAt({ kind: 'cow', x: me.x + 2, y: me.y, z: me.z })
+    a.tamed = true
+    s.animals._dressPet(a)
+    out.cowHat = !!a.petHat && a.petHat.parent === a.head
+    out.cowPainted = a.group.userData.paintId === 'petGold'
+    let shared = false
+    a.group.traverse((o) => { if (o.isMesh && o.material === a.parts.bodyMat) shared = true })
+    out.cowOwnMats = !shared
+    g.settings.petPaint = ''
+    g.settings.petHat = ''
+    s.animals._dressPet(a)
+    let back = false
+    a.group.traverse((o) => { if (o.isMesh && o.material === a.parts.bodyMat) back = true })
+    out.cowBack = back && !a.petHat
+    // Not owned: not worn.
+    g.shopCosmetics = {}
+    g.settings.petHat = 'petCrown'
+    s.animals._dressPet(a)
+    out.unowned = !a.petHat
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toEqual({ kartNeon: true, petHat: true, petPainted: true, cowHat: true, cowPainted: true, cowOwnMats: true, cowBack: true, unowned: true })
+})

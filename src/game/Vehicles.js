@@ -45,6 +45,7 @@ import { t } from './i18n.js'
 import { makeKart } from './GoKart.js'
 import { REALM_KINDS } from './ZombieKinds.js'
 import { hintOk } from './GameplayAssist.js'
+import { myRidePaint, cleanRidePaint, paintModel, unpaint } from './PetRideLooks.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -189,7 +190,7 @@ export class Vehicles {
       fuel: FUEL_FOR[kind] || 0,
       rotor: 0,
       burner: false,
-      group: MAKE[kind](this.B),
+      group: paintModel(MAKE[kind](this.B), myRidePaint(this.s.bm?.game), 'ride', true),
     }
     this.bm.scene.add(v.group)
     this.list.push(v)
@@ -800,12 +801,14 @@ export function drawRemote(survival, p, dt) {
   const k = 1 - Math.exp(-12 * dt)
   list.forEach((d, i) => {
     let m = p.vehicles[i]
-    if (m && m.k !== d.k) {
+    // Their ride paint (PlayNet `rpaint`): a new one makes it again.
+    const paint = cleanRidePaint(p.rpaint)
+    if (m && (m.k !== d.k || m.paint !== paint)) {
       disposeGroup(m.group)
       m = null
     }
     if (!m) {
-      m = { k: d.k, x: d.x, y: d.y, z: d.z, h: d.h, group: MAKE[KIND_OF_NET[d.k]](B) }
+      m = { k: d.k, paint, x: d.x, y: d.y, z: d.z, h: d.h, group: paintModel(MAKE[KIND_OF_NET[d.k]](B), paint, 'ride', true) }
       survival.bm.scene.add(m.group)
       p.vehicles[i] = m
     }
@@ -844,6 +847,7 @@ export function cleanRemote(list) {
 function disposeGroup(group) {
   if (!group) return
   group.removeFromParent()
+  unpaint(group)
   group.traverse((o) => {
     if (!o.isMesh) return
     o.geometry.dispose()

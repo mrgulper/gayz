@@ -103,7 +103,27 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    25k/75k/any, cheaper items likelier, coin piles) - a guess; average
    worth ~4k / ~13k / ~31k per crate. Duplicate item = 25% of its worth in
    coins. Test: panels "Shop: Daily Deals and Crate Spin".
-5. Pet + ride looks (pet hats/colours, car/kart paint).
+5. **Pet + ride looks** - SHIPPED 2026-11-25: `PetRideLooks.js`. Gaymi
+   picked hats + REAL recolours (a bought paint is the one exception to
+   "pets keep their wild look"), on every pet, and one paint for every ride.
+   8 pet hats (FunnyZombies hat shapes, scaled to the head: `addPetHat`),
+   6 pet paints, 7 ride paints (coins 10k-100k - a guess). Three more
+   ShopEffects kinds (`petHat`, `petPaint`, `ridePaint`; `#shop-pethats`,
+   `#shop-petpaints`, `#shop-ridepaints`, same rows in Inventory >
+   Cosmetics), settings `petHat` / `petPaint` / `ridePaint`.
+   `paintModel(root, id, 'pet'|'ride', ownMats)`: clones materials (keeps
+   `userData.paintBase` for `unpaint`); pets: everything but very dark bits,
+   tinted brighter over fur/skin pictures (`texLum`); rides: only coloured
+   parts (greys/blacks stay) + `userData.paint`; `noPaint` skips (hats,
+   bow, glow, collar, red eyes). Rainbow cycles in onBeforeRender.
+   On: Pet Zombie (hat replaces bow + wild hat), tamed animals
+   (`PlayAnimals._dressPet` each frame, only re-done when the look
+   changes), homepage pet, go-kart, bike, hoverboard, boats/heli/balloon/
+   sub/jet ski. Online: state `phat` / `ppaint` / `rpaint` (server passes
+   them); the host's animal snapshot `t` is now the owner's player id, so
+   guests dress other players' pets; remote vehicles repaint from `rpaint`.
+   NOT on Couch Co-op P2, skateboards, sleds. Tests: panels "Shop: Pet
+   Hats, Pet Paints and Ride Paints", play "Pet and ride looks".
 6. Jump + death effects (like Kill Effects).
 7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
 8. Sounds + music packs (kill sounds, menu music).

@@ -26,6 +26,7 @@ import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
 import { hintOk } from './GameplayAssist.js'
+import { myRidePaint, paintModel, unpaint } from './PetRideLooks.js'
 
 const ENTER_REACH = 3
 const HINT_REACH = 5
@@ -73,6 +74,7 @@ export class GoKart {
     this.vy = 0
     this._hinted = false
     this.group = makeKart(this.B)
+    paintModel(this.group, myRidePaint(this.s.bm?.game), 'ride', true)
     this.s.bm.scene.add(this.group)
     this._place()
     return true
@@ -84,6 +86,7 @@ export class GoKart {
     this.dispose()
     Object.assign(this, { x, y, z, heading, speed: 0, vy: 0, boostT: 0, spinT: 0, _hinted: true })
     this.group = makeKart(this.B)
+    paintModel(this.group, myRidePaint(this.s.bm?.game), 'ride', true)
     this.s.bm.scene.add(this.group)
     this._place()
     this.driving = true
@@ -321,6 +324,7 @@ export class GoKart {
     this.lockedIn = false
     if (!this.group) return
     this.group.removeFromParent()
+    unpaint(this.group)
     this.group.traverse((o) => {
       if (!o.isMesh) return
       o.geometry.dispose()

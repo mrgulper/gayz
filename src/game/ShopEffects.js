@@ -1,4 +1,5 @@
-// Shop > Kill Effects, Walk Trails and Gun Skins (2026-11-25, shop plan;
+// Shop > Kill Effects, Walk Trails, Gun Skins, Pet Hats, Pet Paints and
+// Ride Paints (2026-11-25, shop plan;
 // KillEffects.js, WalkTrails.js, GunSkins.js). One card each: click to buy
 // (coins; Settings > Confirm Purchases asks first on big buys) and it's
 // used right away. An owned one: click to use it, click again to stop.
@@ -8,6 +9,7 @@ import { ownsShopCosmetic } from './Cosmetics.js'
 import { KILL_EFFECTS, KILL_EFFECT_IDS, killEffectName, killEffectIcon } from './KillEffects.js'
 import { TRAILS, TRAIL_IDS, trailName, trailIcon } from './WalkTrails.js'
 import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon } from './GunSkins.js'
+import { PET_HATS, PET_HAT_IDS, PET_PAINTS, PET_PAINT_IDS, RIDE_PAINTS, RIDE_PAINT_IDS, petHatName, petPaintName, ridePaintName, petHatIcon, petPaintIcon, ridePaintIcon } from './PetRideLooks.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -27,6 +29,20 @@ export const EFFECT_KINDS = {
   gun: {
     items: GUN_SKINS, ids: GUN_SKIN_IDS, setting: 'gunSkin', name: gunSkinName, icon: gunSkinIcon,
     root: 'shop-gunskins', heading: 'shop-gunskins-heading', headingKey: 'gunSkinHeading', toastKey: 'gunSkinBoughtToast', color: '#ffb347',
+  },
+  // Pet + ride looks (PetRideLooks.js): a hat and a paint for every pet,
+  // one paint for every ride.
+  petHat: {
+    items: PET_HATS, ids: PET_HAT_IDS, setting: 'petHat', name: petHatName, icon: petHatIcon,
+    root: 'shop-pethats', heading: 'shop-pethats-heading', headingKey: 'petHatHeading', toastKey: 'petHatBoughtToast', color: '#ff8fd0',
+  },
+  petPaint: {
+    items: PET_PAINTS, ids: PET_PAINT_IDS, setting: 'petPaint', name: petPaintName, icon: petPaintIcon,
+    root: 'shop-petpaints', heading: 'shop-petpaints-heading', headingKey: 'petPaintHeading', toastKey: 'petPaintBoughtToast', color: '#7dffb0',
+  },
+  ridePaint: {
+    items: RIDE_PAINTS, ids: RIDE_PAINT_IDS, setting: 'ridePaint', name: ridePaintName, icon: ridePaintIcon,
+    root: 'shop-ridepaints', heading: 'shop-ridepaints-heading', headingKey: 'ridePaintHeading', toastKey: 'ridePaintBoughtToast', color: '#ff6a4a',
   },
 }
 export const kindOfEffect = (id) => Object.keys(EFFECT_KINDS).find((k) => EFFECT_KINDS[k].items[id]) || ''
@@ -74,6 +90,12 @@ export function toggleEffect(game, id) {
   if (!K) return
   game.settings[K.setting] = game.settings[K.setting] === id ? '' : id
   saveSettings(game.settings)
+  petLookChanged(game, K)
+}
+
+// The homepage pet wears the new pet hat / paint at once.
+function petLookChanged(game, K) {
+  if (K.setting === 'petHat' || K.setting === 'petPaint') game._refreshHomePet?.()
 }
 
 export function buyOrUseEffect(game, id) {
@@ -99,6 +121,7 @@ export function buyOrUseEffect(game, id) {
   game.shopCosmetics[id] = 1
   game.settings[K.setting] = id
   saveSettings(game.settings)
+  petLookChanged(game, K)
   game._afterTradeChange() // saves, refreshes the currency bar and Shop
   renderShopEffects(game)
   game._showHomepageToast(t(K.toastKey, { name }))
