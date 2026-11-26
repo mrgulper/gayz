@@ -1478,6 +1478,8 @@ export class BuildTryMode {
         this._jumpBuffer = 0
         this._coyote = 0
         this.onGround = false
+        // Jump effects (JumpDeathEffects.js) in a game.
+        if (this.bm.survival?.active) this.bm.survival.onJump?.()
       }
       // On the Moon gravity is weaker (MoonTrip.js): high jumps, slow falls.
       const g = this.gravityMult ?? 1

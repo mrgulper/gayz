@@ -688,6 +688,10 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     [`${base}/players/${playerId}/kfx`]: typeof s.kfx === 'string' && /^[A-Za-z]{1,20}$/.test(s.kfx) ? s.kfx : '',
     // Their walk trail (src/game/WalkTrails.js).
     [`${base}/players/${playerId}/trail`]: typeof s.trail === 'string' && /^[A-Za-z]{1,20}$/.test(s.trail) ? s.trail : '',
+    // Their jump + death effects and jump count (src/game/JumpDeathEffects.js).
+    [`${base}/players/${playerId}/jfx`]: typeof s.jfx === 'string' && /^[A-Za-z]{1,20}$/.test(s.jfx) ? s.jfx : '',
+    [`${base}/players/${playerId}/dfx`]: typeof s.dfx === 'string' && /^[A-Za-z]{1,20}$/.test(s.dfx) ? s.dfx : '',
+    [`${base}/players/${playerId}/jn`]: Number.isFinite(Number(s.jn)) ? Math.max(0, Math.min(1e9, Math.floor(Number(s.jn)))) : 0,
     // Their gun skin (src/game/GunSkins.js).
     [`${base}/players/${playerId}/gskin`]: typeof s.gskin === 'string' && /^[A-Za-z]{1,20}$/.test(s.gskin) ? s.gskin : '',
     // Pet hat, pet paint and ride paint (src/game/PetRideLooks.js) - ids.
@@ -907,7 +911,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', back: p.back || '', kfx: p.kfx || '', trail: p.trail || '', gskin: p.gskin || '', phat: p.phat || '', ppaint: p.ppaint || '', rpaint: p.rpaint || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', back: p.back || '', kfx: p.kfx || '', trail: p.trail || '', jfx: p.jfx || '', dfx: p.dfx || '', jn: Number(p.jn) || 0, gskin: p.gskin || '', phat: p.phat || '', ppaint: p.ppaint || '', rpaint: p.rpaint || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

@@ -49,6 +49,8 @@ export function renderCosmetics(game) {
   set('cosmetics-backs-title', t('cosmeticBacksTitle'))
   set('cosmetics-kills-title', t('killFxHeading'))
   set('cosmetics-trails-title', t('trailHeading'))
+  set('cosmetics-jumps-title', t('jumpFxHeading'))
+  set('cosmetics-deaths-title', t('deathFxHeading'))
   set('cosmetics-gunskins-title', t('gunSkinHeading'))
   set('cosmetics-pethats-title', t('petHatHeading'))
   set('cosmetics-petpaints-title', t('petPaintHeading'))
@@ -58,7 +60,7 @@ export function renderCosmetics(game) {
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
   const backs = byId('cosmetics-backs')
   if (backs) backs.innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'back').map((id) => card(game, id)).join('')
-  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints']]) {
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['jump', 'cosmetics-jumps'], ['death', 'cosmetics-deaths'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints']]) {
     const row = byId(rowId)
     if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
   }

@@ -926,6 +926,36 @@ test('Shop: Walk Trails buy and use', async ({ page }) => {
   expect(r).toEqual({ cards: 3, coins: 100, trail: 'footprintTrail', kill: '', label: 'Using', rows: 3 })
 })
 
+// 2026-11-25: Shop > Jump Effects and Death Effects - 4 cards each, buy
+// one and it's used at once; Inventory > Cosmetics lists them too.
+test('Shop: Jump Effects and Death Effects buy and use', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 35100
+    g.shopCosmetics = {}
+    g.settings.jumpEffect = ''
+    g.settings.deathEffect = ''
+    g._openShopPanel()
+    await wait(300)
+    const jumps = document.querySelectorAll('#shop-jumps [data-shop-effect]').length
+    const deaths = document.querySelectorAll('#shop-deaths [data-shop-effect]').length
+    document.querySelector('[data-shop-effect="cloudJump"]').click()
+    await wait(200)
+    document.querySelector('[data-shop-effect="ghostDeath"]').click()
+    await wait(200)
+    const label = document.querySelector('[data-shop-effect="ghostDeath"] .inv-skin-card-price').textContent
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = document.querySelectorAll('#cosmetics-jumps [data-effect], #cosmetics-deaths [data-effect]').length
+    return { jumps, deaths, coins: g.coins, jump: g.settings.jumpEffect, death: g.settings.deathEffect, label, rows }
+  })
+  expect(r).toEqual({ jumps: 4, deaths: 4, coins: 100, jump: 'cloudJump', death: 'ghostDeath', label: 'Using', rows: 8 })
+})
+
 // 2026-11-25: Shop > Gun Skins - same cards as Kill Effects (one skin
 // for every gun); Inventory > Cosmetics lists them, and the Gallery's
 // Weapon tab shows every one with its price or Using.

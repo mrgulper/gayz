@@ -1,4 +1,4 @@
-// Shop > Kill Effects, Walk Trails, Gun Skins, Pet Hats, Pet Paints and
+// Shop > Kill Effects, Walk Trails, Jump Effects, Death Effects, Gun Skins, Pet Hats, Pet Paints and
 // Ride Paints (2026-11-25, shop plan;
 // KillEffects.js, WalkTrails.js, GunSkins.js). One card each: click to buy
 // (coins; Settings > Confirm Purchases asks first on big buys) and it's
@@ -10,6 +10,7 @@ import { KILL_EFFECTS, KILL_EFFECT_IDS, killEffectName, killEffectIcon } from '.
 import { TRAILS, TRAIL_IDS, trailName, trailIcon } from './WalkTrails.js'
 import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon } from './GunSkins.js'
 import { PET_HATS, PET_HAT_IDS, PET_PAINTS, PET_PAINT_IDS, RIDE_PAINTS, RIDE_PAINT_IDS, petHatName, petPaintName, ridePaintName, petHatIcon, petPaintIcon, ridePaintIcon } from './PetRideLooks.js'
+import { JUMP_EFFECTS, JUMP_EFFECT_IDS, DEATH_EFFECTS, DEATH_EFFECT_IDS, jumpEffectName, deathEffectName, jumpEffectIcon, deathEffectIcon } from './JumpDeathEffects.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -24,6 +25,15 @@ export const EFFECT_KINDS = {
   trail: {
     items: TRAILS, ids: TRAIL_IDS, setting: 'walkTrail', name: trailName, icon: trailIcon,
     root: 'shop-trails', heading: 'shop-trails-heading', headingKey: 'trailHeading', toastKey: 'trailBoughtToast', color: '#5cc8ff',
+  },
+  // Jump + death effects (JumpDeathEffects.js).
+  jump: {
+    items: JUMP_EFFECTS, ids: JUMP_EFFECT_IDS, setting: 'jumpEffect', name: jumpEffectName, icon: jumpEffectIcon,
+    root: 'shop-jumps', heading: 'shop-jumps-heading', headingKey: 'jumpFxHeading', toastKey: 'jumpFxBoughtToast', color: '#7fd8ff',
+  },
+  death: {
+    items: DEATH_EFFECTS, ids: DEATH_EFFECT_IDS, setting: 'deathEffect', name: deathEffectName, icon: deathEffectIcon,
+    root: 'shop-deaths', heading: 'shop-deaths-heading', headingKey: 'deathFxHeading', toastKey: 'deathFxBoughtToast', color: '#c0c6ce',
   },
   // Gun skins (GunSkins.js): one paint job for every gun.
   gun: {

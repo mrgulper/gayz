@@ -129,6 +129,17 @@ function getTextures() {
         g.stroke()
       }
     }),
+    // Jump + death effects (JumpDeathEffects.js, 2026-11-25): a heart
+    // (tinted per piece) and a soft white cloud puff.
+    heart: canvasTexture((g) => {
+      g.fillStyle = '#ffffff'
+      g.beginPath()
+      g.moveTo(32, 54)
+      g.bezierCurveTo(4, 34, 8, 8, 32, 22)
+      g.bezierCurveTo(56, 8, 60, 34, 32, 54)
+      g.fill()
+    }),
+    puff: blobTexture([[0, 'rgba(255,255,255,0.95)'], [0.55, 'rgba(255,255,255,0.7)'], [1, 'rgba(255,255,255,0)']]),
     debris: canvasTexture((g) => {
       g.fillStyle = '#2b2520'
       g.fillRect(18, 20, 28, 24)
@@ -169,10 +180,10 @@ export class PlayFx {
     this._next = (this._next + 1) % POOL
     const d = s.userData
     const tex = getTextures()
-    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti' && kind !== 'drop' && kind !== 'pixel' && kind !== 'flake'
+    const add = kind !== 'smoke' && kind !== 'debris' && kind !== 'confetti' && kind !== 'drop' && kind !== 'pixel' && kind !== 'flake' && kind !== 'heart' && kind !== 'puff'
     d.flame = kind === 'flame'
     d.gravity = gravity * this.B
-    d.solid = kind === 'debris' || kind === 'confetti' || kind === 'drop' || kind === 'pixel' || kind === 'flake'
+    d.solid = kind === 'debris' || kind === 'confetti' || kind === 'drop' || kind === 'pixel' || kind === 'flake' || kind === 'heart'
     d.rise = rise * this.B
     d.wob = Math.random() * 10
     d.wobble = wobble
@@ -337,6 +348,11 @@ export class PlayFx {
       const out = 1.5 + Math.random() * 3
       this._emit('pixel', x, y, z, { life: 0.9 + Math.random() * 0.5, from: 0.26, to: 0.06, gravity: 9, drag: 0.4, stretch: 1, color: colors[i % colors.length], vel: new THREE.Vector3(Math.cos(a) * out * this.B, (2.5 + Math.random() * 3.5) * this.B, Math.sin(a) * out * this.B) })
     }
+  }
+
+  // Any particle by kind (jump + death effects, JumpDeathEffects.js).
+  emit(kind, x, y, z, opts) {
+    this._emit(kind, x, y, z, opts)
   }
 
   // A slow grey puff (Smoke Bomb).
