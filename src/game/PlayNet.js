@@ -38,6 +38,7 @@ import { wearCosmetics, cleanWorn, myWorn } from './Cosmetics.js'
 import { myKillEffect, cleanKillEffect } from './KillEffects.js'
 import { TrailMaker, myTrail, cleanTrail } from './WalkTrails.js'
 import { myJumpEffect, myDeathEffect, cleanJumpEffect, cleanDeathEffect, playJumpEffect, playDeathEffect } from './JumpDeathEffects.js'
+import { myNameStyle, myChatBubble, cleanNameStyle, cleanChatBubble } from './NameChatStyles.js'
 import { myGunSkin, cleanGunSkin } from './GunSkins.js'
 import { poseEmote, poseSit, sitDrop, walkLegs, EMOTES, emoteSound } from './Emotes.js'
 import { buildTexturedCharacter, loadSkinTexture, DEFAULT_SKIN_DATA_URL } from './MenuAvatar3D.js'
@@ -289,7 +290,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), back: myWorn(this.game, 'back'), kfx: myKillEffect(this.game), trail: myTrail(this.game), jfx: myJumpEffect(this.game), dfx: myDeathEffect(this.game), jn: s.jumps || 0, gskin: myGunSkin(this.game), phat: myPetHat(this.game), ppaint: myPetPaint(this.game), rpaint: myRidePaint(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), back: myWorn(this.game, 'back'), kfx: myKillEffect(this.game), trail: myTrail(this.game), jfx: myJumpEffect(this.game), dfx: myDeathEffect(this.game), jn: s.jumps || 0, nst: myNameStyle(this.game), cbub: myChatBubble(this.game), gskin: myGunSkin(this.game), phat: myPetHat(this.game), ppaint: myPetPaint(this.game), rpaint: myRidePaint(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -416,6 +417,20 @@ export class PlayNet {
         if (p.dead && !mine.dead) playDeathEffect(s, cleanDeathEffect(p.dfx), Number(p.x), Number(p.y), Number(p.z))
       }
       mine.jn = jn
+      // A name style picked (or dropped) since: a new name tag.
+      const nst = cleanNameStyle(p.nst)
+      if (mine.tag && nst !== mine.nst) {
+        const fresh = nameTag(mine.tag.userData.text, s.B, nst)
+        fresh.position.copy(mine.tag.position)
+        fresh.visible = mine.tag.visible
+        mine.group.remove(mine.tag)
+        mine.tag.material.map?.dispose()
+        mine.tag.material.dispose()
+        mine.group.add(fresh)
+        mine.tag = fresh
+      }
+      mine.nst = nst
+      mine.cbub = cleanChatBubble(p.cbub)
       Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), back: cleanWorn(p.back, 'back'), kfx: cleanKillEffect(p.kfx), trail: cleanTrail(p.trail), gskin: cleanGunSkin(p.gskin), phat: cleanPetHat(p.phat), ppaint: cleanPetPaint(p.ppaint), rpaint: cleanRidePaint(p.rpaint), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
@@ -562,10 +577,13 @@ export class PlayNet {
     const group = new THREE.Group()
     // The owner (OwnerDropIn.js): a gold tag and a crown only the server
     // can give.
+    // Everyone else: their bought name style (NameChatStyles.js).
+    const nst = cleanNameStyle(p.nst)
+    const tag = p.own ? null : nameTag(p.nick || 'Survivor', B, nst)
     if (p.own) group.add(ownerTag(p.nick || 'Survivor', B), ownerCrown(B))
-    else group.add(nameTag(p.nick || 'Survivor', B))
+    else group.add(tag)
     this.survival.bm.scene.add(group)
-    const player = { pid, nick: p.nick, group, body: null, x: 0, y: 0, z: 0, yaw: 0, tx: 0, ty: 0, tz: 0, tyaw: 0, walk: 0, seen: false, dead: false }
+    const player = { pid, nick: p.nick, group, tag, nst, body: null, x: 0, y: 0, z: 0, yaw: 0, tx: 0, ty: 0, tz: 0, tyaw: 0, walk: 0, seen: false, dead: false }
     this.players.set(pid, player)
     return player
   }
@@ -589,7 +607,7 @@ export class PlayNet {
   _setBubble(player, text, left = bubbleSeconds(text)) {
     if (!text) return
     if (player.bubble) disposeBubble(player.bubble)
-    player.bubble = speechBubble(text, this.survival.B)
+    player.bubble = speechBubble(text, this.survival.B, player.cbub || '')
     player.bubbleLeft = left
     player.group.add(player.bubble)
   }

@@ -14,6 +14,7 @@ import { CAREER_RANK_TITLES, EVENT_BANNERS, GOAL_CANDIDATES, MAX_GOALS, MENU_PAI
 import { setLanguage, t } from './i18n.js'
 import { holidayDate } from './LiveConfig.js'
 import { buyNameChange } from './ShopIdentity.js'
+import { applyMyNameLook } from './NameChatStyles.js'
 
 // Homepage clock (General tab, settings.timeFormat) - the only place
 // in the game that shows an absolute (not relative/countdown) local
@@ -143,6 +144,9 @@ export function _fillNameplate(game, el) {
   const clan = part('nameplate-clan')
   if (level) level.textContent = String(game._computeAvatarLevel())
   if (name) name.textContent = game.settings.nickname?.trim() || game._defaultNickname()
+  // A bought name style (NameChatStyles.js) on this name, and the frame
+  // on the face picture.
+  applyMyNameLook(game)
   if (clan) {
     const clanName = (game.settings.clanName || '').trim()
     clan.textContent = clanName

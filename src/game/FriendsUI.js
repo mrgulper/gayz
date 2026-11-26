@@ -12,6 +12,7 @@ import { setNavBadge } from './NavBadges.js'
 import { MONEY_HIDDEN } from './SocialSettings.js'
 import { showFriendMailActions } from './FriendMail.js'
 import { showGuestbook } from './SocialNotes.js'
+import { setNameStyleOn } from './NameChatStyles.js'
 
 // "Your Friends" list - now populated only by accepting an incoming
 // friend request (see _respondToFriendRequest), not by manually typing a
@@ -86,6 +87,7 @@ export async function _openOtherPlayerProfileById(game, playerId, fallbackName) 
 export function _showOtherProfileLoading(game, fallbackName) {
   game.otherProfilePanel.style.display = 'flex'
   game.otherProfileName.textContent = fallbackName || '???'
+  setNameStyleOn(game.otherProfileName, '')
   game._otherProfileIdText = null
   game._otherProfileCurrentPlayerId = null
   game.otherProfileId.textContent = ''
@@ -112,6 +114,7 @@ export function _renderOtherProfileEntry(game, entry, fallbackName) {
     return
   }
   game.otherProfileName.textContent = entry.name || fallbackName || '???'
+  setNameStyleOn(game.otherProfileName, entry.ns) // their bought name style (NameChatStyles.js)
   // Notes needs a stable key to save under - no playerId, no Notes
   // section (matches _showOtherProfileLoading's own default-hidden
   // state, just never un-hidden in game rare case).

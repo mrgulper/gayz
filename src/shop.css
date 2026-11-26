@@ -563,3 +563,105 @@ html.ui-theme-clean .shop-identity-card { border-style: solid !important; }
   text-transform: none;
   letter-spacing: normal;
 }
+
+/* Name + chat style (2026-11-25, NameChatStyles.js): a bought name style
+   on any name (.nstyle-*: homepage nameplate, Profile, chat, leaderboard)
+   and a bought frame on a face picture (.pframe-*: homepage avatar,
+   Profile, the mini one before a chat name). Gradient text uses a
+   drop-shadow (a text-shadow would show through the see-through fill). */
+.nstyle {
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
+.nstyle-glowName {
+  background-image: linear-gradient(90deg, #bff4ff, #e8fbff, #bff4ff);
+  filter: drop-shadow(0 0 4px #3bd2ff) drop-shadow(0 0 8px rgba(59, 210, 255, 0.7));
+}
+.nstyle-goldName {
+  background-image: linear-gradient(100deg, #b8860b 0%, #ffc83d 30%, #fff3b0 50%, #ffc83d 70%, #b8860b 100%);
+  background-size: 200% 100%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  animation: nstyle-slide 3s linear infinite;
+}
+.nstyle-fireName {
+  background-image: linear-gradient(0deg, #ff2e2e 0%, #ff7a1a 45%, #ffe14d 100%);
+  filter: drop-shadow(0 0 4px rgba(255, 90, 20, 0.9));
+  animation: nstyle-flicker 1.2s ease-in-out infinite;
+}
+.nstyle-rainbowName {
+  background-image: linear-gradient(90deg, #ff3b3b, #ff9a2e, #ffe14d, #4dff7a, #3bb8ff, #8a5cff, #ff3b3b);
+  background-size: 200% 100%;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.8));
+  animation: nstyle-slide 3s linear infinite;
+}
+@keyframes nstyle-slide {
+  from { background-position: 0% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes nstyle-flicker {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 90, 20, 0.8)); }
+  50% { filter: drop-shadow(0 0 8px rgba(255, 140, 20, 1)); }
+}
+
+/* Frames: drawn with box-shadow rings so they never change the picture's
+   size or push anything around. */
+.pframe-silverFrame { box-shadow: 0 0 0 3px #f4f6f8, 0 0 0 6px #9aa3ad, 0 0 10px rgba(255, 255, 255, 0.35); }
+.pframe-goldFrame { box-shadow: 0 0 0 3px #fff3b0, 0 0 0 6px #ffc83d, 0 0 0 8px #b8860b, 0 0 14px rgba(255, 200, 61, 0.6); }
+.pframe-fireFrame { box-shadow: 0 0 0 3px #ffe14d, 0 0 0 6px #ff7a1a, 0 0 0 8px #ff2e2e, 0 0 16px rgba(255, 90, 20, 0.8); animation: pframe-fire 1.2s ease-in-out infinite; }
+.pframe-rainbowFrame { box-shadow: 0 0 0 3px #ff3b3b, 0 0 0 5px #ffe14d, 0 0 0 7px #4dff7a, 0 0 0 9px #3bb8ff, 0 0 14px rgba(138, 92, 255, 0.7); animation: pframe-rainbow 3s linear infinite; }
+@keyframes pframe-fire {
+  0%, 100% { box-shadow: 0 0 0 3px #ffe14d, 0 0 0 6px #ff7a1a, 0 0 0 8px #ff2e2e, 0 0 12px rgba(255, 90, 20, 0.6); }
+  50% { box-shadow: 0 0 0 3px #ffe14d, 0 0 0 6px #ff7a1a, 0 0 0 8px #ff2e2e, 0 0 22px rgba(255, 140, 20, 1); }
+}
+@keyframes pframe-rainbow {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+/* The rainbow frame's hue spin must not tint the face inside it. */
+.pframe-rainbowFrame > * { animation: pframe-rainbow 3s linear infinite reverse; }
+
+/* The mini frame before a chat name. */
+.pframe-mini {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin: 0 6px 0 3px;
+  vertical-align: middle;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
+}
+.pframe-mini.pframe-silverFrame { box-shadow: 0 0 0 2px #dfe3e8; }
+.pframe-mini.pframe-goldFrame { box-shadow: 0 0 0 2px #ffc83d, 0 0 5px rgba(255, 200, 61, 0.7); }
+.pframe-mini.pframe-fireFrame { box-shadow: 0 0 0 2px #ff7a1a, 0 0 6px rgba(255, 90, 20, 0.9); animation: none; }
+.pframe-mini.pframe-rainbowFrame { box-shadow: 0 0 0 2px #ff3b3b, 0 0 0 3px #4dff7a, 0 0 5px #3bb8ff; }
+
+/* Profile > Shown to Public: the face picture beside the name. */
+#profile-public-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin: 10px 0 6px;
+}
+#profile-public-name-row #profile-public-name-value { margin: 0; }
+#profile-public-face {
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: visible;
+}
+#profile-public-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 4px;
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nstyle, .pframe-fireFrame, .pframe-rainbowFrame, .pframe-rainbowFrame > * { animation: none !important; }
+}

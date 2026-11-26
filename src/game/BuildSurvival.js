@@ -43,6 +43,7 @@ import { PlayFx } from './PlayFx.js'
 import { myKillEffect, cleanKillEffect, playKillEffect } from './KillEffects.js'
 import { TrailMaker, myTrail, clearTrails } from './WalkTrails.js'
 import { myJumpEffect, myDeathEffect, playJumpEffect, playDeathEffect, updateDeathProps } from './JumpDeathEffects.js'
+import { myChatBubble } from './NameChatStyles.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
@@ -4551,7 +4552,7 @@ export class BuildSurvival {
     const net = this.net && !this.net.closed ? this.net : this.lobby && !this.lobby.closed ? this.lobby : null
     net?.say(text)
     if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
-    this._ownBubble = { sprite: speechBubble(text, this.B), left: bubbleSeconds(text) }
+    this._ownBubble = { sprite: speechBubble(text, this.B, myChatBubble(this.bm.game)), left: bubbleSeconds(text) }
   }
 
   _updateOwnBubble(dt) {

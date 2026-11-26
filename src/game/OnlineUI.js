@@ -18,6 +18,7 @@ import { t } from './i18n.js'
 import { clanMonthKey, currentClanXp } from './Xp.js'
 import { applyPublicPrivacy } from './SocialSettings.js'
 import { flushWarPoints, entryFields as clanWarFields } from './ClanWar.js'
+import { myNameStyle, nameStyleClass } from './NameChatStyles.js'
 
 // Cloud Save panel open/close - a normal modal, same shared z-index/
 // display:flex rule every other panel uses.
@@ -150,9 +151,11 @@ function lbRow(game, { rank, row, stats, me, tag }) {
   const mine = me || (uid && uid === game._cloudUid) || (!uid && row.name === game.settings.nickname)
   const podium = rank >= 1 && rank <= 3 ? ` podium-${rank}` : ''
   const name = _escapeHtml(row.name || '???')
+  // Their bought name style (NameChatStyles.js), on the name text only.
+  const shown = `<span class="lb-name-text${nameStyleClass(row.ns)}">${name}</span>`
   const nameEl = uid
-    ? `<button type="button" class="lb-name lb-name-link" data-uid="${_escapeHtml(uid)}" data-name="${name}" title="${_escapeHtml(t('lbViewProfile'))}">${name}</button>`
-    : `<span class="lb-name">${name}</span>`
+    ? `<button type="button" class="lb-name lb-name-link" data-uid="${_escapeHtml(uid)}" data-name="${name}" title="${_escapeHtml(t('lbViewProfile'))}">${shown}</button>`
+    : `<span class="lb-name">${shown}</span>`
   return `<div class="lb-row cloud-leaderboard-row${mine ? ' me' : ''}${podium}"><span class="lb-rank">${rank === '' ? '' : _safeStatNumber(rank)}</span>${nameEl}${tag ? `<span class="lb-tag">${_escapeHtml(tag)}</span>` : ''}${stats.map((v) => `<span class="lb-stat">${_escapeHtml(String(v))}</span>`).join('')}</div>`
 }
 
@@ -432,6 +435,9 @@ export async function _pushOnlineStats(game) {
   entry.todayMinutes = Math.round((performance.now() - game._sessionStartTime) / 60000)
   // Hide My Coins / Hide My Clan (Settings > Social, SocialSettings.js).
   applyPublicPrivacy(game.settings, entry)
+  // A bought name style shows on my leaderboard row (NameChatStyles.js).
+  // Always sent ('' = none), since each push replaces the whole doc.
+  entry.ns = myNameStyle(game)
   CloudSync.pushLeaderboardEntry(game._cloudUid, entry).catch(() => {})
   CloudSync.pushWeeklyLeaderboardEntry(_thisWeekStr(), game._cloudUid, {
     name,

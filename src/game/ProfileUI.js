@@ -13,6 +13,7 @@ import { t } from './i18n.js'
 import { levelFromXp } from './Xp.js'
 import { renderTrophies } from './Trophies.js'
 import { bindSocialNotes, loadMyGuestbook } from './SocialNotes.js'
+import { applyMyNameLook } from './NameChatStyles.js'
 
 // Levels panel - opened by the level coin on the profile card: your XP
 // level, the bar to the next one and how XP is earned (Xp.js, 2026-10-23;
@@ -338,6 +339,7 @@ export function _renderPublicProfileSection(game) {
   if (!game.profilePublicNameValue) return
   const name = game.settings.anonymousLeaderboard ? t('anonymousLeaderboardName') : (game.settings.nickname || t('menuPlayerTagDefault'))
   game.profilePublicNameValue.textContent = name
+  applyMyNameLook(game) // name style + framed face picture (NameChatStyles.js)
   game.profilePublicIdValue.textContent = game.settings.playerId ? `#${game.settings.playerId}` : '--'
   game.profilePublicBestwaveValue.textContent = _safeStatNumber(game.bestStats.bestWave)
   game.profilePublicBestkillsValue.textContent = _safeStatNumber(game.bestStats.bestKills)

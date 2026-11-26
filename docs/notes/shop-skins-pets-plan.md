@@ -138,7 +138,24 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    jump when `jn` goes up and a death on alive->dead. NOT Couch Co-op P2.
    Tests: panels "Shop: Jump Effects and Death Effects", play "Jump and
    death effects".
-7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
+7. **Name + chat style** - SHIPPED 2026-11-25: `NameChatStyles.js`. Name
+   Styles (Glowing/Gold/Fire/Rainbow), Chat Bubbles (Pink/Comic/Neon/
+   Rainbow), Profile Frames (Silver/Gold/Fire/Rainbow), 10k/25k/50k/100k
+   coins each (Gaymi: Kill Effects ladder). Three more ShopEffects kinds
+   (`nameStyle`, `chatBubble`, `profileFrame`; `#shop-namestyles`,
+   `#shop-chatbubbles`, `#shop-frames`, same rows in Inventory >
+   Cosmetics). CSS `.nstyle-*` / `.pframe-*` in shop.css. Name shows on:
+   head tag online (PlayNet state `nst`, `nameTag(text, B, style)`; the
+   owner's gold tag stays gold), chat rows (messages carry `ns` + `fr` via
+   `CloudSync.setChatLookSource`; rules allow extra fields), homepage
+   nameplate + Profile (`applyMyNameLook`), leaderboard row + other
+   player's profile (leaderboard doc `ns`, sent on the next stats push).
+   Frame: homepage `#menu-avatar-icon`, new `#profile-public-face` in
+   Profile, `.pframe-mini` before chat names. Bubble: PlayNet state `cbub`,
+   `speechBubble(text, B, style)`, own body too. Server passes nst/cbub.
+   Anyone could fake `ns`/`fr` in Firestore (looks only). NOT Couch Co-op
+   P2 / bots. Tests: panels "Shop: Name Styles, Chat Bubbles and Profile
+   Frames", servers "hats with capitals".
 8. Sounds + music packs (kill sounds, menu music).
 PRs #475-477 (Kill Effects, Walk Trails, higher prices) shipped together in
 #477 on 2026-11-25 after main was merged in; the ladder test's CI failure was

@@ -7,6 +7,7 @@
 // longer message stays up longer, then fades out softly (2026-10-26).
 import * as THREE from 'three'
 import { MOB_HEIGHT } from './PlayRules.js'
+import { bubbleLook, bubbleEdgeStyle } from './NameChatStyles.js'
 
 // Seconds a bubble stays up: longer messages stay longer.
 export function bubbleSeconds(text) {
@@ -41,7 +42,9 @@ function wrap(ctx, text, width) {
   })
 }
 
-export function speechBubble(text, B) {
+// style: a bought chat bubble id (NameChatStyles.js), '' = the plain dark one.
+export function speechBubble(text, B, style = '') {
+  const look = bubbleLook(style)
   const c = document.createElement('canvas')
   const ctx = c.getContext('2d')
   ctx.font = FONT
@@ -54,16 +57,33 @@ export function speechBubble(text, B) {
   // The box sits at the right of the picture, its little tail pointing
   // right at the speaker's head.
   const x0 = W - 16 - boxW
-  ctx.fillStyle = 'rgba(16, 16, 20, 0.78)'
-  ctx.beginPath()
-  ctx.roundRect?.(x0, 0, boxW, boxH, 12) ?? ctx.rect(x0, 0, boxW, boxH)
+  // A bought bubble is inset a little so its edge line fits.
+  const e = look ? 3 : 0
+  ctx.fillStyle = look ? look.fill : 'rgba(16, 16, 20, 0.78)'
+  const box = () => {
+    ctx.beginPath()
+    ctx.roundRect?.(x0 + e, e, boxW - 2 * e, boxH - 2 * e, 12) ?? ctx.rect(x0 + e, e, boxW - 2 * e, boxH - 2 * e)
+  }
+  box()
   ctx.fill()
   ctx.beginPath()
   ctx.moveTo(W - 16, boxH / 2 - 10)
   ctx.lineTo(W - 2, boxH / 2)
   ctx.lineTo(W - 16, boxH / 2 + 10)
   ctx.fill()
-  ctx.fillStyle = '#ffffff'
+  if (look) {
+    ctx.save()
+    ctx.lineWidth = 4
+    if (look.glow) {
+      ctx.shadowColor = look.edge
+      ctx.shadowBlur = 8
+    }
+    ctx.strokeStyle = bubbleEdgeStyle(ctx, look, x0, x0 + boxW)
+    box()
+    ctx.stroke()
+    ctx.restore()
+  }
+  ctx.fillStyle = look ? look.text : '#ffffff'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   lines.forEach((l, i) => ctx.fillText(l, x0 + boxW / 2, 12 + LINE_H * (i + 0.5)))

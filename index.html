@@ -2598,7 +2598,11 @@
 
         <div class="profile-tab-page" id="profile-page-public">
           <p id="profile-public-hint">Anyone who has your Player ID can look you up and see this.</p>
-          <h2 id="profile-public-name-value">Player</h2>
+          <!-- Face picture + name (2026-11-25): the face wears your Profile Frame (NameChatStyles.js). -->
+          <div id="profile-public-name-row">
+            <div id="profile-public-face"><img src="/images/avatar-anonymous.png" alt="" draggable="false" /></div>
+            <h2 id="profile-public-name-value">Player</h2>
+          </div>
           <p id="profile-public-id-line"><span id="profile-public-id-label">Player ID</span>: <span id="profile-public-id-value">--</span></p>
 
           <div id="profile-public-columns">
@@ -2960,6 +2964,7 @@
             <h3>Chat, clans, friends and the Market</h3>
             <ul>
               <li>Chat messages you send (Global, server and clan chat) are stored online with your nickname so other players can read them.</li>
+              <li>If you bought a Name Style or Profile Frame in the Shop, the one you use is stored with your chat messages and (Name Style) on your leaderboard entry, so other players see your name in it. On a server, the Name Style and Chat Bubble you use are shared with the other players there.</li>
               <li>Clans store their name, members and roles, and the XP members earn this month. In Clan War, the points you score for your clan this week and this month (and last week's and last month's, for the prizes) go on your public leaderboard entry so every clan's total can be added up.</li>
               <li>Friend requests, your friend list and your online status (online, in a game, or when you were last seen) are stored so your friends can see them.</li>
               <li>The homepage shows how many signed-in players are online right now. It's only a total, worked out from that same online status - no names - and choosing Offline as your status leaves you out of it.</li>
@@ -3448,6 +3453,13 @@
               <div id="shop-petpaints"></div>
               <h3 class="crate-section-heading" id="shop-ridepaints-heading">Ride Paints</h3>
               <div id="shop-ridepaints"></div>
+              <!-- Name + chat style (2026-11-25, NameChatStyles.js). -->
+              <h3 class="crate-section-heading" id="shop-namestyles-heading">Name Styles</h3>
+              <div id="shop-namestyles"></div>
+              <h3 class="crate-section-heading" id="shop-chatbubbles-heading">Chat Bubbles</h3>
+              <div id="shop-chatbubbles"></div>
+              <h3 class="crate-section-heading" id="shop-frames-heading">Profile Frames</h3>
+              <div id="shop-frames"></div>
               <!-- Pets (2026-11-25, moved from Inventory > Pets): the daily
                    Pet Shop and your eggs. Drawn by TeamUI.renderTeamPanel. -->
               <h3 class="crate-section-heading" id="shop-pets-heading">Pets</h3>
@@ -3996,6 +4008,12 @@
               <div id="cosmetics-petpaints" class="team-cards"></div>
               <h3 id="cosmetics-ridepaints-title" class="team-section-title"></h3>
               <div id="cosmetics-ridepaints" class="team-cards"></div>
+              <h3 id="cosmetics-namestyles-title" class="team-section-title"></h3>
+              <div id="cosmetics-namestyles" class="team-cards"></div>
+              <h3 id="cosmetics-chatbubbles-title" class="team-section-title"></h3>
+              <div id="cosmetics-chatbubbles" class="team-cards"></div>
+              <h3 id="cosmetics-frames-title" class="team-section-title"></h3>
+              <div id="cosmetics-frames" class="team-cards"></div>
             </div>
           </div>
           <div class="inventory-tab-page" id="inventory-page-zombiebook" style="display: none">
