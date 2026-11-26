@@ -2872,6 +2872,72 @@ test('inbox: replies, bug stages and the daily summary', async () => {
   }
 })
 
+// Uptime history + weekly report (2026-11-26): site-check heartbeats,
+// outages vs missed checks, the "back up" post and the Monday report.
+test('uptime heartbeats and the weekly report', async () => {
+  const { heartbeat, uptimeReport, backUpText, minutesText } = await import('../api/_lib/uptime.js')
+  const { weeklyReport, weeklyPreview, weeklyText, change } = await import('../api/_lib/weekly.js')
+  const db = fakeServerDb()
+  const MIN = 60000
+  const t0 = Date.UTC(2026, 10, 30, 20, 0) // Mon Nov 30, 12:00 in Los Angeles
+  const hook = process.env.DISCORD_ALERT_WEBHOOK
+  const realFetch = globalThis.fetch
+  const sent = []
+  process.env.DISCORD_ALERT_WEBHOOK = 'https://discord.com/api/webhooks/1/x'
+  globalThis.fetch = async (url, init) => { sent.push(JSON.parse(init.body).content); return { ok: true } }
+  try {
+    expect(await heartbeat(db, {}, t0)).toMatchObject({ beat: true })
+    // Two pokes within a minute count once; `back` on a short gap is ignored.
+    expect(await heartbeat(db, { back: true }, t0 + 30000)).toMatchObject({ beat: false })
+    expect(await heartbeat(db, { back: true }, t0 + 10 * MIN)).toEqual({ ok: true, beat: true })
+    // A late GitHub run: a missed check, not down time, no post.
+    expect(await heartbeat(db, {}, t0 + 50 * MIN)).toMatchObject({ missed: 40 })
+    // A real outage: back after 30 minutes -> one "back up" post.
+    expect(await heartbeat(db, { back: true }, t0 + 80 * MIN)).toMatchObject({ outage: 30, reported: true })
+    expect(sent.length).toBe(1)
+    expect(sent[0]).toContain('back up** - down for about 30 min')
+    expect(sent[0]).toContain('1 outage.')
+    const rep = await uptimeReport(db, t0 + 81 * MIN)
+    expect(rep.outages).toEqual([{ from: t0 + 50 * MIN, to: t0 + 80 * MIN }])
+    expect(rep.missed).toEqual([{ from: t0 + 10 * MIN, to: t0 + 50 * MIN }])
+    expect(rep.days.length).toBe(30)
+    expect(rep.days.at(-1)).toMatchObject({ day: '2026-11-30', checks: 4, down: 30 })
+    expect(rep.up7).toBe('99.7%')
+    expect(minutesText(125)).toBe('2 h 5 min')
+    expect(backUpText(0, 90 * MIN, {}, 90 * MIN)).toContain('0 outages')
+    // Weekly report: Mondays after 9am Los Angeles time, once.
+    sent.length = 0
+    expect(change(12, 10)).toBe('▲ 20%')
+    expect(change(5, 10)).toBe('▼ 50%')
+    expect(change(3, 0)).toBe('▲ new')
+    expect(change(4, 4)).toBe('same')
+    const day = (n) => new Date(t0 - (14 - n) * 86400000).toISOString().slice(0, 10)
+    await db.update({ [`stats/${day(0)}`]: { g: { sum: { players: 7, runs: 2 }, back: { new: 3 } } }, [`stats/${day(13)}`]: { g: { sum: { players: 14, runs: 5 }, back: { new: 1, d1: 2 } } } })
+    await db.update({ 'feedback/a': { kind: 'bug', at: t0 - 86400000 }, 'feedback/b': { kind: 'idea', at: t0 - 10 * 86400000 } })
+    const text = (await weeklyPreview(db, t0)).text
+    expect(text).toContain('Weekly report** (Nov 23 - Nov 29 vs Nov 16 - Nov 22)')
+    expect(text).toContain('Players a day (average): **2** (▲ 100%, was 1)')
+    expect(text).toContain('New players: **1** (▼ 67%, was 3)')
+    expect(text).toContain('Players coming back: **2** (▲ new, was 0)')
+    expect(text).toContain('Feedback: **1** (same, was 1) - 💡 0 ideas, 🐞 1 bugs')
+    expect(text).toContain('Uptime: **100%**')
+    expect(weeklyText({ days: Array(14).fill('2026-11-01'), stats: Array(14).fill({}), outages: { 1: { from: t0 - 61 * MIN, to: t0 - MIN } } }, t0)).toContain('99.4%** (was 100%) - 1 outage, down 1 h in all (was 0)')
+    expect((await weeklyReport(db, Date.UTC(2026, 10, 30, 15, 0))).sent).toBe(false) // Monday 7am LA
+    expect((await weeklyReport(db, Date.UTC(2026, 11, 1, 18, 0))).sent).toBe(false) // Tuesday
+    expect((await weeklyReport(db, t0)).sent).toBe(true)
+    expect((await weeklyReport(db, t0 + 60 * MIN)).sent).toBe(false) // same Monday
+    expect((await weeklyReport(db, t0 + 7 * 86400000)).sent).toBe(true) // next Monday
+    expect(sent.length).toBe(2)
+    // Wired into the owner's admin actions.
+    expect((await ADMIN_ACTIONS.uptime(db)).days.length).toBe(30)
+    expect((await ADMIN_ACTIONS.weeklyPreview(db)).text).toContain('Weekly report')
+  } finally {
+    globalThis.fetch = realFetch
+    if (hook === undefined) delete process.env.DISCORD_ALERT_WEBHOOK
+    else process.env.DISCORD_ALERT_WEBHOOK = hook
+  }
+})
+
 // Auto-mod (2026-11-26): rude feedback/reports get a `rude` flag for the
 // owner's tools, and alerts leave the words out.
 test('auto-mod: flags rude feedback and reports, hides them in alerts', async () => {

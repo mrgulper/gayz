@@ -15,7 +15,10 @@
 //   { action: 'dailySummary' }  -> GitHub's site check, every 10 minutes:
 //                                  posts the owner's daily summary once a day
 //                                  and runs the cheat alarm (leaderboardAdmin.js)
-//                                  every few hours
+//                                  every few hours, records an uptime
+//                                  heartbeat (uptime.js, `back: true` after
+//                                  an outage) and posts the Monday weekly
+//                                  report (weekly.js)
 //   { action: 'hof' }           -> the Hall of Fame cards (HallOfFame.js)
 //   { action: 'claimGift', pid, id } -> picks up a gift the team left for
 //                                  this Player ID (ownerPowers.js)
@@ -24,6 +27,8 @@ import { handle } from './_lib/handle.js'
 import { publicConfig, reportPlayer, seenWarning, redeemCode, publicHallOfFame, claimGiftFor } from './_lib/admin.js'
 import { recordStats } from './_lib/playStats.js'
 import { cheatScan } from './_lib/leaderboardAdmin.js'
+import { heartbeat } from './_lib/uptime.js'
+import { weeklyReport } from './_lib/weekly.js'
 import * as firestoreRest from './_lib/firestoreRest.js'
 import { sendFeedback, votePoll, recordError, contentReportAlert, seenReply, dailySummary } from './_lib/inbox.js'
 
@@ -40,7 +45,10 @@ export default handle((db, body) => {
   if (body.action === 'dailySummary') {
     // The cheat scan reads Firestore; a hiccup there never stops the summary.
     const fs = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? firestoreRest : null
-    return Promise.all([dailySummary(db), cheatScan(db, fs).catch(() => null)]).then(([summary]) => summary)
+    // The heartbeat goes first so a slow summary never shows up as a gap.
+    return heartbeat(db, body).catch(() => null).then((uptime) =>
+      Promise.all([dailySummary(db), cheatScan(db, fs).catch(() => null), weeklyReport(db).catch(() => null)]).then(([summary, , weekly]) => ({ ...summary, uptime, weekly }))
+    )
   }
   if (body.action === 'hof') return publicHallOfFame(db)
   if (body.action === 'claimGift') return claimGiftFor(db, body)
