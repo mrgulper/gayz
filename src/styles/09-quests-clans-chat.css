@@ -686,7 +686,8 @@ html.ui-theme-old #settings-panel h2 {
   align-items: center;
   gap: 14px;
   width: 100%;
-  height: calc(var(--panel-h) - 45.5px);
+  /* --panel-fit: extra rows on phones (PanelFit.js). */
+  height: calc(var(--panel-h) - 45.5px - var(--panel-fit, 0px));
   overflow-y: auto;
 }
 
@@ -1229,7 +1230,7 @@ html.ui-theme-old #settings-panel h2 {
 .achievements-scroll-area {
   width: 100%;
   overflow-y: auto;
-  height: calc(var(--panel-h) - 136.5px);
+  height: calc(var(--panel-h) - 136.5px - var(--panel-fit, 0px));
 }
 
 .settings-page {

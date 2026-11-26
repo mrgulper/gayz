@@ -1691,3 +1691,24 @@ test('Commerce: Shop/Market tabs and Shop groups', async ({ page }) => {
   expect(new Set([r.quests, ...r.sizes]).size).toBe(1)
   expect(r.petsFirst).toBe(true)
 })
+
+// Phone panel heights (2026-11-25): Upgrades, Achievements and Global's
+// titles/tab rows wrap on a phone; PanelFit.js takes that off their scroll
+// areas so every box matches How to Play.
+test('Phone: Upgrades, Achievements and Global match How to Play', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 })
+  await gotoAndWaitForGame(page)
+  const open = async (btn, panel) => {
+    await page.evaluate(([b]) => {
+      for (const x of document.querySelectorAll('.panel-close-btn')) if (x.getClientRects().length) x.click()
+      document.getElementById(b).click()
+    }, [btn])
+    return page.evaluate((p) => document.querySelector(`#${p} .panel-box`).offsetHeight, panel)
+  }
+  const howTo = await open('howtoplay-btn', 'howtoplay-panel')
+  for (const [btn, panel] of [['upgrades-btn', 'upgrades-panel'], ['achievements-btn', 'achievements-panel'], ['server-btn', 'server-panel']]) {
+    await open(btn, panel)
+    // The fit runs on the next frame (slow on CI), so wait for it.
+    await expect.poll(() => page.evaluate((p) => document.querySelector(`#${p} .panel-box`).offsetHeight, panel), { timeout: 20000 }).toBe(howTo)
+  }
+})

@@ -566,6 +566,11 @@ html.ui-theme-old .server-kind-btn.active {
     flex-basis: 150px;
   }
 }
+/* Upgrades' "coming soon" tabs use the shared tab height (and its phone
+   fit, PanelFit.js) instead of 60vh, which made the box taller on phones. */
+.upgrades-tab-page.coming-soon-content {
+  min-height: 0;
+}
 .server-empty {
   text-align: center;
   opacity: 0.75 !important;
