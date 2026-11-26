@@ -2134,6 +2134,34 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
   #live-banner { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); font-size: 14px; }
 }
 
+/* Message of the day (LiveConfig.js renderMotd, 2026-11-26): a quiet line
+   of plain lettering at the banner's spot, lifted above the banner when
+   one shows (--motd-lift). No box, can't be closed. */
+#menu #motd-line {
+  position: fixed;
+  left: 50%;
+  bottom: calc(64px + var(--motd-lift, 0px));
+  transform: translateX(-50%);
+  z-index: 3;
+  width: max-content;
+  max-width: min(560px, calc(100vw - 32px));
+  margin: 0;
+  font-family: var(--menu-display-font);
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  opacity: 0.9;
+  pointer-events: none;
+}
+#menu #motd-line[hidden] { display: none; }
+@media (max-width: 767px) {
+  #menu #motd-line { bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--motd-lift, 0px)); font-size: 13px; }
+}
+
 /* Console "Safety" batch (2026-11-12): paused-feature chips and the
    maintenance screen (LiveConfig.js renderMaintenance). */
 #live-banner .live-banner-chip.paused { background: rgba(255, 255, 255, 0.22); color: rgba(255, 255, 255, 0.95); }

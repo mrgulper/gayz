@@ -73,7 +73,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [], players: [] }, ban: null, mute: null, warnings: [], replies: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
+const EMPTY = { myGifts: [], banner: null, motd: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [], players: [] }, ban: null, mute: null, warnings: [], replies: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -530,6 +530,7 @@ export function renderLiveBanner(game) {
   const anyChips = chips.length + paused.length > 0
   chipsEl.hidden = !anyChips
   el.hidden = !showText && !anyChips
+  renderMotd(el)
   if (game && !el._bound) {
     el._bound = true
     el.querySelector('.live-banner-close').addEventListener('click', () => {
@@ -539,6 +540,19 @@ export function renderLiveBanner(game) {
       renderLiveBanner(game)
     })
   }
+}
+
+// The Message of the day (2026-11-26): a quiet line just above the banner
+// spot (or in its place when there's no banner). The server picks today's
+// line; it can't be closed.
+function renderMotd(bannerEl) {
+  const line = document.getElementById('motd-line')
+  if (!line) return
+  const text = typeof config.motd === 'string' ? config.motd : ''
+  line.textContent = text
+  line.hidden = !text
+  const lift = bannerEl.hidden ? 0 : bannerEl.offsetHeight + 8
+  line.style.setProperty('--motd-lift', `${lift}px`)
 }
 
 // Inside the Console's preview (an iframe) the screen never shows, so the

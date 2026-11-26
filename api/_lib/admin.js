@@ -77,6 +77,9 @@
 //                  real address); the newest IPS_KEPT are kept
 //   ipBans/{ipKey} { until (0 = forever), reason, nick, pid, at } - nobody
 //                  on that address can make/join servers (like bans/{pid})
+//   liveConfig.motd { lines: [text], start (LA day number), at } - the
+//                  Message of the day (2026-11-26): a quiet line on the
+//                  homepage, one line from the list per day in turn
 //   idChanges/{oldPid} { to, at, nick } - the Console gave this player a
 //                  new Player ID; any of their devices still on the old one
 //                  switches (publicConfig `newId`) for ID_CHANGE_MS
@@ -99,6 +102,11 @@ export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
 export const BANNER_STYLES = ['info', 'warning', 'celebrate']
 export const BANNER_MAX = 200
+// Message of the day: how long one line can be, how many lines the list holds.
+export const MOTD_MAX = 120
+export const MOTD_LINES_MAX = 30
+// Giveaway picker: "played in the last N days" choices.
+export const ACTIVE_DAYS = [1, 3, 7]
 // Minutes a ban lasts; 0 = forever. -1 = just a kick: out now, and kept
 // out for KICK_MINUTES so the game's automatic rejoin doesn't put them
 // straight back in.
@@ -165,6 +173,28 @@ function liveBanner(b, now) {
   if (!b || typeof b !== 'object' || !b.text) return null
   if (b.until && b.until <= now) return null
   return { text: cleanText(b.text, BANNER_MAX), style: BANNER_STYLES.includes(b.style) ? b.style : 'info', until: Number(b.until) || 0, id: Number(b.id) || 0 }
+}
+
+// Days counted on the owner's (Los Angeles) calendar, so the Message of
+// the day changes at their midnight, not UTC's.
+export function laDay(now) {
+  const [y, m, d] = new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }).split('-').map(Number)
+  return Math.floor(Date.UTC(y, m - 1, d) / 86400000)
+}
+function motdLines(m) {
+  return (Array.isArray(m?.lines) ? m.lines : []).map((t) => cleanText(t, MOTD_MAX)).filter(Boolean).slice(0, MOTD_LINES_MAX)
+}
+// Today's line: the first line on the day it was saved, the next one the
+// day after, round and round.
+export function motdIndex(m, now) {
+  const n = motdLines(m).length
+  if (!n) return -1
+  const start = Number(m.start) || laDay(now)
+  return (((laDay(now) - start) % n) + n) % n
+}
+function liveMotd(m, now) {
+  const i = motdIndex(m, now)
+  return i < 0 ? null : motdLines(m)[i]
 }
 
 function cleanEvents(e) {
@@ -370,6 +400,7 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
   const myBan = activeBan(ban, now) || activeBan(ipBanRec, now)
   return {
     banner: liveBanner(cfg?.banner, now),
+    motd: liveMotd(cfg?.motd, now),
     events: live.events,
     ends: live.ends,
     sale: live.sale,
@@ -511,6 +542,7 @@ export async function adminState(db, fs, now = Date.now()) {
     tvBansError: tvBans.error,
     banner: cfg?.banner || null,
     bannerLive: !!liveBanner(cfg?.banner, now),
+    motd: { lines: motdLines(cfg?.motd), today: motdIndex(cfg?.motd, now), max: MOTD_MAX, maxLines: MOTD_LINES_MAX },
     events: cleanEvents(cfg?.events),
     bans: Object.entries(bans || {})
       .filter(([, b]) => activeBan(b, now))
@@ -560,6 +592,14 @@ export async function setBanner(db, { text, style, minutes } = {}, now = Date.no
     'liveConfig/banner': { text: clean, style: BANNER_STYLES.includes(style) ? style : 'info', until: mins ? now + mins * 60000 : 0, id: now },
   })
   return { ok: true }
+}
+
+// The Message of the day list. An empty list turns it off. Saving starts
+// the turn again at the first line (today).
+export async function setMotd(db, { lines } = {}, now = Date.now()) {
+  const clean = motdLines({ lines })
+  await db.update({ 'liveConfig/motd': clean.length ? { lines: clean, start: laDay(now), at: now } : null })
+  return { ok: true, lines: clean }
 }
 
 export async function setEvents(db, events = {}) {
@@ -1284,6 +1324,23 @@ export async function giveTo(db, { pid, coins, gems, skins, text } = {}, now = D
     throw err
   }
 }
+// Giveaway picker: every Player ID that opened the game in the last
+// `days` days (pidIps - written at most once an hour per address, so
+// "last seen" can be up to an hour old), newest first, with the names the
+// Console knows. Banned players are left out.
+export async function activePlayers(db, { days } = {}, now = Date.now()) {
+  const d = ACTIVE_DAYS.includes(Number(days)) ? Number(days) : 7
+  const since = now - d * 86400000
+  const [ips, bans, { known }] = await Promise.all([db.get('pidIps'), db.get('bans'), knownPlayers(db, now)])
+  const list = []
+  for (const [pid, seen] of Object.entries(ips || {})) {
+    if (!validPid(pid) || activeBan(bans?.[pid], now)) continue
+    const at = Math.max(0, ...Object.values(seen || {}).map((v) => Number(v) || 0))
+    if (at > since) list.push({ pid, at, nick: [...(known.get(pid) || [])][0] || '' })
+  }
+  return { days: d, list: list.sort((a, b) => b.at - a.at).slice(0, 5000) }
+}
+
 // A player's page picking up a gift (api/live.js).
 export async function claimGiftFor(db, body = {}) {
   try {
@@ -1481,7 +1538,11 @@ const LOG_TEXT = {
   hofRemove: (b) => `Hall of Fame: removed a card${cleanText(b.name, HOF_NAME_MAX) ? ` (${cleanText(b.name, HOF_NAME_MAX)})` : ''}`,
   helperRemove: (b) => `Helper account removed${cleanText(b.name, 24) ? `: ${cleanText(b.name, 24)}` : ''}`,
   serverCmd: (b) => powerLog(b),
-  giveTo: (b) => `Gift for #${cleanText(b.pid, 40)}: ${giftWords(b)}`,
+  giveTo: (b) => `${b.giveaway ? 'Giveaway prize' : 'Gift'} for ${cleanText(b.nick, 24) ? `${cleanText(b.nick, 24)} ` : ''}#${cleanText(b.pid, 40)}: ${giftWords(b)}`,
+  motd: (b) => {
+    const n = motdLines(b).length
+    return n ? `Message of the day saved (${n} line${n === 1 ? '' : 's'})` : 'Message of the day turned off'
+  },
   ipBan: (b) => `IP-banned ${cleanText(b.nick, 24) || '?'} #${cleanText(b.pid, 40)} ${Number(b.minutes) ? `for ${minutesText(Number(b.minutes))}` : 'forever'}`,
   ipUnban: (b) => `Lifted the IP ban on #${cleanText(b.pid, 40)}`,
   changeId: (b) => `Changed Player ID #${cleanText(b.pid, 40)} to #${String(b.newId || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}`,
@@ -1552,6 +1613,8 @@ const ACTION_FNS = {
   dropIn: (db, body) => dropIn(db, body),
   serverCmd: (db, body) => serverCmd(db, body),
   giveTo: (db, body) => giveTo(db, body),
+  activePlayers: (db, body) => activePlayers(db, body),
+  motd: (db, body) => setMotd(db, body),
   ipBan: (db, body) => ipBan(db, body),
   ipUnban: (db, body) => ipUnban(db, body),
   changeId: (db, body, fs) => changeId(db, fs, body),
