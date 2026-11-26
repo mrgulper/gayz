@@ -2141,12 +2141,12 @@ test('play stats: only known counts are kept, the owner report adds days', async
   await expect(recordStats(db, { who: 'x', hits: [['sum', 'visits']] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
-  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
   await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
   await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
   const g = db.root.stats['2026-11-13'].g
   // "visits" counts once per message; guns can add up within one.
-  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 } })
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 } })
   expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
   const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
   expect(rep.days.length).toBe(7)
@@ -2167,7 +2167,7 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(() => {
     const g = window.__game
-    window.__statsSent.length = 0
+    const early = window.__statsSent.splice(0)
     g.__statsHello()
     const first = window.__statsSent.splice(0)
     g.__statsHello()
@@ -2204,7 +2204,18 @@ test('play stats: the page counts a visit once a day and respects the setting', 
     localStorage.setItem('gayz-stats-day', ago(3))
     g.__statsHello()
     const oldDev = window.__statsSent.splice(0)[0].hits
-    const more = { since: hitOf(later, 'since'), days: hitOf(later, 'days'), dev: hitOf(later, 'backdev'), oldSince: hitOf(oldDev, 'since'), oldDays: hitOf(oldDev, 'days'), oldFirst: localStorage.getItem('gayz-stats-first') }
+    // Game speed: the load wait goes with the first hello only; a game's
+    // frame rate is counted once, after the warm-up and enough readings.
+    const loads = [...early, ...first, ...second].flatMap((b) => b.hits).filter((h) => h[0] === 'load').length
+    g.settings.graphicsLevel = 'balanced'
+    g._playStats.countRun({ cfg: { mode: 'classic' }, bm: { activeSlot: 'map3' }, net: null })
+    window.__statsSent.length = 0
+    const t = performance.now()
+    g._playStats.fpsSample(10, t + 1000) // warm-up: skipped
+    for (let i = 0; i < 70; i++) g._playStats.fpsSample(i < 40 ? 50 : 10, t + 20000 + i * 500)
+    g.__statsFlush()
+    const fpsHits = window.__statsSent.splice(0).flatMap((b) => b.hits).filter((h) => h[0] === 'fps')
+    const more = { loads, fpsHits, since: hitOf(later, 'since'), days: hitOf(later, 'days'), dev: hitOf(later, 'backdev'), oldSince: hitOf(oldDev, 'since'), oldDays: hitOf(oldDev, 'days'), oldFirst: localStorage.getItem('gayz-stats-first') }
     return { more, first, second, gun, off, runs, backs, place: g.__statsQuitPlace(), day: localStorage.getItem('gayz-stats-day') }
   })
   expect(r.first.length).toBe(1)
@@ -2221,7 +2232,7 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   expect(keys).toContain('backdev:computer-new')
   expect(keys.some((k) => k.startsWith('since:'))).toBe(false)
   // 1 (new) + 4 comebacks + this one = 6 days played.
-  expect(r.more).toEqual({ since: 'd7', days: '3-6', dev: 'computer-back', oldSince: undefined, oldDays: '2', oldFirst: 'old' })
+  expect(r.more).toEqual({ loads: 1, fpsHits: [['fps', 'computer-balanced-f45-59']], since: 'd7', days: '3-6', dev: 'computer-back', oldSince: undefined, oldDays: '2', oldFirst: 'old' })
   expect(keys.some((k) => /^hour:\d+$/.test(k))).toBe(true)
   // Same day again: a visit, not another player.
   const keys2 = r.second[0].hits.map((h) => h.join(':'))
@@ -2817,6 +2828,11 @@ test('inbox: replies, bug stages and the daily summary', async () => {
   const text = summaryText(await db.get('feedback'), {}, {}, t0 + 100)
   expect(text).toContain('Feedback: 2 (💡 1 ideas, 🐞 1 bugs, 0 other)')
   expect(text).toContain('Bugs not fixed yet: 1')
+  // Game speed line (2026-11-26).
+  const { speedLine } = await import('../api/_lib/playStats.js')
+  expect(speedLine(null)).toBe('⚡ Speed: no data yet')
+  expect(speedLine({ g: { load: { 'phone-s2-4': 3, 'computer-s0-2': 2 }, fps: { 'phone-balanced-f20-29': 1, 'phone-balanced-f60up': 3 } } })).toBe('⚡ Speed: loads in 2-4s (usual) · choppy games (under 30 fps): phones 25%')
+  expect(summaryText({}, {}, {}, t0, () => false, 'SPEED')).toContain('\nSPEED')
   const hook = process.env.DISCORD_ALERT_WEBHOOK
   const realFetch = globalThis.fetch
   const sent = []

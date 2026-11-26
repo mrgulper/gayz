@@ -14,16 +14,24 @@ import { ServerError } from './servers.js'
 import { PLAY_GAME_MODES } from '../../src/game/PlayRules.js'
 import { PLAY_WEAPONS } from '../../src/game/PlayWeapons.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
+import { GRAPHICS_LEVELS } from '../../src/game/GraphicsLevels.js'
 
 export const STAT_LANGS = ['en', 'zh', 'hi', 'es', 'fr', 'ru', 'id', 'de', 'ja', 'vi', 'it', 'pt-BR']
 export const STAT_QUIT = ['home', 'panel', 'editor', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6-10', 'w11-20', 'w21up', 'nozombie']
 export const STAT_MAPS = ['city', 'own', 'shared', 'server']
+// Game speed (2026-11-26): device + seconds to load, and device + graphics
+// level + a game's usual frames per second.
+export const STAT_DEVICES = ['phone', 'tablet', 'computer']
+export const STAT_LOAD = ['s0-2', 's2-4', 's4-7', 's7-12', 's12up']
+export const STAT_FPS = ['f0-19', 'f20-29', 'f30-44', 'f45-59', 'f60up']
+export const STAT_GFX = [...GRAPHICS_LEVELS, 'other']
+const cross = (...lists) => lists.reduce((acc, l) => acc.flatMap((a) => l.map((b) => `${a}-${b}`)))
 // What each category may hold, and how many of one key a single message
 // may add (a page sends at most one "players"/"visits" per message).
 export const STAT_CATS = {
   sum: { keys: ['players', 'visits', 'runs'], max: 1 },
   hour: { keys: Array.from({ length: 24 }, (_, h) => String(h)), max: 1 },
-  device: { keys: ['phone', 'tablet', 'computer'], max: 1 },
+  device: { keys: STAT_DEVICES, max: 1 },
   lang: { keys: STAT_LANGS, max: 1 },
   mode: { keys: PLAY_GAME_MODES, max: 5 },
   map: { keys: STAT_MAPS, max: 5 },
@@ -37,6 +45,8 @@ export const STAT_CATS = {
   days: { keys: ['1', '2', '3-6', '7-29', '30up'], max: 1 },
   since: { keys: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8-13', 'd14', 'd15-29', 'd30', 'd31up'], max: 1 },
   backdev: { keys: ['phone-new', 'phone-back', 'tablet-new', 'tablet-back', 'computer-new', 'computer-back'], max: 1 },
+  load: { keys: cross(STAT_DEVICES, STAT_LOAD), max: 1 },
+  fps: { keys: cross(STAT_DEVICES, STAT_GFX, STAT_FPS), max: 5 },
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]
@@ -68,4 +78,36 @@ export async function statsReport(db, { days } = {}, now = Date.now()) {
     days: list.map((day, i) => ({ day, s: all[i]?.s || {}, g: all[i]?.g || {} })),
     cats: Object.fromEntries(Object.entries(STAT_CATS).map(([k, v]) => [k, v.keys])),
   }
+}
+
+// One line for the daily summary (inbox.js) from one day's stats
+// ({ s: {...}, g: {...} }): the usual load wait and how many games ran
+// choppy (under 30 fps) on each kind of device.
+const LOAD_TEXT = { 's0-2': 'under 2s', 's2-4': '2-4s', 's4-7': '4-7s', 's7-12': '7-12s', 's12up': '12s+' }
+export function speedLine(day) {
+  const add = (cat) => {
+    const out = {}
+    for (const who of ['s', 'g']) for (const [k, n] of Object.entries(day?.[who]?.[cat] || {})) out[k] = (out[k] || 0) + (Number(n) || 0)
+    return out
+  }
+  const load = add('load')
+  const loadBy = Object.fromEntries(STAT_LOAD.map((b) => [b, 0]))
+  for (const [k, n] of Object.entries(load)) { const b = STAT_LOAD.find((x) => k.endsWith(`-${x}`)); if (b) loadBy[b] += n }
+  const loads = Object.values(loadBy).reduce((a, b) => a + b, 0)
+  let usual = null
+  for (let i = 0, seen = 0; i < STAT_LOAD.length; i++) { seen += loadBy[STAT_LOAD[i]]; if (seen * 2 >= loads && loads) { usual = STAT_LOAD[i]; break } }
+  const fps = add('fps')
+  const parts = []
+  for (const dev of STAT_DEVICES) {
+    let all = 0
+    let slow = 0
+    for (const [k, n] of Object.entries(fps)) {
+      if (!k.startsWith(`${dev}-`)) continue
+      all += n
+      if (k.endsWith('-f0-19') || k.endsWith('-f20-29')) slow += n
+    }
+    if (all) parts.push(`${dev}s ${Math.round((slow * 100) / all)}%`)
+  }
+  if (!usual && !parts.length) return '⚡ Speed: no data yet'
+  return `⚡ Speed: loads in ${usual ? LOAD_TEXT[usual] : '?'} (usual)${parts.length ? ` · choppy games (under 30 fps): ${parts.join(', ')}` : ''}`
 }

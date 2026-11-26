@@ -32,6 +32,7 @@
 import crypto from 'node:crypto'
 import { ServerError } from './servers.js'
 import { loadRudeChecker, autoModWords, AUTOMOD_WORDS_MAX, AUTOMOD_WORD_MAX } from './autoMod.js'
+import { speedLine } from './playStats.js'
 
 export const FEEDBACK_KINDS = ['idea', 'bug', 'other']
 export const FEEDBACK_MAX = 10000
@@ -425,7 +426,8 @@ function laDay(now) {
 }
 
 // `isRude` (auto-mod) adds how many of them were hidden.
-export function summaryText(feedback, reports, errors, now, isRude = () => false) {
+// `speed` is playStats' speedLine for yesterday (UTC), or left out.
+export function summaryText(feedback, reports, errors, now, isRude = () => false, speed = null) {
   const since = now - 24 * HOUR
   const fb = Object.values(feedback || {}).filter((f) => f && Number(f.at) >= since)
   const n = (k) => fb.filter((f) => (FEEDBACK_KINDS.includes(f.kind) ? f.kind : 'other') === k).length
@@ -445,6 +447,7 @@ export function summaryText(feedback, reports, errors, now, isRude = () => false
     `🛠️ Bugs not fixed yet: ${bugsOpen}`,
     `🚩 Player reports: ${rep}${hidden(repHidden)}`,
     `⚠️ Errors: ${newErr} new kind${newErr === 1 ? '' : 's'}, ${errHits} seen`,
+    ...(speed ? [speed] : []),
   ].join('\n')
 }
 
@@ -454,8 +457,9 @@ export async function dailySummary(db, now = Date.now()) {
   if (hour < SUMMARY_HOUR) return { ok: true, sent: false }
   const r = await db.transaction('alertLimits/dailySummary', (cur) => (cur === day ? undefined : day))
   if (!r.committed) return { ok: true, sent: false }
-  const [feedback, reports, errors, isRude] = await Promise.all([db.get('feedback'), db.get('playerReports'), db.get('errors'), loadRudeChecker(db)])
-  const sent = await sendAlert(db, summaryText(feedback, reports, errors, now, isRude), now)
+  const yesterday = new Date(now - 86400000).toISOString().slice(0, 10)
+  const [feedback, reports, errors, isRude, stats] = await Promise.all([db.get('feedback'), db.get('playerReports'), db.get('errors'), loadRudeChecker(db), db.get(`stats/${yesterday}`)])
+  const sent = await sendAlert(db, summaryText(feedback, reports, errors, now, isRude, speedLine(stats)), now)
   return { ok: true, sent }
 }
 

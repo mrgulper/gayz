@@ -4902,7 +4902,10 @@ export class Game {
         this.fpsEl.textContent = `${fps} fps / ${msPerFrame} ms / js ${jsMs} ms / ${this.buildMode.lastDrawCalls} draws / ${this.buildMode.blockCount} blocks${resTag} / ${this._gpuRendererString}`
         this._topBar.setFps(fps, this.fpsEl.textContent, msPerFrame, this._gpuRendererString)
         this.buildMode.frameMs = Number(msPerFrame)
-        if (this.buildMode.survival?.active) this.lagWarning.sample(fps, nowFpsBm)
+        if (this.buildMode.survival?.active) {
+          this.lagWarning.sample(fps, nowFpsBm)
+          this._playStats?.fpsSample(fps, nowFpsBm)
+        }
         this._updateEditorResScale(Number(msPerFrame), nowFpsBm)
         this._fpsFrameCount = 0
         this._fpsLastUpdate = nowFpsBm

@@ -2,8 +2,8 @@
 // totals per day: players and visits, the hour (UTC), phone/tablet/computer,
 // language, new vs coming back (days away, days played in all, days since
 // the first day, and phone or computer), the mode/map/skin/weapon of
-// each game, and where the game was
-// closed. Nothing that names the player (no Player ID, nickname or
+// each game, where the game was closed, and how fast the game loads and
+// runs (seconds to load, frames per second in a game - 2026-11-26). Nothing that names the player (no Player ID, nickname or
 // account) is sent. Off when Settings' "Share Anonymous Usage Stats" is
 // off, inside another site's frame, and in automated browsers (tests).
 //
@@ -12,6 +12,7 @@
 import { isTouchDevice } from './BuildTouch.js'
 import { INVENTORY_SKINS } from './InventorySkins.js'
 import { NO_ZOMBIE_MODES } from './PlayRules.js'
+import { GRAPHICS_LEVELS } from './GraphicsLevels.js'
 
 const FIRST_HELLO_MS = 10 * 1000
 const FLUSH_EVERY_MS = 60 * 1000
@@ -25,6 +26,15 @@ export const STATS_FIRST_KEY = 'gayz-stats-first'
 
 let game = null
 let queue = []
+// Game speed (2026-11-26): seconds from opening the page until the homepage
+// works, sent once per page; and each game's usual frame rate.
+let loadMs = null
+let loadSent = false
+let fpsRun = null
+// A game's frame rate: skip the first seconds (the world loads in), then
+// take the middle value of this many half-second readings (~30 seconds).
+const FPS_WARMUP_MS = 15 * 1000
+export const FPS_SAMPLES = 60
 
 const utcDay = () => new Date().toISOString().slice(0, 10)
 
@@ -92,6 +102,33 @@ export function countRun(survival) {
   count('mode', cfg.mode || 'classic')
   count('map', map)
   count('skin', skinKind(game?.settings))
+  fpsRun = { start: performance.now(), samples: [] }
+}
+
+export function loadBucket(ms) {
+  const s = ms / 1000
+  return s < 2 ? 's0-2' : s < 4 ? 's2-4' : s < 7 ? 's4-7' : s < 12 ? 's7-12' : 's12up'
+}
+export function fpsBucket(fps) {
+  return fps < 20 ? 'f0-19' : fps < 30 ? 'f20-29' : fps < 45 ? 'f30-44' : fps < 60 ? 'f45-59' : 'f60up'
+}
+export function graphicsKey(settings) {
+  const g = settings?.graphicsLevel
+  return GRAPHICS_LEVELS.includes(g) ? g : 'other'
+}
+
+// The game's fps readout calls this every half second while a game runs
+// (Game.js). Once enough readings are in, the game's usual frame rate is
+// counted once, with the device and graphics level. A hidden tab doesn't count.
+export function fpsSample(fps, now = performance.now()) {
+  const r = fpsRun
+  if (!r || document.hidden || now - r.start < FPS_WARMUP_MS || !Number.isFinite(fps)) return
+  r.samples.push(fps)
+  if (r.samples.length < FPS_SAMPLES) return
+  fpsRun = null
+  const sorted = r.samples.sort((a, b) => a - b)
+  const mid = sorted[Math.floor(sorted.length / 2)]
+  count('fps', `${deviceKind()}-${graphicsKey(game?.settings)}-${fpsBucket(mid)}`)
 }
 
 // Each gun picked in a game (the first pick and any switch).
@@ -148,6 +185,10 @@ export function hello() {
   if (!enabled()) return
   count('sum', 'visits')
   count('hour', new Date().getUTCHours())
+  if (!loadSent && loadMs != null) {
+    loadSent = true
+    count('load', `${deviceKind()}-${loadBucket(loadMs)}`)
+  }
   let last = null
   try { last = localStorage.getItem(STATS_DAY_KEY) } catch { /* no storage */ }
   const today = utcDay()
@@ -176,7 +217,10 @@ export function hello() {
 
 export function startPlayStats(g) {
   game = g
-  game._playStats = { countRun, countWeapon }
+  // Called right after the game is built, so this is the wait from opening
+  // the page until the homepage works.
+  loadMs = performance.now()
+  game._playStats = { countRun, countWeapon, fpsSample }
   // Tests: set window.__playStatsForTests (gets each message), then call these.
   game.__statsHello = hello
   game.__statsFlush = flushStats
