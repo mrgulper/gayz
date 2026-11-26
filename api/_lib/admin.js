@@ -87,6 +87,7 @@ import { loadRudeChecker, flagReport, flagContent, setAutoModWords } from './aut
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/LiveLists.js'
 import { statsReport } from './playStats.js'
+import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
 import { tvHide, tvFake, tvDelete, tvBan, tvUnban, tvBanList } from './tvAdmin.js'
@@ -115,7 +116,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod', 'launch']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -969,6 +970,9 @@ export async function restore(db, { file } = {}, fs = null, now = Date.now()) {
   if (JSON.stringify(file).length > BACKUP_MAX_CHARS) throw new ServerError(400, 'bad-backup')
   const updates = {}
   for (const p of RESTORE_PATHS) {
+    // Every backup lists every path it knew (empty ones as null), so a
+    // missing one is newer than the backup: leave it as it is.
+    if (!(p in file.data)) continue
     const v = file.data[p]
     if (v != null && (typeof v !== 'object' || Array.isArray(v))) throw new ServerError(400, 'bad-backup')
     updates[p] = v ?? null
@@ -1457,6 +1461,7 @@ const LOG_TEXT = {
   dailySet: (b) => `Daily Challenge for ${b.day} set: ${b.type} x${Math.floor(Number(b.target) || 0)}`,
   dailyRemove: (b) => `Daily Challenge for ${b.day} back to automatic`,
   feedbackDelete: () => 'Deleted a feedback message',
+  launchPublic: (b) => (b.on === true ? 'Going Public: marked the game as public' : 'Going Public: launch day undone'),
   // The words themselves stay out of the history (they're rude).
   autoModWords: (b) => `Auto-mod words saved (${Array.isArray(b.words) ? b.words.length : 0} of your own)`,
   feedbackReply: (b) => `Replied to feedback: ${REPLY_TEMPLATES.includes(b.tpl) ? `[${b.tpl}] ` : ''}"${cleanText(b.text, 80)}"`,
@@ -1521,6 +1526,9 @@ const ACTION_FNS = {
   feedbackDone: (db, body) => setFeedbackDone(db, body),
   feedbackDelete: (db, body) => deleteFeedback(db, body),
   autoModWords: (db, body) => setAutoModWords(db, body),
+  launch: (db) => launchState(db),
+  launchSave: (db, body) => saveLaunchItems(db, body),
+  launchPublic: (db, body) => setLaunchPublic(db, body),
   feedbackReply: (db, body) => replyFeedback(db, body),
   bugStage: (db, body) => setBugStage(db, body),
   errorsClear: (db, body) => clearErrors(db, body),

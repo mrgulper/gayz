@@ -1734,6 +1734,41 @@ test('admin safety: switches, maintenance, history, backup and restore', async (
   expect(h.filter((t) => t.startsWith('Switched') || t.startsWith('Every')).length).toBe(2)
 })
 
+// Going Public (2026-11-26): the owner's launch checklist and launch day.
+test('admin going public: checklist, launch day, old backups keep it', async () => {
+  const db = fakeServerDb()
+  const run = (action, body = {}) => ADMIN_ACTIONS[action](db, { action, ...body }, null)
+  // Nothing saved: the ready-made list, not public yet.
+  let s = await run('launch')
+  expect(s.publicAt).toBe(0)
+  expect(s.items.length).toBeGreaterThan(10)
+  expect(s.items.every((i) => i.done === false)).toBe(true)
+  // Save: ticks, own items, cleaned text; junk and repeats dropped.
+  const items = [{ ...s.items[0], done: true }, { id: 'o1', group: 'own', text: 'Make a <b>trailer</b>', done: false }, { id: 'o1', text: 'again' }, { id: 'x', text: '   ' }, 'junk', { id: 'o2', group: 'weird', text: 'x'.repeat(500) }]
+  await run('launchSave', { items })
+  s = await run('launch')
+  expect(s.items.map((i) => i.id)).toEqual([items[0].id, 'o1', 'o2'])
+  expect(s.items[0].done).toBe(true)
+  expect(s.items[1].text).toBe('Make a btrailer/b')
+  expect(s.items[2]).toMatchObject({ group: 'own' })
+  expect(s.items[2].text.length).toBe(120)
+  await expect(run('launchSave', { items: 'nope' })).rejects.toMatchObject({ status: 400 })
+  // Launch day: set, then undone; a bad value is refused.
+  await expect(run('launchPublic', { on: 'yes' })).rejects.toMatchObject({ status: 400 })
+  const before = Date.now()
+  await run('launchPublic', { on: true })
+  expect((await run('launch')).publicAt).toBeGreaterThanOrEqual(before)
+  // A backup from before Going Public existed leaves the list alone.
+  const file = await run('backup')
+  delete file.data.launch
+  await run('restore', { file })
+  expect((await run('launch')).items.length).toBe(3)
+  await run('launchPublic', { on: false })
+  expect((await run('launch')).publicAt).toBe(0)
+  const h = (await adminState(db, null)).history.map((e) => e.text)
+  expect(h).toEqual(expect.arrayContaining(['Going Public: marked the game as public', 'Going Public: launch day undone']))
+})
+
 // Paused chips, a switched-off action and the maintenance screen on the
 // real page (src/game/LiveConfig.js), with a fake /api/live.
 test('live config: paused features and maintenance screen', async ({ page }) => {
