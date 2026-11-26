@@ -21,6 +21,7 @@ import { ACTIONS, getAllBindings, getKeyFor, keyLabel, resetBindings, setAllBind
 import { LANGUAGES, setLanguage, t } from './i18n.js'
 import { salePrice } from './LiveConfig.js'
 import { bindHoverMenus } from './HoverMenus.js'
+import { bindCommerceTabs } from './CommerceTabs.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { bindGameplaySettings } from './GameplaySettings.js'
 import { bindMoreSettings, buildMoreRows, quietHoursFactor } from './MoreSettings.js'
@@ -1322,6 +1323,7 @@ export function _bindSettings(game) {
   if (game.howtoplayNavLink) game.howtoplayNavLink.addEventListener('click', () => game._openHowToPlayPanel())
   if (game.whatsNewLink) game.whatsNewLink.addEventListener('click', () => trackAndOpen(() => game._openWhatsNewPanel()))
   bindHoverMenus(game)
+  bindCommerceTabs(game)
   if (game.friendsBtn) game.friendsBtn.addEventListener('click', () => trackAndOpen(() => game._openFriendsPanel()))
   if (game.statusPickerToggle) {
     game.statusPickerToggle.addEventListener('click', (e) => {

@@ -9,7 +9,7 @@
 // left, Game Mode and Settings one to their right (below left no room
 // above the bottom links; since 2026-10-30 the bottom links' card is the
 // same narrow list as the right column's). Buttons whose page has no tabs
-// or sections (Market, Map Editor, Design a Skin...) and Play get none.
+// or sections (Map Editor, Design a Skin...) and Play get none.
 // Mouse only - touch screens have no pointing, so a tap still just opens
 // the page.
 import { HOWTOPLAY_STEPS } from './Game.js'
@@ -37,7 +37,7 @@ const FOOTER_MENUS = [
 const PANEL_MENUS = [
   { link: 'menu-player-badge', panel: 'profile-panel', headings: 'h3' },
   { link: 'hub-btn', panel: 'clan-panel', tabs: '.general-tab' },
-  { link: 'store-btn', panel: 'shop-panel', headings: 'h3.crate-section-heading' },
+  { link: 'store-btn', panel: 'shop-panel', tabs: '.shop-group-tab, #commerce-tab-market' },
   { link: 'upgrades-btn', panel: 'upgrades-panel', tabs: '.upgrades-tab' },
   { link: 'server-btn', panel: 'server-panel', tabs: '.server-tab' },
   { link: 'friends-btn', panel: 'friends-panel', tabs: '.general-tab' },

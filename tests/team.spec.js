@@ -1200,8 +1200,9 @@ test('pet eggs: chest finds, walking warms the first 3, hatching, Eggs section',
     window.__game.buildMode.survival._message = () => {}
   })
   await page.evaluate(() => {
-    // Eggs live in Shop > Pets (2026-11-25).
+    // Eggs live in Commerce > Shop > Pets & Profile (2026-11-25).
     window.__game._openShopPanel()
+    document.getElementById('shop-group-profile').click()
   })
   await page.waitForSelector('#shop-pets #team-eggs .team-egg')
   const ui = await page.evaluate(() => ({

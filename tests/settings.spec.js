@@ -138,15 +138,18 @@ test('nav order lists every homepage button and old saves still work', async ({ 
     return { navIds, listed, before, sidebar, old }
   })
   expect(result.listed).toEqual(result.navIds)
-  expect(result.listed).toContain('market-btn')
+  // Market is a tab inside Commerce since 2026-11-25, not a nav button.
+  expect(result.listed).not.toContain('market-btn')
   expect(result.listed).toContain('build-mode-btn')
   // Up swaps Map Editor with the button above it (Pets since 2026-11-25).
   const above = result.before[result.before.indexOf('build-mode-btn') - 1]
   expect(result.sidebar.indexOf('build-mode-btn')).toBe(result.sidebar.indexOf(above) - 1)
-  // (Pets, newer than the save, lands in its own spot above Map Editor.)
-  expect(result.old.slice(0, 3)).toEqual(['achievements-btn', 'pets-btn', 'build-mode-btn'])
+  // (Buttons newer than the save land after the button they follow in
+  // index.html: Map Editor after Achievements, Pets after Inventory.)
+  expect(result.old.slice(0, 2)).toEqual(['achievements-btn', 'build-mode-btn'])
+  expect(result.old.indexOf('pets-btn')).toBe(result.old.indexOf('menu-inventory-btn') + 1)
   // (A save from before the Store button's id changed still works.)
-  expect(result.old.indexOf('market-btn')).toBe(result.old.indexOf('store-btn') + 1)
+  expect(result.old.indexOf('store-btn')).toBe(result.old.indexOf('hub-btn') + 1)
 })
 
 // Each tab's Reset to Defaults only resets that tab's settings.

@@ -30,7 +30,7 @@ test('the game plays offline after one online visit', async ({ page, context }) 
     const g = window.__game
     const out = { settings: g.settingsOpen, marked: document.documentElement.classList.contains('is-offline'), toast: g.loreToast.textContent }
     g._toggleSettings(false)
-    document.getElementById('market-btn').click()
+    document.getElementById('commerce-tab-market').click()
     out.market = getComputedStyle(document.getElementById('market-panel')).display
     out.needs = g.loreToast.textContent
     out.font = (await document.fonts.load('16px Rye')).length

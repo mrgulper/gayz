@@ -14,7 +14,7 @@ import { t } from './i18n.js'
 // and the Map Editor's Share Map / Community Maps / Post to Gallery / Build
 // Together.
 export const ONLINE_ONLY = [
-  '#server-btn', '#friends-btn', '#hub-btn', '#market-btn', '#nav-gallery-link', '#inv-skin-menu-market',
+  '#server-btn', '#friends-btn', '#hub-btn', '#commerce-tab-market', '#nav-gallery-link', '#inv-skin-menu-market',
   '#profile-login-btn', '#profile-gate-login-btn', '#auth-login-google-btn', '#auth-signup-google-btn',
   '#friends-signin-btn', '#server-chat-signin-btn', '#clan-signin-btn', '#cloudsave-signin-btn', '#cloudsave-sync-now-btn', '#quick-cloud-btn',
   '#chat-send-btn', '#server-chat-send-btn',

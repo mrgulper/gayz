@@ -635,7 +635,7 @@ test('HD skins are worn; the nameplate matches in both places', async ({ page })
 test('right column lights up over a panel; checkbox check; filters fit', async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 900 })
   await gotoAndWaitForGame(page)
-  await page.evaluate(() => document.getElementById('market-btn').click())
+  await page.evaluate(() => { document.getElementById('store-btn').click(); document.getElementById('commerce-tab-market').click() })
   await page.waitForTimeout(300)
   const at = (id) => page.evaluate((i) => { const r = document.getElementById(i).getBoundingClientRect(); return { x: r.x + r.width - 40, y: r.y + r.height / 2 } }, id)
   const inv = await at('menu-inventory-btn')
@@ -1388,9 +1388,10 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   })
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
-    const seen = (ids) => ids.map((id) => !!document.getElementById(id)?.offsetParent)
+    // The Market tab sits in the (closed) Commerce panel: only its own CSS hide counts.
+    const seen = (ids) => ids.map((id) => (id === 'commerce-tab-market' ? getComputedStyle(document.getElementById(id)).display !== 'none' : !!document.getElementById(id)?.offsetParent))
     const g = window.__game
-    const ids = ['hub-btn', 'store-btn', 'server-btn', 'market-btn', 'build-mode-btn', 'nav-discord-link', 'menu-more-btn']
+    const ids = ['hub-btn', 'store-btn', 'server-btn', 'commerce-tab-market', 'build-mode-btn', 'nav-discord-link', 'menu-more-btn']
     const out = { firstTier: document.documentElement.dataset.homeTier }
     out.tier0 = seen(ids)
     const toasts = []
@@ -1423,7 +1424,7 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   expect(r.ladderAfter5).toBe('off')
   expect(r.toasts).toBe(3)
   expect(r.navOrderHasMore).toBe(false)
-  expect(r.navOrderRows).toBe(11)
+  expect(r.navOrderRows).toBe(10)
 
   // More... opens everything and it stays that way after a reload.
   await page.evaluate(() => {
@@ -1442,7 +1443,7 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   await page.evaluate(() => document.getElementById('menu-more-btn').click())
   await page.reload()
   await page.waitForFunction(() => window.__game)
-  const after = await page.evaluate(() => ({ tier: document.documentElement.dataset.homeTier ?? null, market: !!document.getElementById('market-btn').offsetParent }))
+  const after = await page.evaluate(() => ({ tier: document.documentElement.dataset.homeTier ?? null, market: getComputedStyle(document.getElementById('commerce-tab-market')).display !== 'none' }))
   expect(after).toEqual({ tier: null, market: true })
 })
 
@@ -1467,6 +1468,7 @@ test('shop name change costs 100 gems and custom IDs are 5-10 characters and blo
     const wait = (ms) => new Promise((res) => setTimeout(res, ms))
     const out = { keptOldId: g.settings.playerId }
     g._openShopPanel()
+    document.getElementById('shop-group-profile').click()
     await wait(100)
     const status = () => document.getElementById('shop-id-status').textContent
     out.cardsShown = !!document.getElementById('shop-name-buy-btn').offsetParent && !!document.getElementById('shop-id-buy-btn').offsetParent
@@ -1639,4 +1641,53 @@ test('Shop: Daily Deals and Crate Spin', async ({ page }) => {
     count: 3, offsOk: true, soonGone: true, timer: true, paid: true, sameDeals: true, owned: true,
     modal: 'flex', tiles: 44, result: true, paidIce: true, woodLeft: 0,
   })
+})
+
+// Commerce (2026-11-25): Shop and Market share one nav button; tabs switch
+// between them, the Shop's sections are in 4 groups, and the box never
+// changes size.
+test('Commerce: Shop/Market tabs and Shop groups', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const size = (id) => { const b = document.querySelector(`#${id} .panel-box`).getBoundingClientRect(); return `${Math.round(b.width)}x${Math.round(b.height)}` }
+    const shown = () => [...document.querySelectorAll('#shop-panel h3.crate-section-heading')].filter((h) => h.getClientRects().length).map((h) => h.id)
+    const out = { marketNav: !!document.getElementById('market-btn') }
+    document.getElementById('quests-btn').click()
+    await wait(200)
+    out.quests = size('quests-panel')
+    document.getElementById('store-btn').click()
+    await wait(200)
+    out.label = document.querySelector('#store-btn span').textContent
+    out.title = document.getElementById('shop-panel-title').textContent
+    out.groups = {}
+    out.sizes = [size('shop-panel')]
+    for (const tab of document.querySelectorAll('.shop-group-tab')) {
+      tab.click()
+      out.groups[tab.dataset.shopGroup] = shown()
+      out.sizes.push(size('shop-panel'))
+    }
+    document.getElementById('commerce-tab-market').click()
+    await wait(200)
+    out.market = getComputedStyle(document.getElementById('market-panel')).display
+    out.sizes.push(size('market-panel'))
+    document.getElementById('commerce-tab-shop').click()
+    await wait(200)
+    out.backToShop = getComputedStyle(document.getElementById('shop-panel')).display
+    const order = [...document.querySelectorAll('#menu-nav-buttons > button')].sort((a, b) => a.style.order - b.style.order).map((b) => b.id)
+    out.petsFirst = order.indexOf('pets-btn') < order.indexOf('achievements-btn')
+    return out
+  })
+  expect(r.marketNav).toBe(false)
+  expect(r.label).toBe('Commerce')
+  expect(r.title).toBe('Commerce')
+  expect(r.groups.deals).toEqual(['shop-deals-heading', 'shop-crate-section-heading'])
+  expect(r.groups.looks).toContain('shop-hats-heading')
+  expect(r.groups.fx).toContain('shop-killsounds-heading')
+  expect(r.groups.profile).toContain('shop-identity-heading')
+  expect(r.market).toBe('flex')
+  expect(r.backToShop).toBe('flex')
+  expect(new Set([r.quests, ...r.sizes]).size).toBe(1)
+  expect(r.petsFirst).toBe(true)
 })

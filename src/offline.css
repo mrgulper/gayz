@@ -1,6 +1,6 @@
 /* Playing with no internet (Offline.js): the online-only buttons look
    dimmed (they say they need internet when clicked). Same in both themes. */
-html.is-offline :is(#server-btn, #friends-btn, #hub-btn, #market-btn, #nav-gallery-link, #inv-skin-menu-market,
+html.is-offline :is(#server-btn, #friends-btn, #hub-btn, #commerce-tab-market, #nav-gallery-link, #inv-skin-menu-market,
   #profile-login-gate [data-provider],
   #friends-signin-btn, #server-chat-signin-btn, #clan-signin-btn, #cloudsave-signin-btn, #market-signin-btn, #gallery-signin-btn, #cloudsave-sync-now-btn, #quick-cloud-btn,
   #chat-send-btn, #server-chat-send-btn,

@@ -25,6 +25,7 @@ import { renderShopCosmetics } from './ShopCosmetics.js'
 import { renderDailyDeals } from './ShopDeals.js'
 import { buyAndSpin } from './CrateSpin.js'
 import { myGunSkin, paintGun } from './GunSkins.js'
+import { fitCommerceTabs } from './CommerceTabs.js'
 
 // Inventory - homepage placeholder only for now, no functionality yet
 // (distinct from the in-game Tab inventory - #inventory-panel - which
@@ -68,13 +69,12 @@ export async function _loadMarketListings(game) {
   if (game.marketPanel?.style.display !== 'none') game._renderShopMarket()
 }
 
-// Market panel (its own nav button, right under Store): opened like every
-// other menu panel.
+// Market panel (Commerce > Market tab since 2026-11-25; CommerceTabs.js).
 export function _openMarketPanel(game) {
   game._closeAllMenuPanels()
   if (!game.marketPanel) return
   game.marketPanel.style.display = 'flex'
-  if (game.marketPanelTitle) game.marketPanelTitle.textContent = t('skinModeMarket')
+  if (game.marketPanelTitle) game.marketPanelTitle.textContent = t('storeBtn')
   game._authReadyPromise?.then(() => game._renderSignInFooters())
   game._marketQuery = ''
   game._marketItems = null
@@ -93,6 +93,7 @@ export function _openMarketPanel(game) {
   game._renderShopMarket()
   game._loadMarketListings()
   game._claimMarketSales()
+  fitCommerceTabs()
 }
 
 export function _renderMarketFilters(game) {
@@ -1071,7 +1072,7 @@ export function _openShopPanel(game) {
   // after #shop-panel in index.html and would otherwise render on top
   // and eat every click meant for a crate underneath it.
   game.shopPanel.style.display = 'flex'
-  game.shopPanelTitle.textContent = t('shopPanelTitle')
+  game.shopPanelTitle.textContent = t('storeBtn')
   if (game.shopSkinCanvas) {
     if (!game._shopSkinAvatar3D) {
       game._shopSkinAvatar3D = new MenuAvatar3D(game.shopSkinCanvas)
@@ -1094,6 +1095,7 @@ export function _openShopPanel(game) {
   game._renderCrateTiers()
   // Pets section: the daily Pet Shop + eggs (TeamUI.renderTeamPanel).
   game._renderTeamPanel?.()
+  fitCommerceTabs()
 }
 
 // Try On (2026-10-23): the shop closes and the homepage character wears

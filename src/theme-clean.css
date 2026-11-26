@@ -472,7 +472,7 @@ html.ui-theme-clean #menu-avatar-icon {
 }
 
 /* Tabs and small action buttons are pills, like apple.com's. */
-html.ui-theme-clean .panel-box :is(.achievements-mode-tab, .hub-tab, .settings-tab, .settings-jump-chip, .quest-tab, .clan-tab, .inv-tab, .gallery-tab, .mini-action-btn, .settings-reset-btn) {
+html.ui-theme-clean .panel-box :is(.achievements-mode-tab, .commerce-tab, .hub-tab, .settings-tab, .settings-jump-chip, .quest-tab, .clan-tab, .inv-tab, .gallery-tab, .mini-action-btn, .settings-reset-btn) {
   border-radius: 999px !important;
 }
 /* Shop crates, the skin card and the Coming Soon cards are filled with
