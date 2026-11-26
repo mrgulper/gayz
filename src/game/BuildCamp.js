@@ -34,6 +34,7 @@ import { CampTreehouse } from './CampTreehouse.js'
 import { CampPlaza, WIDE as PLAZA_WIDE } from './CampPlaza.js'
 import { CampMuseum, WIDE as MUSEUM_WIDE } from './CampMuseum.js'
 import { Campaign, WIDE as LAB_WIDE } from './Campaign.js'
+import { paintStyledName } from './NameChatStyles.js'
 
 export const COIN_PER_KILL = 10
 export const COIN_PER_WAVE = 50
@@ -52,7 +53,8 @@ export const NPC_SKINS = {
 // read on any sky (2026-10-26, Gaymi: "just write the name above the
 // player, don't add the colour rectangle behind it"). Used for the camp's
 // people, the players on a server (PlayNet) and in Build Together.
-export function nameTag(text, B) {
+// style: a bought name style id (NameChatStyles.js), '' = plain white.
+export function nameTag(text, B, style = '') {
   const c = document.createElement('canvas')
   c.width = 256
   c.height = 64
@@ -60,18 +62,14 @@ export function nameTag(text, B) {
   ctx.font = 'bold 28px sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
-  ctx.lineJoin = 'round'
-  ctx.lineWidth = 6
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)'
-  ctx.strokeText(text, 128, 32)
-  ctx.fillStyle = '#ffffff'
-  ctx.fillText(text, 128, 32)
+  paintStyledName(ctx, text, 128, 32, style)
   const tex = new THREE.CanvasTexture(c)
   tex.colorSpace = THREE.SRGBColorSpace
   const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }))
   sprite.scale.set(1.7 * B, 0.42 * B, 1)
   sprite.position.y = (MOB_HEIGHT + 0.4) * B
   sprite.userData.text = text
+  sprite.userData.style = style
   return sprite
 }
 

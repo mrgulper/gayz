@@ -1853,9 +1853,28 @@ export async function fetchClanCombinedStats(clanId) {
 // backend to enforce it server-side - see CLAUDE.md's anti-cheat note).
 const CHAT_HISTORY_LIMIT = 50
 
+// My name style + frame ride on every chat message I send (`ns`, `fr`;
+// NameChatStyles.js, 2026-11-25). Game sets where they come from; the
+// chat rules check shape/length only, so these extra fields are allowed.
+let chatLookSource = () => ({})
+export function setChatLookSource(fn) {
+  chatLookSource = typeof fn === 'function' ? fn : () => ({})
+}
+function chatLook() {
+  try {
+    const look = chatLookSource() || {}
+    const out = {}
+    if (typeof look.ns === 'string' && /^[A-Za-z]{1,20}$/.test(look.ns)) out.ns = look.ns
+    if (typeof look.fr === 'string' && /^[A-Za-z]{1,20}$/.test(look.fr)) out.fr = look.fr
+    return out
+  } catch {
+    return {}
+  }
+}
+
 export async function sendGlobalChatMessage(uid, nickname, text) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.addDoc(fsMod.collection(db, 'globalChat'), { uid, nickname, text, createdAt: Date.now() })
+  await fsMod.addDoc(fsMod.collection(db, 'globalChat'), { uid, nickname, text, createdAt: Date.now(), ...chatLook() })
 }
 
 // callback fires with messages oldest-first (reversed from the
@@ -1883,7 +1902,7 @@ export function subscribeGlobalChat(callback) {
 // history. Same shape/limits as globalChat, just its own collection.
 export async function sendServerChatMessage(uid, nickname, text) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.addDoc(fsMod.collection(db, 'serverChat'), { uid, nickname, text, createdAt: Date.now() })
+  await fsMod.addDoc(fsMod.collection(db, 'serverChat'), { uid, nickname, text, createdAt: Date.now(), ...chatLook() })
 }
 
 export function subscribeServerChat(callback) {
@@ -1902,7 +1921,7 @@ export function subscribeServerChat(callback) {
 
 export async function sendClanChatMessage(clanId, uid, nickname, text) {
   const { db, fsMod } = await ensureApp()
-  await fsMod.addDoc(fsMod.collection(db, 'clans', clanId, 'messages'), { uid, nickname, text, createdAt: Date.now() })
+  await fsMod.addDoc(fsMod.collection(db, 'clans', clanId, 'messages'), { uid, nickname, text, createdAt: Date.now(), ...chatLook() })
 }
 
 export function subscribeClanChat(clanId, callback) {

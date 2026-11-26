@@ -55,12 +55,15 @@ export function renderCosmetics(game) {
   set('cosmetics-pethats-title', t('petHatHeading'))
   set('cosmetics-petpaints-title', t('petPaintHeading'))
   set('cosmetics-ridepaints-title', t('ridePaintHeading'))
+  set('cosmetics-namestyles-title', t('nameStyleHeading'))
+  set('cosmetics-chatbubbles-title', t('chatBubbleHeading'))
+  set('cosmetics-frames-title', t('profileFrameHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
   const backs = byId('cosmetics-backs')
   if (backs) backs.innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'back').map((id) => card(game, id)).join('')
-  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['jump', 'cosmetics-jumps'], ['death', 'cosmetics-deaths'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints']]) {
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['jump', 'cosmetics-jumps'], ['death', 'cosmetics-deaths'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints'], ['nameStyle', 'cosmetics-namestyles'], ['chatBubble', 'cosmetics-chatbubbles'], ['profileFrame', 'cosmetics-frames']]) {
     const row = byId(rowId)
     if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
   }

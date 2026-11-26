@@ -1,5 +1,5 @@
 // Shop > Kill Effects, Walk Trails, Jump Effects, Death Effects, Gun Skins, Pet Hats, Pet Paints and
-// Ride Paints (2026-11-25, shop plan;
+// Ride Paints, Name Styles, Chat Bubbles and Profile Frames (2026-11-25, shop plan;
 // KillEffects.js, WalkTrails.js, GunSkins.js). One card each: click to buy
 // (coins; Settings > Confirm Purchases asks first on big buys) and it's
 // used right away. An owned one: click to use it, click again to stop.
@@ -11,6 +11,7 @@ import { TRAILS, TRAIL_IDS, trailName, trailIcon } from './WalkTrails.js'
 import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon } from './GunSkins.js'
 import { PET_HATS, PET_HAT_IDS, PET_PAINTS, PET_PAINT_IDS, RIDE_PAINTS, RIDE_PAINT_IDS, petHatName, petPaintName, ridePaintName, petHatIcon, petPaintIcon, ridePaintIcon } from './PetRideLooks.js'
 import { JUMP_EFFECTS, JUMP_EFFECT_IDS, DEATH_EFFECTS, DEATH_EFFECT_IDS, jumpEffectName, deathEffectName, jumpEffectIcon, deathEffectIcon } from './JumpDeathEffects.js'
+import { NAME_STYLES, NAME_STYLE_IDS, CHAT_BUBBLES, CHAT_BUBBLE_IDS, PROFILE_FRAMES, PROFILE_FRAME_IDS, nameStyleName, chatBubbleName, profileFrameName, nameStyleIcon, chatBubbleIcon, profileFrameIcon, applyMyNameLook } from './NameChatStyles.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -53,6 +54,19 @@ export const EFFECT_KINDS = {
   ridePaint: {
     items: RIDE_PAINTS, ids: RIDE_PAINT_IDS, setting: 'ridePaint', name: ridePaintName, icon: ridePaintIcon,
     root: 'shop-ridepaints', heading: 'shop-ridepaints-heading', headingKey: 'ridePaintHeading', toastKey: 'ridePaintBoughtToast', color: '#ff6a4a',
+  },
+  // Name + chat style (NameChatStyles.js).
+  nameStyle: {
+    items: NAME_STYLES, ids: NAME_STYLE_IDS, setting: 'nameStyle', name: nameStyleName, icon: nameStyleIcon,
+    root: 'shop-namestyles', heading: 'shop-namestyles-heading', headingKey: 'nameStyleHeading', toastKey: 'nameStyleBoughtToast', color: '#ffd23f',
+  },
+  chatBubble: {
+    items: CHAT_BUBBLES, ids: CHAT_BUBBLE_IDS, setting: 'chatBubble', name: chatBubbleName, icon: chatBubbleIcon,
+    root: 'shop-chatbubbles', heading: 'shop-chatbubbles-heading', headingKey: 'chatBubbleHeading', toastKey: 'chatBubbleBoughtToast', color: '#ff8fd0',
+  },
+  profileFrame: {
+    items: PROFILE_FRAMES, ids: PROFILE_FRAME_IDS, setting: 'profileFrame', name: profileFrameName, icon: profileFrameIcon,
+    root: 'shop-frames', heading: 'shop-frames-heading', headingKey: 'profileFrameHeading', toastKey: 'profileFrameBoughtToast', color: '#c0c6ce',
   },
 }
 export const kindOfEffect = (id) => Object.keys(EFFECT_KINDS).find((k) => EFFECT_KINDS[k].items[id]) || ''
@@ -106,6 +120,8 @@ export function toggleEffect(game, id) {
 // The homepage pet wears the new pet hat / paint at once.
 function petLookChanged(game, K) {
   if (K.setting === 'petHat' || K.setting === 'petPaint') game._refreshHomePet?.()
+  // My name style / frame show at once on the homepage and in Profile.
+  if (K.setting === 'nameStyle' || K.setting === 'profileFrame') applyMyNameLook(game)
 }
 
 export function buyOrUseEffect(game, id) {

@@ -956,6 +956,44 @@ test('Shop: Jump Effects and Death Effects buy and use', async ({ page }) => {
   expect(r).toEqual({ jumps: 4, deaths: 4, coins: 100, jump: 'cloudJump', death: 'ghostDeath', label: 'Using', rows: 8 })
 })
 
+// 2026-11-25: Shop > Name Styles, Chat Bubbles and Profile Frames - 4
+// cards each; buy one and it's used at once: the name on the homepage gets
+// the style and the face picture the frame. Inventory > Cosmetics lists them.
+test('Shop: Name Styles, Chat Bubbles and Profile Frames', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 45100
+    g.shopCosmetics = {}
+    g.settings.nameStyle = ''
+    g.settings.chatBubble = ''
+    g.settings.profileFrame = ''
+    g._openShopPanel()
+    await wait(300)
+    const cards = ['#shop-namestyles', '#shop-chatbubbles', '#shop-frames'].map((id) => document.querySelectorAll(`${id} [data-shop-effect]`).length)
+    document.querySelector('[data-shop-effect="glowName"]').click()
+    await wait(200)
+    document.querySelector('[data-shop-effect="pinkBubble"]').click()
+    await wait(200)
+    document.querySelector('[data-shop-effect="goldFrame"]').click()
+    await wait(200)
+    const named = document.querySelectorAll('.nameplate-name.nstyle-glowName').length > 0
+    const framed = document.getElementById('menu-avatar-icon').classList.contains('pframe-goldFrame')
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = document.querySelectorAll('#cosmetics-namestyles [data-effect], #cosmetics-chatbubbles [data-effect], #cosmetics-frames [data-effect]').length
+    // Using it again takes it off.
+    document.querySelector('#cosmetics-frames [data-effect="goldFrame"]').click()
+    await wait(100)
+    const unframed = !document.getElementById('menu-avatar-icon').classList.contains('pframe')
+    return { cards, coins: g.coins, ns: g.settings.nameStyle, cb: g.settings.chatBubble, named, framed, rows, unframed }
+  })
+  expect(r).toEqual({ cards: [4, 4, 4], coins: 100, ns: 'glowName', cb: 'pinkBubble', named: true, framed: true, rows: 12, unframed: true })
+})
+
 // 2026-11-25: Shop > Gun Skins - same cards as Kill Effects (one skin
 // for every gun); Inventory > Cosmetics lists them, and the Gallery's
 // Weapon tab shows every one with its price or Using.
@@ -1358,6 +1396,9 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   // More... opens everything and it stays that way after a reload.
   await page.evaluate(() => {
     localStorage.setItem('gayz-home-ladder', 'on')
+    // In memory too: the game saves its own count (5) while the page
+    // reloads, which on slow CI machines undid the 0 below.
+    window.__game.careerStats.totalRuns = 0
     const s = JSON.parse(localStorage.getItem('gayz-career-stats') || '{}')
     s.totalRuns = 0
     localStorage.setItem('gayz-career-stats', JSON.stringify(s))
@@ -1443,7 +1484,9 @@ test('shop name change costs 100 gems and custom IDs are 5-10 characters and blo
     g._cloudUid = null
     out.signedOut = await buy('GAYMI')
     const claimed = []
-    g._cloudUid = 'test-uid'
+    // Pinned: on slow CI machines the real sign-in check can finish now
+    // and set _cloudUid back to null in the middle of the test.
+    Object.defineProperty(g, '_cloudUid', { configurable: true, get: () => 'test-uid', set: () => {} })
     g.__idBackendForTests = {
       isConfigured: () => true,
       isPlayerIdTaken: async (id) => id === 'TAKEN1',

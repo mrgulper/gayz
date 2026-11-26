@@ -13,6 +13,7 @@ import { banMessage, muteMessage, switchedOff, reportPlayer, STAFF_UID } from '.
 import * as CloudSync from './CloudSync.js'
 import { EMOJI_CATEGORIES } from './EmojiData.js'
 import { chatPingCheck } from './MoreSettings.js'
+import { nameStyleClass, miniFrameHtml } from './NameChatStyles.js'
 import { _escapeHtml, _censorText, saveSettings } from './Game.js'
 import { shownChatText, chatShows } from './SocialSettings.js'
 import { isTradeCommand, runTradeCommand, renderTradeChatRow, bindTradeFillButtons } from './SkinTrade.js'
@@ -595,7 +596,8 @@ export function renderChatMessageRow(game, m, linkifyIds, isMuted) {
   if (m.uid === STAFF_UID) {
     return `<div class="chat-message-row chat-staff-row"><span class="chat-staff-name">${_escapeHtml(t('chatStaffName'))}:</span> <span class="chat-message-text">${_escapeHtml(String(m.text || ''))}</span></div>`
   }
-  const nameBtn = `<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}">${_escapeHtml(m.nickname)}:</button>`
+  // A bought name style + frame ride on the message (NameChatStyles.js).
+  const nameBtn = `${miniFrameHtml(m.fr)}<button type="button" class="chat-message-nickname" data-nickname="${_escapeHtml(m.nickname)}" data-uid="${_escapeHtml(m.uid || '')}"><span class="chat-name-text${nameStyleClass(m.ns)}">${_escapeHtml(m.nickname)}</span>:</button>`
   if (isMuted) {
     return `<div class="chat-message-row chat-message-row-blocked">${nameBtn}<span class="chat-message-text chat-blocked-text"><span class="chat-blocked-label">${t('chatBlockedMessage')}</span> - <button type="button" class="chat-blocked-show-btn">${t('chatBlockedShowBtn')}</button><span class="chat-blocked-real-text" style="display: none">${renderChatMessageText(game, m.text, linkifyIds)}</span></span></div>`
   }
