@@ -741,3 +741,33 @@ test('Map Editor: Worlds/Plain choice, void platform, 10x10 storage, placed anim
   expect(r.reloaded).toEqual(['lion'])
   expect(r.removed).toBe(true)
 })
+
+// 2026-11-25: Plain maps saved with the old 128x128 ground load as the
+// new 32x32 platform (centered), dropping anything built outside it, and
+// are saved again that way. A new map's few blocks in the void stay.
+test('old 128x128 Plain map loads cut down to 32x32', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode({ map: 'map2' })
+    const bm = g.buildMode
+    const blocks = []
+    for (let x = -64; x < 64; x++) for (let z = -64; z < 64; z++) blocks.push({ x, y: -1, z, type: 'grass' })
+    blocks.push({ x: 0, y: 0, z: 0, type: 'stone' }, { x: 40, y: 0, z: 40, type: 'stone' })
+    bm._writeSlot(1, { blocks, hotbar: bm.hotbar, animals: [{ kind: 'pig', x: 0.5, y: 0, z: 0.5 }, { kind: 'pig', x: 50.5, y: 0, z: 0.5 }] })
+    // A new map with a small bridge out into the void.
+    bm._writeSlot(2, { blocks: [{ x: 0, y: -1, z: 0, type: 'grass' }, { x: 30, y: -1, z: 0, type: 'stone' }], hotbar: bm.hotbar })
+    bm.switchSlot(1)
+    const old = {
+      inside: !!bm.getBlockAt(15, -1, -16), center: !!bm.getBlockAt(0, 0, 0),
+      outside: !!bm.getBlockAt(16, -1, 0) || !!bm.getBlockAt(40, 0, 40),
+      saved: bm._slotData(1).blocks.length, animals: bm.animalSpots.length,
+    }
+    bm.switchSlot(2)
+    const fresh = { bridge: !!bm.getBlockAt(30, -1, 0) }
+    g._exitBuildMode()
+    return { old, fresh }
+  })
+  expect(r.old).toEqual({ inside: true, center: true, outside: false, saved: 32 * 32 + 1, animals: 1 })
+  expect(r.fresh.bridge).toBe(true)
+})
