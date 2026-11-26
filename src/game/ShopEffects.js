@@ -1,5 +1,5 @@
 // Shop > Kill Effects, Walk Trails, Jump Effects, Death Effects, Gun Skins, Pet Hats, Pet Paints and
-// Ride Paints, Name Styles, Chat Bubbles and Profile Frames (2026-11-25, shop plan;
+// Ride Paints, Name Styles, Chat Bubbles, Profile Frames and sound packs (2026-11-25, shop plan;
 // KillEffects.js, WalkTrails.js, GunSkins.js). One card each: click to buy
 // (coins; Settings > Confirm Purchases asks first on big buys) and it's
 // used right away. An owned one: click to use it, click again to stop.
@@ -12,6 +12,7 @@ import { GUN_SKINS, GUN_SKIN_IDS, gunSkinName, gunSkinIcon } from './GunSkins.js
 import { PET_HATS, PET_HAT_IDS, PET_PAINTS, PET_PAINT_IDS, RIDE_PAINTS, RIDE_PAINT_IDS, petHatName, petPaintName, ridePaintName, petHatIcon, petPaintIcon, ridePaintIcon } from './PetRideLooks.js'
 import { JUMP_EFFECTS, JUMP_EFFECT_IDS, DEATH_EFFECTS, DEATH_EFFECT_IDS, jumpEffectName, deathEffectName, jumpEffectIcon, deathEffectIcon } from './JumpDeathEffects.js'
 import { NAME_STYLES, NAME_STYLE_IDS, CHAT_BUBBLES, CHAT_BUBBLE_IDS, PROFILE_FRAMES, PROFILE_FRAME_IDS, nameStyleName, chatBubbleName, profileFrameName, nameStyleIcon, chatBubbleIcon, profileFrameIcon, applyMyNameLook } from './NameChatStyles.js'
+import { KILL_SOUNDS, KILL_SOUND_IDS, HIT_SOUNDS, HIT_SOUND_IDS, JUMP_SOUNDS, JUMP_SOUND_IDS, STEP_SOUNDS, STEP_SOUND_IDS, soundPackName, killSoundIcon, hitSoundIcon, jumpSoundIcon, stepSoundIcon, previewSoundPack } from './SoundPacks.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
@@ -68,6 +69,23 @@ export const EFFECT_KINDS = {
     items: PROFILE_FRAMES, ids: PROFILE_FRAME_IDS, setting: 'profileFrame', name: profileFrameName, icon: profileFrameIcon,
     root: 'shop-frames', heading: 'shop-frames-heading', headingKey: 'profileFrameHeading', toastKey: 'profileFrameBoughtToast', color: '#c0c6ce',
   },
+  // Sound packs (SoundPacks.js): swap the normal kill / hit / jump / step sound.
+  killSound: {
+    items: KILL_SOUNDS, ids: KILL_SOUND_IDS, setting: 'killSound', name: soundPackName, icon: killSoundIcon, sound: true,
+    root: 'shop-killsounds', heading: 'shop-killsounds-heading', headingKey: 'killSoundHeading', toastKey: 'soundPackBoughtToast', color: '#ff7a1a',
+  },
+  hitSound: {
+    items: HIT_SOUNDS, ids: HIT_SOUND_IDS, setting: 'hitSound', name: soundPackName, icon: hitSoundIcon, sound: true,
+    root: 'shop-hitsounds', heading: 'shop-hitsounds-heading', headingKey: 'hitSoundHeading', toastKey: 'soundPackBoughtToast', color: '#ff3b3b',
+  },
+  jumpSound: {
+    items: JUMP_SOUNDS, ids: JUMP_SOUND_IDS, setting: 'jumpSound', name: soundPackName, icon: jumpSoundIcon, sound: true,
+    root: 'shop-jumpsounds', heading: 'shop-jumpsounds-heading', headingKey: 'jumpSoundHeading', toastKey: 'soundPackBoughtToast', color: '#7dffb0',
+  },
+  stepSound: {
+    items: STEP_SOUNDS, ids: STEP_SOUND_IDS, setting: 'stepSound', name: soundPackName, icon: stepSoundIcon, sound: true,
+    root: 'shop-stepsounds', heading: 'shop-stepsounds-heading', headingKey: 'stepSoundHeading', toastKey: 'soundPackBoughtToast', color: '#9aa3ad',
+  },
 }
 export const kindOfEffect = (id) => Object.keys(EFFECT_KINDS).find((k) => EFFECT_KINDS[k].items[id]) || ''
 
@@ -122,6 +140,8 @@ function petLookChanged(game, K) {
   if (K.setting === 'petHat' || K.setting === 'petPaint') game._refreshHomePet?.()
   // My name style / frame show at once on the homepage and in Profile.
   if (K.setting === 'nameStyle' || K.setting === 'profileFrame') applyMyNameLook(game)
+  // A sound pack plays once when you pick it, so you hear what you got.
+  if (K.sound && game.settings[K.setting]) previewSoundPack(game.settings[K.setting])
 }
 
 export function buyOrUseEffect(game, id) {

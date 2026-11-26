@@ -30,13 +30,17 @@ const SFX = {
   a_goat: 2, a_horse: 2, a_donkey: 1, a_chicken: 2, a_rooster: 1, a_duck: 3, a_crow: 2, a_owl: 2,
   a_parrot: 2, a_gull: 2, a_peacock: 2, a_deer: 1, a_elephant: 1, a_hippo: 2, a_orca: 2, a_frog: 2,
   a_buzz: 2, a_cricket: 1, a_squeak: 3,
+  // Sound packs (SoundPacks.js, Kenney CC0) and the normal jump sound.
+  jump_soft: 1, pk_chips: 1, pk_pop: 1, pk_zap: 1, pk_power: 1, pk_tick: 1, pk_punch: 1, pk_clang: 1, pk_laser: 1,
+  pk_hop: 1, pk_spring: 1, pk_whoosh: 1, pk_powerjump: 1, pk_click: 3, pk_tin: 3, pk_crystal: 3, pk_robot: 3,
   em_clap: 1, em_cheer: 1, em_cry: 1, em_laugh: 1, em_vogue: 1,
 }
 // Loaded as soon as sound starts (they're needed in the first seconds of
 // play); everything else loads the first time it's asked for.
 const SFX_EARLY = ['shot_pistol', 'shot_rifle', 'shot_shotgun', 'reload_out', 'reload_in', 'cock', 'swing',
   'hit_body', 'hit_kill', 'hit_head', 'hurt', 'zmoan', 'zattack', 'zdeath', 'foot_concrete', 'foot_grass',
-  'ui_click', 'ui_hover', 'ui_open', 'ui_close', 'ui_tab', 'ui_coin', 'ui_chips', 'ui_confirm', 'ui_error']
+  'ui_click', 'ui_hover', 'ui_open', 'ui_close', 'ui_tab', 'ui_coin', 'ui_chips', 'ui_confirm', 'ui_error',
+  'jump_soft', 'foot_snow', 'foot_wood']
 // Which recording each gun uses, and how it's played: rate (pitch/speed),
 // gain, len (cut short for fast guns, seconds).
 const GUN_SOUNDS = {

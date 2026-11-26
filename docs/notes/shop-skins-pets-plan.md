@@ -156,7 +156,23 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    Anyone could fake `ns`/`fr` in Firestore (looks only). NOT Couch Co-op
    P2 / bots. Tests: panels "Shop: Name Styles, Chat Bubbles and Profile
    Frames", servers "hats with capitals".
-8. Sounds + music packs (kill sounds, menu music).
+8. **Sound packs** - built 2026-11-25 (music dropped: Gaymi deleted the
+   homepage music 2026-11-22 and picked "Skip music"). `SoundPacks.js`.
+   Kill / Hit / Jump / Footstep sounds, 4 packs each (10k-100k coins):
+   Chips/Pop/Zap/Power Up, Tick/Punch/Clang/Laser, Hop/Spring/Whoosh/Power
+   Jump, Clicky/Tin Can/Crystal/Robot. Kenney CC0 packs (digital-audio,
+   impact-sounds, casino-audio, interface-sounds) -> `public/audio/sfx/
+   pk_*.mp3` + `jump_soft-1.mp3` (144 KB total, loaded on use / game
+   start). Gaymi: normal sounds ON by default + a Settings > Audio switch
+   per kind (`killSounds`, `hitSounds`, `jumpSounds`, `stepSounds`).
+   NEW normal sounds: walking footsteps (BuildTryMode bob -> survival.
+   onStep, surface from the block under you; there were none since old
+   Map 1) and a soft jump thump. Kill = `_hitFeedback` kill crunch (the
+   zombie's own death rattle is untouched). A pack's first play while its
+   file loads falls back to the normal sound. Only you hear your packs (not
+   sent online). Four more ShopEffects kinds (`killSound` ... `stepSound`,
+   `sound: true` -> plays once when picked). Tests: panels "Shop: sound
+   packs buy, play and Settings switches", play "Sound packs".
 PRs #475-477 (Kill Effects, Walk Trails, higher prices) shipped together in
 #477 on 2026-11-25 after main was merged in; the ladder test's CI failure was
 timing (now waits with expect.poll).
