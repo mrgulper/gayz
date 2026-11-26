@@ -455,6 +455,10 @@ html.ui-theme-clean :is(#menu-currency-bar, #homepage-clock, #live-banner) {
   border: none;
   backdrop-filter: none;
 }
+html.ui-theme-clean #menu #motd-line {
+  color: var(--clean-dim) !important;
+  text-shadow: none;
+}
 html.ui-theme-clean #menu-subtitle,
 html.ui-theme-clean #menu-player-tag {
   color: var(--clean-dim) !important;

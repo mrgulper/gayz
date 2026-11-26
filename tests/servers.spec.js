@@ -4,7 +4,7 @@ import { fakeServerDb } from './fakeServerDb.js'
 import { recordStats } from '../api/_lib/playStats.js'
 import { PROVIDERS, isCallback, missingKeys, firebaseUid, cleanProfile, sameState, resultPage, siteOrigin } from '../api/_lib/oauth.js'
 import { createServer, joinServer, listServers, syncServer, leaveServer, MAX_PLAYERS, STALE_MS, JOIN_GRACE_MS } from '../api/_lib/servers.js'
-import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame, claimGiftFor, ipBan, ipUnban, changeId, warnPlayer, playerCard } from '../api/_lib/admin.js'
+import { publicConfig, reportPlayer, adminState, setBanner, setEvents, kickPlayer, unban, hideContent, dismissContentReport, dismissPlayerReport, seenWarning, redeemCode, CODE_TRIES_PER_HOUR, REPORT_GAP_MS, ADMIN_ACTIONS, publicHallOfFame, claimGiftFor, ipBan, ipUnban, changeId, warnPlayer, playerCard, setMotd, activePlayers } from '../api/_lib/admin.js'
 
 // The owner dropping in (OwnerDropIn.js): a pass from the owner's tools
 // lets them in visible (gold tag) or invisible (sent to nobody, changes
@@ -1595,6 +1595,26 @@ test('servers: custom lobbies - rules, password, limit, rings and friendly fire'
   expect((await syncServer(db, { ...d, state: {} }, 130)).hurt).toEqual([])
   // Custom lobbies only show on the Custom tab, normal ones elsewhere.
   expect((await listServers(db, 140)).map((s) => !!s.custom).sort()).toEqual([false, true])
+})
+
+// Message of the day + giveaway picker (Console batch 2, 2026-11-26).
+test('admin: message of the day turns daily, giveaway lists active players', async () => {
+  const db = fakeServerDb()
+  const noon = Date.UTC(2026, 10, 26, 20) // 12:00 in Los Angeles
+  const day = 86400000
+  await setMotd(db, { lines: ['First <b>', '', 'Second', 'Third'] }, noon)
+  expect((await publicConfig(db, {}, noon)).motd).toBe('First b')
+  expect((await publicConfig(db, {}, noon + day)).motd).toBe('Second')
+  expect((await publicConfig(db, {}, noon + 3 * day)).motd).toBe('First b')
+  expect((await adminState(db, null, noon)).motd).toMatchObject({ lines: ['First b', 'Second', 'Third'], today: 0 })
+  await setMotd(db, { lines: [] }, noon)
+  expect((await publicConfig(db, {}, noon)).motd).toBe(null)
+
+  const now = 50 * day
+  await db.update({ 'pidIps/NEWONE1/a': now - 3600000, 'pidIps/OLDONE1/a': now - 5 * day, 'pidIps/BANNED1/a': now - 1000, 'bans/BANNED1': { until: 0, nick: 'Bad' } })
+  expect((await activePlayers(db, { days: 1 }, now)).list.map((p) => p.pid)).toEqual(['NEWONE1'])
+  const week = await activePlayers(db, { days: 7 }, now)
+  expect(week.list.map((p) => p.pid)).toEqual(['NEWONE1', 'OLDONE1'])
 })
 
 // The Console's admin controls (api/_lib/admin.js), on an in-memory database.
