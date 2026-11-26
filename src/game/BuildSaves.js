@@ -11,6 +11,32 @@ import { FACED_SHAPES } from './BlockShapes.js'
 
 // A new Plain map's platform (cells a side), void all round it.
 const PLAIN_GROUND = 32
+// Plain maps saved before 2026-11-16 have the old 128x128 grass ground
+// saved in them (15,360 ground cells outside the middle 32x32). More than
+// this many ground cells outside it = an old map, so it's cut down to the
+// middle 32x32 on load (2026-11-25, Gaymi: anything built outside is lost,
+// that's OK). A new map with a few blocks out in the void is left alone.
+const OLD_PLAIN_GROUND_CELLS = 2000
+
+// True if (x, z) is on the Plain platform (the middle 32x32).
+const onPlainPlatform = (x, z) => x >= -PLAIN_GROUND / 2 && x < PLAIN_GROUND / 2 && z >= -PLAIN_GROUND / 2 && z < PLAIN_GROUND / 2
+
+// An old 128x128 Plain map cut down to the middle 32x32 (blocks and
+// animals outside it dropped), or null if it isn't an old one.
+export function cropOldPlainMap(parsed) {
+  const blocks = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.blocks) ? parsed.blocks : null
+  if (!blocks) return null
+  let outside = 0
+  for (const b of blocks) {
+    if (b && b.y === GROUND_LAYER_Y && !onPlainPlatform(Math.trunc(b.x), Math.trunc(b.z))) outside++
+  }
+  if (outside <= OLD_PLAIN_GROUND_CELLS) return null
+  const kept = blocks.filter((b) => b && typeof b === 'object' && onPlainPlatform(Math.trunc(b.x), Math.trunc(b.z)))
+  if (Array.isArray(parsed)) return kept
+  const out = { ...parsed, blocks: kept }
+  if (Array.isArray(parsed.animals)) out.animals = parsed.animals.filter((a) => a && onPlainPlatform(Math.floor(a.x), Math.floor(a.z)))
+  return out
+}
 
 const SAVE_KEY = 'gayz-build-mode'
 // Multiple save slots (see switchSlot/save/load) - was a single fixed key
@@ -379,7 +405,8 @@ class BuildSaves {
       this._applyMap3(this._loadMap3Edits())
       return
     }
-    this._applyBuild(this._slotData(this.activeSlot))
+    // An old 128x128 Plain map is saved again right away at 32x32.
+    if (this._applyBuild(this._slotData(this.activeSlot))) this._writeSlot(this.activeSlot, this._snapshot({ skipPlay: true }))
   }
 
   // A saved build is exactly what it says - including ground the player
@@ -387,14 +414,18 @@ class BuildSaves {
   // slot that has never been saved (or old/shared data with no ground in
   // it at all). Refilling it on every load was what kept bringing the
   // grass back over broken or replaced ground.
+  // Returns true if it was an old 128x128 Plain map cut to 32x32.
   _applyBuild(parsed) {
     // Void around it (OpenWorld.js, setFlatWorld).
     setFlatWorld(true)
     this.world.start()
+    const cropped = cropOldPlainMap(parsed)
+    if (cropped) parsed = cropped
     this._applyParsedData(parsed)
     const blocks = Array.isArray(parsed) ? parsed : parsed?.blocks
     const hasGround = Array.isArray(blocks) && blocks.some((b) => b && b.y === GROUND_LAYER_Y)
     if (!hasGround) this._ensureGroundLayer()
+    return !!cropped
   }
 
   // --- Map 3 (see MAP3_SLOT) ---
