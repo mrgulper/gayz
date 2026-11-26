@@ -124,7 +124,20 @@ Gaymi picked all 8 new sections, one batch per session, in this order:
    guests dress other players' pets; remote vehicles repaint from `rpaint`.
    NOT on Couch Co-op P2, skateboards, sleds. Tests: panels "Shop: Pet
    Hats, Pet Paints and Ride Paints", play "Pet and ride looks".
-6. Jump + death effects (like Kill Effects).
+6. **Jump + death effects** - SHIPPED 2026-11-25: `JumpDeathEffects.js`.
+   Jump: Cloud Puff / Hearts / Lightning / Rainbow Ring; death: Tombstone /
+   Ghost / Firework / Explosion (looks only). 10k/25k/50k/100k coins each
+   (Gaymi: Kill Effects ladder). Two more ShopEffects kinds (`jump`,
+   `death`; `#shop-jumps`, `#shop-deaths`, `#cosmetics-jumps`,
+   `#cosmetics-deaths`), settings `jumpEffect` / `deathEffect`. PlayFx got
+   `heart` + `puff` textures and `emit()`. Jump hook: BuildTryMode's normal
+   jump -> `survival.onJump()` (not swim jumps, not spectating). Death:
+   `_die` (not on a win). Ghost + tombstone are box models in
+   `s._deathProps` (updateDeathProps each frame). Online: state `jfx`,
+   `dfx`, `jn` (jump count; server passes all 3); PlayNet plays a remote
+   jump when `jn` goes up and a death on alive->dead. NOT Couch Co-op P2.
+   Tests: panels "Shop: Jump Effects and Death Effects", play "Jump and
+   death effects".
 7. Name + chat style (glowing/rainbow name, chat bubbles, profile frames).
 8. Sounds + music packs (kill sounds, menu music).
 PRs #475-477 (Kill Effects, Walk Trails, higher prices) shipped together in

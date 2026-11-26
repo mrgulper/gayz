@@ -42,6 +42,7 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, COMING_SOON_WEAPONS, ammoFor, canPla
 import { PlayFx } from './PlayFx.js'
 import { myKillEffect, cleanKillEffect, playKillEffect } from './KillEffects.js'
 import { TrailMaker, myTrail, clearTrails } from './WalkTrails.js'
+import { myJumpEffect, myDeathEffect, playJumpEffect, playDeathEffect, updateDeathProps } from './JumpDeathEffects.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
@@ -3613,6 +3614,15 @@ export class BuildSurvival {
     el.textContent = text
   }
 
+  // I just jumped (BuildTryMode): my jump effect at my feet, and a count
+  // other players watch to play it on their screens (PlayNet `jn`).
+  onJump() {
+    if (this.dead || this.spectating) return
+    this.jumps = (this.jumps || 0) + 1
+    const feet = this.bm.tryMode.pos
+    if (feet) playJumpEffect(this, myJumpEffect(this.bm.game), feet.x, feet.y, feet.z)
+  }
+
   _win() {
     this._won = true
     this._die(true)
@@ -3624,6 +3634,11 @@ export class BuildSurvival {
     // A Bed you slept in brings you back once (BuildSpecials.js).
     if (!won && this.bm.specials.tryRevive(this)) return
     this.dead = true
+    // My death effect where I fall (JumpDeathEffects.js).
+    if (!won) {
+      const at = this.bm.tryMode.pos
+      if (at) playDeathEffect(this, myDeathEffect(this.bm.game), at.x, at.y, at.z)
+    }
     // World Map: a skull on the map's travel journal (TravelJournal.js).
     if (!won && this.bm.world?.active && isEarthWorld()) {
       const at = this.bodyPos()
@@ -3778,6 +3793,7 @@ export class BuildSurvival {
     this.replay?.update(dt)
     this._updateCorpses(Math.min(dt, 0.1))
     this._fx?.update(Math.min(dt, 0.1))
+    updateDeathProps(this, Math.min(dt, 0.1))
     // My walk trail (WalkTrails.js) - not while dead or flying around spectating.
     if (!this._trail) this._trail = new TrailMaker()
     const feet = this.bm.tryMode.pos

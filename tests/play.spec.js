@@ -1930,6 +1930,48 @@ test('Walk trails: footprints and sparkles behind me as I walk', async ({ page }
   expect(r.unowned).toBe(0)
 })
 
+// Jump + death effects (JumpDeathEffects.js, 2026-11-25): a jump bursts my
+// jump effect at my feet and counts up (others see it from the count);
+// dying leaves my death effect (the ghost model) - only ones I own.
+test('Jump and death effects: a burst when I jump, a ghost when I die', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = { heartJump: 1, ghostDeath: 1 }
+    g.settings.jumpEffect = 'heartJump'
+    g.settings.deathEffect = 'ghostDeath'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const live = () => s._fx._sprites.filter((sp) => sp.userData.life > 0 && sp.userData.t < sp.userData.life).length
+    const before = live()
+    s.onJump()
+    const hearts = live() - before
+    const jumps = s.jumps
+    // Not owned: no burst (the count still goes up).
+    g.shopCosmetics = { ghostDeath: 1 }
+    const b2 = live()
+    s.onJump()
+    const unowned = live() - b2
+    s.replay = null
+    s.ghosts = null
+    s._die()
+    const ghost = (s._deathProps || []).length
+    for (let i = 0; i < 80; i++) s.update(0.05)
+    const after = (s._deathProps || []).length
+    g._exitBuildMode()
+    return { hearts, jumps, unowned, ghost, after }
+  })
+  expect(r.hearts).toBeGreaterThan(2)
+  expect(r.jumps).toBe(1)
+  expect(r.unowned).toBe(0)
+  expect(r.ghost).toBe(1)
+  expect(r.after).toBe(0)
+})
+
 // Gun skins (GunSkins.js, 2026-11-25): one skin paints every gun - the gun
 // in my hands and the one my own body holds in third person - only if I
 // own it, and back to the model's own colours with none.
