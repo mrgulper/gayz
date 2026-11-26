@@ -18,6 +18,7 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { myRidePaint, paintModel, unpaint } from './PetRideLooks.js'
 
 export const BIKE_SPEED = 1.9
 const BIKE_GRIP = 0.9
@@ -128,7 +129,7 @@ export class Rides {
       g.add(this._crank)
     } else {
       // A smooth board with glowing strips and a soft glow below.
-      box(0.5, 0.08, 1.15, 0x2a2f3a, 0, 0.18, 0)
+      box(0.5, 0.08, 1.15, 0x2a2f3a, 0, 0.18, 0).userData.paint = true
       box(0.52, 0.02, 0.9, 0x5aa7d8, 0, 0.13, 0, g, { emissive: 0x5aa7d8, emissiveIntensity: 0.9 })
       for (const z of [-0.45, 0.45]) box(0.4, 0.04, 0.12, 0xf2f0ea, 0, 0.23, z)
       const glow = new THREE.Mesh(new THREE.CircleGeometry(0.55 * B, 18), new THREE.MeshBasicMaterial({ color: 0x7fdcff, transparent: true, opacity: 0.35, depthWrite: false }))
@@ -137,6 +138,8 @@ export class Rides {
       g.add(glow)
       this._glow = glow
     }
+    // One paint job for every ride (PetRideLooks.js).
+    paintModel(g, myRidePaint(this.s.bm?.game), 'ride', true)
     this.mesh = g
     this.s.bm.scene.add(g)
   }
@@ -164,6 +167,7 @@ export class Rides {
 }
 
 function disposeGroup(g) {
+  unpaint(g)
   g?.traverse((o) => {
     if (!o.isMesh) return
     o.geometry.dispose()

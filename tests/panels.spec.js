@@ -973,6 +973,45 @@ test('Shop: Gun Skins buy and use, Gallery Weapon tab shows them', async ({ page
   expect(r.gallery).toEqual({ shown: true, cards: 8, camo: 'Using', soonTag: false })
 })
 
+// 2026-11-25: Shop > Pet Hats, Pet Paints, Ride Paints (PetRideLooks.js) -
+// bought with coins, used at once, picked again in Inventory > Cosmetics.
+test('Shop: Pet Hats, Pet Paints and Ride Paints', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    g.coins = 30000
+    g.shopCosmetics = {}
+    Object.assign(g.settings, { petHat: '', petPaint: '', ridePaint: '' })
+    g._openShopPanel()
+    await wait(300)
+    const count = (id) => document.querySelectorAll(`#${id} [data-shop-effect]`).length
+    const cards = [count('shop-pethats'), count('shop-petpaints'), count('shop-ridepaints')]
+    const imgs = [...document.querySelectorAll('#shop-ridepaints img')].every((i) => i.src.startsWith('data:image/png'))
+    document.querySelector('[data-shop-effect="petCrown"]').click() // 50,000 - too few
+    await wait(100)
+    document.querySelector('[data-shop-effect="petPartyHat"]').click()
+    document.querySelector('[data-shop-effect="rideBlue"]').click()
+    await wait(300)
+    const after = { coins: g.coins, owned: { ...g.shopCosmetics }, hat: g.settings.petHat, ride: g.settings.ridePaint }
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = ['cosmetics-pethats', 'cosmetics-petpaints', 'cosmetics-ridepaints'].map((id) => document.querySelectorAll(`#${id} [data-effect]`).length)
+    // Click the owned hat in Inventory: taken off.
+    document.querySelector('#cosmetics-pethats [data-effect="petPartyHat"]').click()
+    const off = g.settings.petHat
+    g._closeAllMenuPanels()
+    return { cards, imgs, after, rows, off }
+  })
+  expect(r.cards).toEqual([8, 6, 7])
+  expect(r.imgs).toBe(true)
+  expect(r.after).toEqual({ coins: 10000, owned: { petPartyHat: 1, rideBlue: 1 }, hat: 'petPartyHat', ride: 'rideBlue' })
+  expect(r.rows).toEqual([8, 6, 7])
+  expect(r.off).toBe('')
+})
+
 // 2026-11-25: Shop > Hats, Capes and Back Items - coins or gems, worn
 // right away; a new Back slot (wings / packs) worn WITH a cape; Inventory
 // > Cosmetics lists them; the body really wears all three.

@@ -40,6 +40,7 @@ import { CREATURE_KINDS, CREATURE_BIOME_ANIMALS, CREATURE_TIERS } from './Creatu
 import { addAnimalMeat } from './PlayInventory.js'
 import { audioEngine } from './Audio.js'
 import { animalVoice } from './AnimalSounds.js'
+import { myPetLook, cleanPetHat, cleanPetPaint, addPetHat, removePetHat, paintModel, unpaint } from './PetRideLooks.js'
 
 export const MAX_WILD = 12
 // Animals a server's sync carries at most (api/_lib/servers.js MAX_ANIMALS).
@@ -687,6 +688,7 @@ export class PlayAnimals {
       const hw = k.head[0]
       for (const side of [-1, 1]) {
         const eye = new THREE.Mesh(p.eye, p.eyeMat)
+        eye.userData.noPaint = true
         eye.position.set(side * hw * 0.3 * B, hh * 0.18 * B, (hl / 2 + 0.006) * B)
         head.add(eye)
         const fang = new THREE.Mesh(p.fang, p.fangMat)
@@ -784,6 +786,7 @@ export class PlayAnimals {
         this._remove(a)
         continue
       }
+      if (a.tamed || a.dressKey) this._dressPet(a)
       // Being ridden (AnimalRiding.js): the rider moves it.
       if (a.ridden) continue
       // Another player's pet follows them.
@@ -1071,9 +1074,50 @@ export class PlayAnimals {
 
   _remove(a) {
     a.group.removeFromParent()
+    this._undress(a)
     const i = this.list.indexOf(a)
     if (i >= 0) this.list.splice(i, 1)
     if (a.parts && !this.list.some((b) => b.parts === a.parts)) this._freeKindParts(a.parts)
+  }
+
+  // --- pet hats and paints (PetRideLooks.js, 2026-11-25) ---
+
+  // The hat and paint its owner bought: mine for my pets, another
+  // player's (their PlayNet state) for theirs.
+  _petLook(a) {
+    const net = this._net
+    const none = { hat: '', paint: '' }
+    if (!a.tamed) return none
+    const owner = net && !net.isHost ? a.petOf : a.owner
+    if (!owner || (net && owner === net.playerId)) return myPetLook(this.bm?.game)
+    const p = net?.players.get(owner)
+    return p ? { hat: cleanPetHat(p.phat), paint: cleanPetPaint(p.ppaint) } : none
+  }
+
+  // Puts the look on (only when it changed).
+  _dressPet(a) {
+    const look = this._petLook(a)
+    const key = look.hat || look.paint ? `${look.hat}|${look.paint}` : ''
+    if (key === (a.dressKey || '')) return
+    this._undress(a)
+    a.dressKey = key
+    if (!key) return
+    const k = KINDS[a.kind]
+    const B = this.s.B
+    if (look.hat) a.petHat = addPetHat(a.head, look.hat, (k.head[1] / 2) * B, k.head[0] * B)
+    if (look.paint) {
+      // The collar stays red, the name tag and red eyes as they are.
+      a.collar.userData.noPaint = true
+      paintModel(a.group, look.paint, 'pet')
+    }
+  }
+
+  _undress(a) {
+    if (!a.dressKey) return
+    removePetHat(a.petHat)
+    a.petHat = null
+    unpaint(a.group)
+    a.dressKey = ''
   }
 
   // --- shots, throws and taming ---
@@ -1251,7 +1295,7 @@ export class PlayAnimals {
     const order = [...this.list].sort((a, b) => (b.tamed - a.tamed) || (Math.hypot(a.x - me.x, a.z - me.z) - Math.hypot(b.x - me.x, b.z - me.z)))
     const out = {}
     for (const a of order.slice(0, MAX_SHARED)) {
-      out[a.netId] = { k: a.kind, x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.group.rotation.y.toFixed(2), hp: Math.round(a.health), t: a.tamed ? a.owner || 'h' : '', d: a.dying }
+      out[a.netId] = { k: a.kind, x: +a.x.toFixed(2), y: +a.y.toFixed(2), z: +a.z.toFixed(2), h: +a.group.rotation.y.toFixed(2), hp: Math.round(a.health), t: a.tamed ? a.owner || this._net?.playerId || 'h' : '', d: a.dying }
     }
     return out
   }
@@ -1299,6 +1343,7 @@ export class PlayAnimals {
       }
       a.health = d.hp
       a.tamed = !!d.t
+      a.petOf = typeof d.t === 'string' ? d.t : ''
       a.collar.visible = !!d.t
       if (d.d && !a.dying) this._mirrorDies(a)
     }

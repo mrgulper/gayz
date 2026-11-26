@@ -79,6 +79,7 @@ export async function useItem(game, it) {
     if (K) game.settings[K.setting] = it.id
   }
   saveSettings(game.settings)
+  if (it.kind === 'effect') game._refreshHomePet?.()
 }
 
 // Fills an <img> with the item's picture (skins are drawn later).

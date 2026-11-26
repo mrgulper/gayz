@@ -32,6 +32,7 @@ import { MONSTER_KINDS, makeMonster } from './ZombieKinds.js'
 import { SKELETON_KINDS, makeSkeleton, skeletonsReady } from './SkeletonModels.js'
 import { makeHat, disposeHat, poseZombieLimbs } from './FunnyZombies.js'
 import { makeCape } from './Cosmetics.js'
+import { myPetLook, addPetHat, paintModel, unpaint } from './PetRideLooks.js'
 
 export const KEY = 'gayz-pet-zombie'
 export const TAME_R = 5
@@ -82,6 +83,9 @@ export class PetZombie {
     this.data = loadPet()
     this.pet = null
     this._bite = 0
+    // The pet hat and paint bought in the Shop (PetRideLooks.js) -
+    // HomePet sets its own.
+    this.dress = null
   }
 
   get B() {
@@ -221,22 +225,35 @@ export class PetZombie {
     const glow = zombieGlow(this.data.tier || 'common', 1.8 * B)
     if (glow) {
       glow.position.y = 0.04 * B
+      glow.userData.noPaint = true
       group.add(glow)
     }
-    // The pink bow, on top of its head (a blob or a spider is lower).
+    const dress = this.dress || myPetLook(this.s.bm?.game)
+    // The pink bow, on top of its head (a blob or a spider is lower) - or
+    // a bought pet hat there instead (its wild hat comes off for it).
     const top = (MOB_HEIGHT * look.tall + 0.06) * B
+    if (dress.hat) {
+      if (look.hat) look.hat.visible = false
+      look.petHat = addPetHat(group, dress.hat, top - 0.06 * B, 0.5 * B)
+    }
     const pink = new THREE.MeshLambertMaterial({ color: 0xff6fb5 })
-    for (const side of [-1, 1]) {
+    for (const side of look.petHat ? [] : [-1, 1]) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(0.22 * B, 0.16 * B, 0.1 * B), pink)
       m.position.set(side * 0.14 * B, top, 0)
       m.rotation.z = side * 0.35
+      m.userData.noPaint = true
       group.add(m)
     }
-    const knot = new THREE.Mesh(new THREE.BoxGeometry(0.08 * B, 0.08 * B, 0.11 * B), pink)
-    knot.position.set(0, top, 0)
-    group.add(knot)
+    if (!look.petHat) {
+      const knot = new THREE.Mesh(new THREE.BoxGeometry(0.08 * B, 0.08 * B, 0.11 * B), pink)
+      knot.position.set(0, top, 0)
+      knot.userData.noPaint = true
+      group.add(knot)
+    }
+    if (dress.paint) paintModel(group, dress.paint, 'pet')
     const tag = nameTag(t('petTag', { name: zombieName(this.data.name) }), B)
     if (look.tall !== 1) tag.position.y += (look.tall - 1) * MOB_HEIGHT * B
+    if (look.petHat) tag.position.y += 0.45 * B
     group.add(tag)
     s.bm.scene.add(group)
     this.pet = { x, y, z, group, body: look.body || null, look, walk: 0, target: null }
@@ -248,6 +265,7 @@ export class PetZombie {
     const p = this.pet
     if (!p) return
     p.group.removeFromParent()
+    unpaint(p.group)
     p.group.traverse((o) => {
       if (o.isSprite) {
         o.material.map?.dispose()
@@ -260,6 +278,7 @@ export class PetZombie {
     look.monster?.dispose()
     look.skel?.dispose()
     disposeHat(look.hat)
+    disposeHat(look.petHat)
     disposeHat(look.cape)
     for (const m of [...(look.shineMats || []), ...look.mats]) m.dispose()
     this.pet = null

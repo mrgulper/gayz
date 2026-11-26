@@ -50,12 +50,15 @@ export function renderCosmetics(game) {
   set('cosmetics-kills-title', t('killFxHeading'))
   set('cosmetics-trails-title', t('trailHeading'))
   set('cosmetics-gunskins-title', t('gunSkinHeading'))
+  set('cosmetics-pethats-title', t('petHatHeading'))
+  set('cosmetics-petpaints-title', t('petPaintHeading'))
+  set('cosmetics-ridepaints-title', t('ridePaintHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
   const backs = byId('cosmetics-backs')
   if (backs) backs.innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'back').map((id) => card(game, id)).join('')
-  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['gun', 'cosmetics-gunskins']]) {
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints']]) {
     const row = byId(rowId)
     if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
   }
