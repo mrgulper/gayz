@@ -30,6 +30,8 @@ export const STAT_CATS = {
   skin: { keys: ['default', 'alisa', 'gaygarx', 'custom', ...MARKET_SKINS.map((s) => s.id)], max: 5 },
   weapon: { keys: Object.keys(PLAY_WEAPONS), max: 10 },
   quit: { keys: STAT_QUIT, max: 1 },
+  // New player, or back after 1 / 2-6 / 7-29 / 30+ days away (2026-11-26).
+  back: { keys: ['new', 'd1', 'd2-6', 'd7-29', 'd30up'], max: 1 },
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]

@@ -1,6 +1,7 @@
 // Anonymous play counts (2026-11-13) - api/_lib/playStats.js keeps only
 // totals per day: players and visits, the hour (UTC), phone/tablet/computer,
-// language, the mode/map/skin/weapon of each game, and where the game was
+// language, new vs coming back (days away), the mode/map/skin/weapon of
+// each game, and where the game was
 // closed. Nothing that names the player (no Player ID, nickname or
 // account) is sent. Off when Settings' "Share Anonymous Usage Stats" is
 // off, inside another site's frame, and in automated browsers (tests).
@@ -105,6 +106,16 @@ export function quitPlace() {
   return location.pathname === '/' ? 'home' : 'panel'
 }
 
+// New player, or back after how many days away (2026-11-26). Uses only this
+// device's last counted day; a device with none falls back to the login
+// streak's earlier day (covers players from before stats existed).
+export function backKind(last, today) {
+  const before = last || game?.loginStreak?.previousDate || null
+  const gap = before ? Math.round((Date.parse(today) - Date.parse(before)) / 86400000) : NaN
+  if (!Number.isFinite(gap) || gap < 1) return before ? 'd1' : 'new'
+  return gap === 1 ? 'd1' : gap <= 6 ? 'd2-6' : gap <= 29 ? 'd7-29' : 'd30up'
+}
+
 // Once per page: a visit and its hour; once per device per day (UTC): a
 // player, with their device and language.
 export function hello() {
@@ -119,6 +130,7 @@ export function hello() {
     count('sum', 'players')
     count('device', deviceKind())
     count('lang', game?.settings?.language || 'en')
+    count('back', backKind(last, today))
   }
   flushStats()
 }

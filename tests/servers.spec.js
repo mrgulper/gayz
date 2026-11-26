@@ -2106,12 +2106,12 @@ test('play stats: only known counts are kept, the owner report adds days', async
   await expect(recordStats(db, { who: 'x', hits: [['sum', 'visits']] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
-  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
   await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
   await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
   const g = db.root.stats['2026-11-13'].g
   // "visits" counts once per message; guns can add up within one.
-  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 } })
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 } })
   expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
   const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
   expect(rep.days.length).toBe(7)
@@ -2150,7 +2150,14 @@ test('play stats: the page counts a visit once a day and respects the setting', 
     g.__statsFlush()
     const off = window.__statsSent.splice(0)
     g.settings.shareTelemetry = true
-    return { first, second, gun, off, runs, place: g.__statsQuitPlace(), day: localStorage.getItem('gayz-stats-day') }
+    // Coming back: this device's last counted day decides the bucket.
+    const ago = (n) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10)
+    const backs = [1, 3, 10, 45].map((n) => {
+      localStorage.setItem('gayz-stats-day', ago(n))
+      g.__statsHello()
+      return window.__statsSent.splice(0)[0].hits.find((h) => h[0] === 'back')?.[1]
+    })
+    return { first, second, gun, off, runs, backs, place: g.__statsQuitPlace(), day: localStorage.getItem('gayz-stats-day') }
   })
   expect(r.first.length).toBe(1)
   expect(r.first[0].action).toBe('stats')
@@ -2160,6 +2167,8 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   expect(keys).toContain('sum:players')
   expect(keys).toContain('device:computer')
   expect(keys).toContain('lang:en')
+  expect(keys).toContain('back:new')
+  expect(r.backs).toEqual(['d1', 'd2-6', 'd7-29', 'd30up'])
   expect(keys.some((k) => /^hour:\d+$/.test(k))).toBe(true)
   // Same day again: a visit, not another player.
   const keys2 = r.second[0].hits.map((h) => h.join(':'))
