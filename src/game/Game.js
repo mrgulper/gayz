@@ -161,6 +161,7 @@ import { INVENTORY_SKINS, SKIN_RARITIES, skinFrontIconURL } from './InventorySki
 export { INVENTORY_SKINS, SKIN_RARITIES, skinFrontIconURL }
 import { shrinkTextures, restoreTextures } from './LiteTextures.js'
 import { applyConsoleChanges } from './ConsoleChanges.js'
+import { PROFANITY_WORDS, PROFANITY_LEET_MAP } from './RudeWords.js'
 
 
 // Starting stat tradeoffs, picked once on the main menu and applied a
@@ -1851,15 +1852,8 @@ export function _safeStatNumber(v) {
 // slur entries exist ONLY to be swapped for a harmless word below, same
 // as everything else here - this list censors, it doesn't platform
 // anything.
-const PROFANITY_WORDS = [
-  'bitch', 'bitches',
-  'fuck', 'fucks', 'fucking', 'fucked', 'fucker', 'fuckers', 'fuckup', 'motherfucker',
-  'shit', 'shits', 'shitty', 'bullshit',
-  'cunt', 'cunts', 'dick', 'dicks', 'dickhead',
-  'cock', 'cocks', 'pussy', 'pussies', 'whore', 'whores', 'slut', 'sluts',
-  'twat', 'twats', 'prick', 'pricks', 'wanker', 'wankers',
-  'nigga', 'niggas', 'nigger', 'niggers',
-]
+// The word list itself lives in RudeWords.js (shared with the server's
+// auto-mod, 2026-11-26).
 
 // Word -> the clean word it auto-corrects to when a chat message is sent
 // (2026-09-26: Gaymi wanted every word swapped for something readable,
@@ -1888,14 +1882,6 @@ const PROFANITY_REPLACEMENTS = {
   nigga: 'ninja', niggas: 'ninjas', nigger: 'ninja', niggers: 'ninjas',
 }
 
-// Letter -> the character class matching every common stand-in for it,
-// so "sh1t"/"$hit"/"sh*t" all still hit the same pattern as "shit". '*'
-// is included on vowels specifically since that's the common
-// self-censoring style ("f*ck", "sh*t"), not just a leetspeak swap.
-const PROFANITY_LEET_MAP = {
-  a: 'a4@*', e: 'e3*', i: 'i1!*', o: 'o0*', u: 'u*',
-  s: 's5$', t: 't7', b: 'b8', g: 'g9', l: 'l1',
-}
 
 // Precompiled once at module load, not per keystroke/send - PROFANITY_WORDS
 // is plain a-z only, so no regex-special characters need escaping here.

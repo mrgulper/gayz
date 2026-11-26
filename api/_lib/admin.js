@@ -83,6 +83,7 @@
 import { randomBytes } from 'node:crypto'
 import { ServerError } from './servers.js'
 import { DAILY_TEMPLATES, challengeFor } from '../../src/game/DailyChallenge.js'
+import { loadRudeChecker, flagReport, flagContent, setAutoModWords } from './autoMod.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/LiveLists.js'
 import { statsReport } from './playStats.js'
@@ -114,7 +115,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -483,13 +484,14 @@ async function serverPlayers(db, now) {
 export async function contentReports(db, fs, hidden) {
   if (!fs) return { list: [], error: null }
   try {
-    const [rows, seen] = await Promise.all([fs.reports(), db.get('reportsSeen')])
+    const [rows, seen, isRude] = await Promise.all([fs.reports(), db.get('reportsSeen'), loadRudeChecker(db)])
     return {
       error: null,
       list: rows
         // A TV clip's own `hidden` flag (tvAdmin.js); maps/builds: liveConfig.hidden.
         .map((r) => ({ ...r, key: `${r.kind}_${r.id}`, hidden: r.kind === 'tv' ? !!r.hidden : !!hidden?.[r.kind === 'map' ? 'maps' : 'builds']?.[r.id] }))
         .filter((r) => r.count > (Number(seen?.[r.key]) || 0) || r.hidden)
+        .map(flagContent(isRude))
         .sort((a, b) => b.latest - a.latest),
     }
   } catch (err) {
@@ -498,7 +500,7 @@ export async function contentReports(db, fs, hidden) {
 }
 
 export async function adminState(db, fs, now = Date.now()) {
-  const [cfg, bans, reports, players, log, ipBans] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog'), db.get('ipBans')])
+  const [cfg, bans, reports, players, log, ipBans, isRude] = await Promise.all([db.get('liveConfig'), db.get('bans'), db.get('playerReports'), serverPlayers(db, now), db.get('adminLog'), db.get('ipBans'), loadRudeChecker(db)])
   const [content, tvBans] = await Promise.all([contentReports(db, fs, cfg?.hidden), tvBanList(fs, now)])
   return {
     tvBans: tvBans.list,
@@ -513,6 +515,7 @@ export async function adminState(db, fs, now = Date.now()) {
     ipBanMaxMinutes: IP_BAN_MAX_MINUTES,
     playerReports: Object.entries(reports || {})
       .map(([id, r]) => ({ id, ...r }))
+      .map(flagReport(isRude))
       .sort((a, b) => (b.at || 0) - (a.at || 0)),
     contentReports: content.list,
     contentReportsError: content.error,
@@ -782,7 +785,7 @@ async function knownPlayers(db, now) {
 // Everything about one Player ID, for the Console's player card.
 export async function playerCard(db, fs, pid, now = Date.now()) {
   if (!validPid(pid)) throw new ServerError(400, 'bad-request')
-  const [{ known, reports, players }, ban, mute, warnings, note, accounts, ips, ipBans, change] = await Promise.all([
+  const [{ known, reports, players }, ban, mute, warnings, note, accounts, ips, ipBans, change, isRude] = await Promise.all([
     knownPlayers(db, now),
     db.get(`bans/${pid}`),
     db.get(`mutes/${pid}`),
@@ -792,10 +795,11 @@ export async function playerCard(db, fs, pid, now = Date.now()) {
     db.get(`pidIps/${pid}`),
     db.get('ipBans'),
     db.get(`idChanges/${pid}`),
+    loadRudeChecker(db),
   ])
   const nicks = new Set(known.get(pid) || [])
   for (const a of accounts.list) if (cleanText(a.nickname, 24)) nicks.add(cleanText(a.nickname, 24))
-  const reportList = Object.entries(reports).map(([id, r]) => ({ id, ...r })).sort((a, b) => (b.at || 0) - (a.at || 0))
+  const reportList = Object.entries(reports).map(([id, r]) => ({ id, ...r })).map(flagReport(isRude)).sort((a, b) => (b.at || 0) - (a.at || 0))
   const liveBan = activeBan(ban, now)
   const liveMute = activeMute(mute, now)
   return {
@@ -1453,6 +1457,8 @@ const LOG_TEXT = {
   dailySet: (b) => `Daily Challenge for ${b.day} set: ${b.type} x${Math.floor(Number(b.target) || 0)}`,
   dailyRemove: (b) => `Daily Challenge for ${b.day} back to automatic`,
   feedbackDelete: () => 'Deleted a feedback message',
+  // The words themselves stay out of the history (they're rude).
+  autoModWords: (b) => `Auto-mod words saved (${Array.isArray(b.words) ? b.words.length : 0} of your own)`,
   feedbackReply: (b) => `Replied to feedback: ${REPLY_TEMPLATES.includes(b.tpl) ? `[${b.tpl}] ` : ''}"${cleanText(b.text, 80)}"`,
   bugStage: (b) => `Bug moved to ${{ new: 'New', working: 'Working on it', fixed: 'Fixed' }[b.stage] || '?'}`,
   errorsClear: (b) => (b.key ? 'Cleared one error from the inbox' : 'Cleared every error from the inbox'),
@@ -1514,6 +1520,7 @@ const ACTION_FNS = {
   inbox: (db) => inboxState(db),
   feedbackDone: (db, body) => setFeedbackDone(db, body),
   feedbackDelete: (db, body) => deleteFeedback(db, body),
+  autoModWords: (db, body) => setAutoModWords(db, body),
   feedbackReply: (db, body) => replyFeedback(db, body),
   bugStage: (db, body) => setBugStage(db, body),
   errorsClear: (db, body) => clearErrors(db, body),

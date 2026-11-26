@@ -31,6 +31,7 @@
 // in code). Without it nothing is sent and everything else still works.
 import crypto from 'node:crypto'
 import { ServerError } from './servers.js'
+import { loadRudeChecker, autoModWords, AUTOMOD_WORDS_MAX, AUTOMOD_WORD_MAX } from './autoMod.js'
 
 export const FEEDBACK_KINDS = ['idea', 'bug', 'other']
 export const FEEDBACK_MAX = 10000
@@ -131,12 +132,20 @@ async function alertOnce(db, what, gapMs, text, now) {
   return sendAlert(db, text, now)
 }
 
-const who = (name, pid) => `${oneLine(name, 24) || '?'} #${pid}`
+// `rude` (auto-mod): the name had a rude word, so it's left out.
+const who = (name, pid, rude = false) => `${rude ? '(name hidden)' : oneLine(name, 24) || '?'} #${pid}`
+
+// Auto-mod: what an alert says instead of rude words. Pictures still go,
+// but as Discord spoilers (blurred until clicked).
+const HIDDEN_LINE = '> 🙈 Hidden by auto-mod (rude words). Open your owner tools to read it.'
+const spoilers = (files) => files.map((f) => ({ ...f, name: `SPOILER_${f.name}` }))
 
 // A player report (admin.js reportPlayer calls this after saving it).
-export function reportAlert(db, r, now = Date.now(), files = []) {
+export async function reportAlert(db, r, now = Date.now(), files = []) {
   const text = oneLine(r.text, 600)
-  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target)} reported by ${who(r.byName, r.by)}${text ? `\n> ${text}` : ''}`, now, files)
+  const isRude = await loadRudeChecker(db)
+  const rude = isRude(text)
+  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target, isRude(r.targetName))} reported by ${who(r.byName, r.by, isRude(r.byName))}${rude ? `\n${HIDDEN_LINE}` : text ? `\n> ${text}` : ''}`, now, rude ? spoilers(files) : files)
 }
 
 // A long message's full words ride along as a text file (Discord shows
@@ -190,8 +199,10 @@ export async function sendFeedback(db, body = {}, now = Date.now()) {
     await db.update(drop)
   }
   const label = { idea: '💡 Idea', bug: '🐞 Bug', other: '💬 Feedback' }[kind]
-  const files = [...cleanImages(body.images), ...fullTextFile(text, 600)]
-  await sendAlert(db, `${label} from ${who(nick, pid)}\n> ${oneLine(text, 600)}`, now, files)
+  const isRude = await loadRudeChecker(db)
+  const rude = isRude(text)
+  const files = rude ? spoilers(cleanImages(body.images)) : [...cleanImages(body.images), ...fullTextFile(text, 600)]
+  await sendAlert(db, `${label} from ${who(nick, pid, isRude(nick))}\n${rude ? HIDDEN_LINE : `> ${oneLine(text, 600)}`}`, now, files)
   return { ok: true }
 }
 
@@ -303,7 +314,7 @@ export async function recordError(db, body = {}, now = Date.now()) {
 // --- The owner's Inbox ---
 
 export async function inboxState(db, now = Date.now()) {
-  const [feedback, errors, polls, cur] = await Promise.all([db.get('feedback'), db.get('errors'), db.get('polls'), db.get('liveConfig/poll')])
+  const [feedback, errors, polls, cur, isRude, words] = await Promise.all([db.get('feedback'), db.get('errors'), db.get('polls'), db.get('liveConfig/poll'), loadRudeChecker(db), autoModWords(db)])
   const live = livePoll(cur, now)
   const pollList = Object.entries(polls || {})
     .map(([id, p]) => ({ id, q: oneLine(p?.q, POLL_Q_MAX), options: Array.isArray(p?.options) ? p.options.map((o) => oneLine(o, POLL_OPTION_MAX)) : [], at: Number(p?.at) || 0, until: Number(p?.until) || 0 }))
@@ -313,8 +324,10 @@ export async function inboxState(db, now = Date.now()) {
   const votes = await Promise.all(pollList.map((p) => db.get(`pollVotes/${p.id}`)))
   return {
     alertsSetUp: alertsSetUp(),
+    autoMod: { words, max: AUTOMOD_WORDS_MAX, wordMax: AUTOMOD_WORD_MAX },
     feedback: Object.entries(feedback || {})
       .map(([id, f]) => ({ id, kind: FEEDBACK_KINDS.includes(f?.kind) ? f.kind : 'other', text: cleanText(f?.text, FEEDBACK_MAX), pid: validPid(f?.pid) ? f.pid : '', nick: oneLine(f?.nick, 24), info: cleanInfo(f?.info), at: Number(f?.at) || 0, done: f?.done === true, reply: cleanReply(f?.reply), stage: f?.kind === 'bug' ? (BUG_STAGES.includes(f?.stage) ? f.stage : 'new') : null }))
+      .map((f) => (isRude(f.text, f.nick) ? { ...f, rude: true } : f))
       .sort((a, b) => b.at - a.at),
     errors: Object.entries(errors || {})
       .map(([key, e]) => ({ key, msg: oneLine(e?.msg, 300), where: oneLine(e?.where, 120), build: oneLine(e?.build, 40), count: Number(e?.count) || 0, phone: Number(e?.phone) || 0, computer: Number(e?.computer) || 0, first: Number(e?.first) || 0, last: Number(e?.last) || 0 }))
@@ -411,21 +424,26 @@ function laDay(now) {
   return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) }
 }
 
-export function summaryText(feedback, reports, errors, now) {
+// `isRude` (auto-mod) adds how many of them were hidden.
+export function summaryText(feedback, reports, errors, now, isRude = () => false) {
   const since = now - 24 * HOUR
   const fb = Object.values(feedback || {}).filter((f) => f && Number(f.at) >= since)
   const n = (k) => fb.filter((f) => (FEEDBACK_KINDS.includes(f.kind) ? f.kind : 'other') === k).length
   const open = Object.values(feedback || {}).filter((f) => f && !f.done).length
   const bugsOpen = Object.values(feedback || {}).filter((f) => f?.kind === 'bug' && f.stage !== 'fixed').length
-  const rep = Object.values(reports || {}).filter((r) => r && Number(r.at) >= since).length
+  const reps = Object.values(reports || {}).filter((r) => r && Number(r.at) >= since)
+  const rep = reps.length
+  const fbHidden = fb.filter((f) => isRude(f.text, f.nick)).length
+  const repHidden = reps.filter((r) => isRude(r.text, r.targetName, r.byName)).length
+  const hidden = (n) => (n ? ` · 🙈 ${n} hidden by auto-mod` : '')
   const errs = Object.values(errors || {})
   const newErr = errs.filter((e) => e && Number(e.first) >= since).length
   const errHits = errs.filter((e) => e && Number(e.last) >= since).length
   return [
     '📋 **Daily summary** (last 24 hours)',
-    `💬 Feedback: ${fb.length} (💡 ${n('idea')} ideas, 🐞 ${n('bug')} bugs, ${n('other')} other) - ${open} waiting in New`,
+    `💬 Feedback: ${fb.length} (💡 ${n('idea')} ideas, 🐞 ${n('bug')} bugs, ${n('other')} other) - ${open} waiting in New${hidden(fbHidden)}`,
     `🛠️ Bugs not fixed yet: ${bugsOpen}`,
-    `🚩 Player reports: ${rep}`,
+    `🚩 Player reports: ${rep}${hidden(repHidden)}`,
     `⚠️ Errors: ${newErr} new kind${newErr === 1 ? '' : 's'}, ${errHits} seen`,
   ].join('\n')
 }
@@ -436,8 +454,8 @@ export async function dailySummary(db, now = Date.now()) {
   if (hour < SUMMARY_HOUR) return { ok: true, sent: false }
   const r = await db.transaction('alertLimits/dailySummary', (cur) => (cur === day ? undefined : day))
   if (!r.committed) return { ok: true, sent: false }
-  const [feedback, reports, errors] = await Promise.all([db.get('feedback'), db.get('playerReports'), db.get('errors')])
-  const sent = await sendAlert(db, summaryText(feedback, reports, errors, now), now)
+  const [feedback, reports, errors, isRude] = await Promise.all([db.get('feedback'), db.get('playerReports'), db.get('errors'), loadRudeChecker(db)])
+  const sent = await sendAlert(db, summaryText(feedback, reports, errors, now, isRude), now)
   return { ok: true, sent }
 }
 
