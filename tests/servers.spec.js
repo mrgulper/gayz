@@ -2711,3 +2711,65 @@ test('servers: hats with capitals, kill effects and zombie bursts go through', a
   expect(rb.zombies.z1.fx).toBe('confettiKill')
   expect(rb.zombies.z2.fx).toBeUndefined()
 })
+
+// Replies to feedback, the bug tracker and the daily summary (2026-11-26).
+test('inbox: replies, bug stages and the daily summary', async () => {
+  const { sendFeedback, inboxState, replyFeedback, setBugStage, seenReply, dailySummary, summaryText } = await import('../api/_lib/inbox.js')
+  const db = fakeServerDb()
+  const t0 = Date.UTC(2026, 10, 26, 20, 0) // 12:00 in Los Angeles
+  await sendFeedback(db, { pid: 'ME0001', nick: 'Ann', kind: 'idea', text: 'More pets please' }, t0)
+  await sendFeedback(db, { pid: 'ME0002', nick: 'Bo', kind: 'bug', text: 'Fell through the floor' }, t0 + 1)
+  let { feedback } = await inboxState(db)
+  const idea = feedback.find((f) => f.kind === 'idea')
+  const bug = feedback.find((f) => f.kind === 'bug')
+  expect(bug.stage).toBe('new')
+  expect(idea.stage).toBe(null)
+  // Empty or bad replies are refused.
+  await expect(replyFeedback(db, { id: idea.id }, t0)).rejects.toMatchObject({ status: 400 })
+  await expect(replyFeedback(db, { id: idea.id, tpl: 'nope' }, t0)).rejects.toMatchObject({ status: 400 })
+  await expect(replyFeedback(db, { id: 'missing', text: 'hi' }, t0)).rejects.toMatchObject({ status: 404 })
+  // A reply: the player sees it once, the message moves to Done.
+  await replyFeedback(db, { id: idea.id, tpl: 'added', text: 'Coming <soon>' }, t0 + 10)
+  let cfg = await publicConfig(db, { pid: 'ME0001' })
+  expect(cfg.replies).toEqual([expect.objectContaining({ tpl: 'added', text: 'Coming soon', orig: 'More pets please' })])
+  expect((await publicConfig(db, { pid: 'ME0002' })).replies).toEqual([])
+  await seenReply(db, { pid: 'ME0001', id: cfg.replies[0].id })
+  expect((await publicConfig(db, { pid: 'ME0001' })).replies).toEqual([])
+  ;({ feedback } = await inboxState(db))
+  expect(feedback.find((f) => f.id === idea.id)).toMatchObject({ done: true, reply: { tpl: 'added', text: 'Coming soon' } })
+  // Bug tracker: Working keeps it open, Fixed tells the player once.
+  await expect(setBugStage(db, { id: idea.id, stage: 'fixed' })).rejects.toMatchObject({ status: 400 })
+  await setBugStage(db, { id: bug.id, stage: 'working' }, t0 + 20)
+  ;({ feedback } = await inboxState(db))
+  expect(feedback.find((f) => f.id === bug.id)).toMatchObject({ stage: 'working', done: false })
+  expect((await setBugStage(db, { id: bug.id, stage: 'fixed' }, t0 + 30)).told).toBe(true)
+  expect((await setBugStage(db, { id: bug.id, stage: 'fixed' }, t0 + 40)).told).toBe(false)
+  cfg = await publicConfig(db, { pid: 'ME0002' })
+  expect(cfg.replies).toEqual([expect.objectContaining({ tpl: 'fixed' })])
+  ;({ feedback } = await inboxState(db))
+  expect(feedback.find((f) => f.id === bug.id)).toMatchObject({ stage: 'fixed', done: true })
+  // Every admin action is wired and writes a history line.
+  await ADMIN_ACTIONS.feedbackReply(db, { id: bug.id, text: 'Thanks again' })
+  await ADMIN_ACTIONS.bugStage(db, { id: bug.id, stage: 'new' })
+  // Daily summary: counts only, once a day after 9am Los Angeles time.
+  const text = summaryText(await db.get('feedback'), {}, {}, t0 + 100)
+  expect(text).toContain('Feedback: 2 (💡 1 ideas, 🐞 1 bugs, 0 other)')
+  expect(text).toContain('Bugs not fixed yet: 1')
+  const hook = process.env.DISCORD_ALERT_WEBHOOK
+  const realFetch = globalThis.fetch
+  const sent = []
+  process.env.DISCORD_ALERT_WEBHOOK = 'https://discord.com/api/webhooks/1/x'
+  globalThis.fetch = async (url, init) => { sent.push(init.body); return { ok: true } }
+  try {
+    expect((await dailySummary(db, Date.UTC(2026, 10, 27, 15, 0))).sent).toBe(false) // 7am LA
+    expect((await dailySummary(db, Date.UTC(2026, 10, 27, 18, 0))).sent).toBe(true) // 10am LA
+    expect((await dailySummary(db, Date.UTC(2026, 10, 27, 23, 0))).sent).toBe(false) // same day
+    expect((await dailySummary(db, Date.UTC(2026, 10, 28, 18, 0))).sent).toBe(true) // next day
+    expect(sent.length).toBe(2)
+    expect(sent[0]).toContain('Daily summary')
+  } finally {
+    globalThis.fetch = realFetch
+    if (hook === undefined) delete process.env.DISCORD_ALERT_WEBHOOK
+    else process.env.DISCORD_ALERT_WEBHOOK = hook
+  }
+})
