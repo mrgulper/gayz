@@ -708,12 +708,8 @@
               </button>
               <button id="store-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/><path d="M2 3h2l2.4 12.4a2 2 0 0 0 2 1.6h8.6a2 2 0 0 0 2-1.6L21 7H6"/></svg>
-                <span>Store</span>
+                <span>Commerce</span>
                 <span class="nav-badge-dot" id="store-new-dot" style="display: none"></span>
-              </button>
-              <button id="market-btn" data-unlock="5">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none"/></svg>
-                <span>Market</span>
               </button>
               <button id="upgrades-btn" data-unlock="1">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6,11 12,5 18,11"/></svg>
@@ -740,14 +736,14 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 8H4a1 1 0 0 0-1 1v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a1 1 0 0 0-1-1z"/><path d="M16 8V6a4 4 0 0 0-8 0v2"/></svg>
                 <span>Inventory</span>
               </button>
+              <button id="pets-btn" data-unlock="3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16.5" rx="4.5" ry="3.8"/><circle cx="5.5" cy="10.5" r="1.9"/><circle cx="9.5" cy="6" r="1.9"/><circle cx="14.5" cy="6" r="1.9"/><circle cx="18.5" cy="10.5" r="1.9"/></svg>
+                <span id="pets-btn-label">Pets</span>
+              </button>
               <button id="achievements-btn">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 3 2 5 4.5 5.3M17 5h3a1 1 0 0 1 1 1c0 3-2 5-4.5 5.3"/></svg>
                 <span>Achievements</span>
                 <span class="nav-badge-dot gold" id="achievements-new-dot" style="display: none"></span>
-              </button>
-              <button id="pets-btn" data-unlock="3">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="16.5" rx="4.5" ry="3.8"/><circle cx="5.5" cy="10.5" r="1.9"/><circle cx="9.5" cy="6" r="1.9"/><circle cx="14.5" cy="6" r="1.9"/><circle cx="18.5" cy="10.5" r="1.9"/></svg>
-                <span id="pets-btn-label">Pets</span>
               </button>
               <button id="build-mode-btn" data-unlock="5">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -3148,7 +3144,11 @@
       <div id="market-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
-          <h2 id="market-panel-title">Market</h2>
+          <h2 id="market-panel-title">Commerce</h2>
+          <div class="commerce-tabs">
+            <button type="button" class="commerce-tab" data-commerce="shop" id="commerce-tab-shop">Shop</button>
+            <button type="button" class="commerce-tab active" data-commerce="market" id="commerce-market-tab-market">Market</button>
+          </div>
           <div class="panel-fixed-content">
             <!-- Search + filters: an Items dropdown with a
                  checkbox per item (Character and every weapon) and a
@@ -3237,7 +3237,20 @@
       <div id="shop-panel">
         <div class="panel-box">
           <button type="button" class="panel-close-btn" aria-label="Close">&times;</button>
-          <h2 id="shop-panel-title">Shop</h2>
+          <h2 id="shop-panel-title">Commerce</h2>
+          <!-- Commerce (2026-11-25): Shop and Market are one nav button;
+               these tabs switch between the two panels (CommerceTabs.js).
+               The Shop's sections are grouped into 4 tabs below. -->
+          <div class="commerce-tabs">
+            <button type="button" class="commerce-tab active" data-commerce="shop" id="commerce-shop-tab-shop">Shop</button>
+            <button type="button" class="commerce-tab" data-commerce="market" data-unlock="5" id="commerce-tab-market">Market</button>
+          </div>
+          <div class="commerce-tabs commerce-subtabs" id="shop-group-tabs">
+            <button type="button" class="commerce-tab shop-group-tab active" data-shop-group="deals" id="shop-group-deals">Deals &amp; Crates</button>
+            <button type="button" class="commerce-tab shop-group-tab" data-shop-group="looks" id="shop-group-looks">Looks</button>
+            <button type="button" class="commerce-tab shop-group-tab" data-shop-group="fx" id="shop-group-fx">Effects &amp; Sounds</button>
+            <button type="button" class="commerce-tab shop-group-tab" data-shop-group="profile" id="shop-group-profile">Pets &amp; Profile</button>
+          </div>
           <div class="panel-fixed-content">
             <div class="general-section-empty">
               <!-- Daily Deals (2026-11-25, ShopDeals.js): 3 things on sale, new at midnight. -->

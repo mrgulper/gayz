@@ -1276,6 +1276,15 @@ export const HOWTOPLAY_STEPS = [
 // connected when built). Rather than hundreds of individual .textContent = t(...)
 // lines, these three maps drive one bulk-apply pass in _applyLanguage().
 const SIMPLE_TEXT_I18N_KEYS = {
+  // Commerce tabs (CommerceTabs.js, 2026-11-25).
+  'commerce-shop-tab-shop': 'shopPanelTitle',
+  'commerce-tab-shop': 'shopPanelTitle',
+  'commerce-tab-market': 'skinModeMarket',
+  'commerce-market-tab-market': 'skinModeMarket',
+  'shop-group-deals': 'shopGroupDeals',
+  'shop-group-looks': 'shopGroupLooks',
+  'shop-group-fx': 'shopGroupFx',
+  'shop-group-profile': 'shopGroupProfile',
   'skip-to-play-link': 'skipToPlayLink',
   'build-menu-hint': 'buildMenuHint',
   'build-menu-title-main': 'buildMenuTitle',

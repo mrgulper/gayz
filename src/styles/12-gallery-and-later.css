@@ -1947,3 +1947,42 @@ html.ui-theme-clean .postcard {
 }
 .inv-skin-card.gallery-gunskin-card { cursor: default; }
 #gallery-gunskins-shop { display: block; margin: 14px auto 6px; }
+
+/* ---- Commerce (2026-11-25, CommerceTabs.js) ----
+   Shop and Market share one nav button; a Shop / Market tab row sits on
+   both panels, and the Shop has a second row for its 4 groups. Same pill
+   look as the other panels' tabs (brand.css / theme-clean.css list
+   .commerce-tab with them). The scroll area loses the rows' height so the
+   panel stays the same size as every other panel. */
+.commerce-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.commerce-tabs.commerce-subtabs { margin-top: -6px; gap: 6px; }
+.commerce-tab {
+  padding: 7px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  cursor: pointer;
+}
+.commerce-tab.active {
+  color: #0c130c;
+  background: var(--ui-gold-bright);
+  border-color: var(--ui-gold-bright);
+}
+.commerce-subtabs .commerce-tab { padding: 5px 13px; font-size: 12px; }
+#shop-panel .shop-group-off { display: none !important; }
+#market-panel .panel-fixed-content { height: calc(var(--panel-h) - var(--commerce-tabs-h, 45.5px)); }
+#shop-panel .panel-fixed-content { height: calc(var(--panel-h) - var(--commerce-tabs-h, 82px)); }
+#market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - var(--commerce-tabs-h, 45.5px) - 64px); }
+@media (max-width: 600px) {
+  #market-panel:has(#market-signed-out:not([hidden])) .panel-fixed-content { height: calc(var(--panel-h) - var(--commerce-tabs-h, 45.5px) - 88px); }
+}

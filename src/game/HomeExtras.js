@@ -740,6 +740,21 @@ export function bindHomeExtras(game) {
   }
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeTodayPanel() })
   window.addEventListener('resize', () => fitHomeExtras())
+  // Re-fit whenever the homepage comes back (leaving a game: it was hidden,
+  // so the last fit found nothing to measure and the World Goal card sat on
+  // the character - 2026-11-25) or a card changes height (the goal loads).
+  if (window.ResizeObserver) {
+    let queued = false
+    const ro = new ResizeObserver(() => {
+      if (queued) return
+      queued = true
+      requestAnimationFrame(() => { queued = false; fitHomeExtras() })
+    })
+    for (const id of ['menu', 'menu-col-left', 'home-extras-left']) {
+      const el = document.getElementById(id)
+      if (el) ro.observe(el)
+    }
+  }
   bindAvatarEmote(game)
   bindZombiePeek(game)
   celebrateBirthday(game)
