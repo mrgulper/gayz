@@ -1,7 +1,7 @@
 /* The pause screen while playing a game from the homepage (PlayPauseMenu.js)
    - Escape opens it; the Map Editor's own pause screen (#build-menu in
-   style.css) is only for making maps. Golden theme: a dark panel with gold
-   corners and lettering. Old theme: the torn paper with dark ink and Rye. */
+   style.css) is only for making maps. Base look (under every theme's own
+   colours): a dark panel with gold corners. Old theme: the torn paper with dark ink and Rye. */
 #play-pause-menu {
   --pp-gold: #e8c25a;
   --pp-gold-rgb: 232, 194, 90;

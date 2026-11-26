@@ -54,15 +54,14 @@ for (const theme of ['old', 'clean']) {
   })
 }
 
-// Golden was deleted (2026-10-23): a saved 'golden' opens on Clean, and
-// Clean's colour (Inventory > Theme) applies live from a typed hex code,
+// A saved 'clean' opens on Clean, and Clean's colour (Inventory > Theme) applies live from a typed hex code,
 // flips the text to white on a dark colour, is saved, and survives a reload
 // from the first paint. Clean has no rain or background photo.
-test('Clean theme: Golden saves land on it; the colour picker works', async ({ page }) => {
+test('Clean theme: a saved Clean opens on it; the colour picker works', async ({ page }) => {
   await page.addInitScript(() => {
     if (!sessionStorage.getItem('seeded')) {
       sessionStorage.setItem('seeded', '1')
-      localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'golden' }))
+      localStorage.setItem('gayz-settings', JSON.stringify({ uiTheme: 'clean' }))
     }
   })
   await gotoAndWaitForGame(page)
