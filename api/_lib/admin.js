@@ -87,6 +87,7 @@ import { loadRudeChecker, flagReport, flagContent, setAutoModWords } from './aut
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/LiveLists.js'
 import { statsReport } from './playStats.js'
+import { leaderboardState, hideFromBoards, unhideFromBoards, dismissCheat, runCheatScan, chatState, deleteChatMessage } from './leaderboardAdmin.js'
 import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
 import { languageReport } from './langCheck.js'
@@ -379,6 +380,8 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
     hidden: {
       maps: Object.keys(cfg?.hidden?.maps || {}),
       builds: Object.keys(cfg?.hidden?.builds || {}),
+      // Accounts (uids) left out of every leaderboard (leaderboardAdmin.js).
+      players: Object.keys(cfg?.hidden?.players || {}),
     },
     ban: myBan,
     mute: activeMute(mute, now),
@@ -1482,6 +1485,10 @@ const LOG_TEXT = {
   ipBan: (b) => `IP-banned ${cleanText(b.nick, 24) || '?'} #${cleanText(b.pid, 40)} ${Number(b.minutes) ? `for ${minutesText(Number(b.minutes))}` : 'forever'}`,
   ipUnban: (b) => `Lifted the IP ban on #${cleanText(b.pid, 40)}`,
   changeId: (b) => `Changed Player ID #${cleanText(b.pid, 40)} to #${String(b.newId || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10)}`,
+  lbHide: (b) => `Hid ${cleanText(b.name, 24) || (validPid(b.pid) ? '' : '?')}${validPid(b.pid) ? ` #${b.pid}` : ''} from the leaderboards${cleanText(b.why, 60) ? ` ("${cleanText(b.why, 60)}")` : ''}`,
+  lbUnhide: (b) => `Put ${cleanText(b.name, 24) || '?'}${validPid(b.pid) ? ` #${b.pid}` : ''} back on the leaderboards`,
+  cheatDismiss: (b) => `Dismissed a cheat alarm${cleanText(b.name, 24) ? ` on ${cleanText(b.name, 24)}` : ''}`,
+  chatDelete: (b) => `Deleted a chat message${cleanText(b.nick, 24) ? ` by ${cleanText(b.nick, 24)}` : ''}: "${cleanText(b.text, 60)}"`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1553,6 +1560,14 @@ const ACTION_FNS = {
   hofRemove: (db, body) => removeHof(db, body),
   hofMove: (db, body) => moveHof(db, body),
   hofSkin: (db, body, fs) => hofSkin(db, fs, body),
+  // Leaderboard cleanup, cheat alarm, chat viewer (leaderboardAdmin.js).
+  leaderboard: (db, body, fs) => leaderboardState(db, fs),
+  lbHide: (db, body, fs) => hideFromBoards(db, fs, body),
+  lbUnhide: (db, body) => unhideFromBoards(db, body),
+  cheatDismiss: (db, body) => dismissCheat(db, body),
+  cheatScanNow: (db, body, fs) => runCheatScan(db, fs),
+  chat: (db, body, fs) => chatState(db, fs),
+  chatDelete: (db, body, fs) => deleteChatMessage(db, fs, body),
   // A helper's own buttons: each checks the helper's password itself
   // (helpers.js), so they only ever work for a real helper.
   helperLogin: (db, body) => helperLogin(db, body),
