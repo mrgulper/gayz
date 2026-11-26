@@ -2350,6 +2350,10 @@ html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color
 #shop-namestyles,
 #shop-chatbubbles,
 #shop-frames,
+#shop-killsounds,
+#shop-hitsounds,
+#shop-jumpsounds,
+#shop-stepsounds,
 #shop-hats,
 #shop-capes,
 #shop-backs,
@@ -2373,7 +2377,7 @@ html.ui-theme-clean .inv-skin-card .shop-bundle-off { background: #e0284f; color
   pointer-events: none;
 }
 @media (max-width: 700px) {
-  #shop-effects, #shop-trails, #shop-jumps, #shop-deaths, #shop-gunskins, #shop-pethats, #shop-petpaints, #shop-ridepaints, #shop-namestyles, #shop-chatbubbles, #shop-frames, #shop-hats, #shop-capes, #shop-backs, #gallery-gunskins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #shop-effects, #shop-trails, #shop-jumps, #shop-deaths, #shop-gunskins, #shop-pethats, #shop-petpaints, #shop-ridepaints, #shop-namestyles, #shop-chatbubbles, #shop-frames, #shop-killsounds, #shop-hitsounds, #shop-jumpsounds, #shop-stepsounds, #shop-hats, #shop-capes, #shop-backs, #gallery-gunskins { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 /* Shop > Daily Deals (2026-11-25, ShopDeals.js): 3 cards like the other

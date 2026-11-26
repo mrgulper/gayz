@@ -1338,6 +1338,13 @@ export class BuildTryMode {
     // walking itself, so the camera seemed to drag.
     const moving = this.onGround && Math.hypot(this.vel.x, this.vel.z) > 0.5
     this._bob += moving ? frameDt * (sprint ? 13 : 9) : 0
+    // A footstep each half bob cycle while playing (SoundPacks.js); not on
+    // a ride or while spectating (BuildSurvival.onStep checks).
+    const stepN = Math.floor(this._bob / Math.PI)
+    if (stepN !== this._stepN) {
+      if (moving && this._stepN !== undefined && this.bm.survival?.active && !this._seatEye) this.bm.survival.onStep?.(p.x, p.y, p.z)
+      this._stepN = stepN
+    }
     const bobbing = this.bm.game?.settings?.viewBobbing ?? true
     this._bobAmt = THREE.MathUtils.damp(this._bobAmt || 0, bobbing && moving ? (sprint ? 1.3 : 1) : 0, 8, frameDt)
     const bob = Math.sin(this._bob) * BOB_UP * this._bobAmt

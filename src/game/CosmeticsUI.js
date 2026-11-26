@@ -58,12 +58,16 @@ export function renderCosmetics(game) {
   set('cosmetics-namestyles-title', t('nameStyleHeading'))
   set('cosmetics-chatbubbles-title', t('chatBubbleHeading'))
   set('cosmetics-frames-title', t('profileFrameHeading'))
+  set('cosmetics-killsounds-title', t('killSoundHeading'))
+  set('cosmetics-hitsounds-title', t('hitSoundHeading'))
+  set('cosmetics-jumpsounds-title', t('jumpSoundHeading'))
+  set('cosmetics-stepsounds-title', t('stepSoundHeading'))
   set('cosmetics-how', t('cosmeticHow'))
   byId('cosmetics-hats').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'hat').map((id) => card(game, id)).join('')
   byId('cosmetics-capes').innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'cape').map((id) => card(game, id)).join('')
   const backs = byId('cosmetics-backs')
   if (backs) backs.innerHTML = COSMETIC_IDS.filter((id) => COSMETICS[id].slot === 'back').map((id) => card(game, id)).join('')
-  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['jump', 'cosmetics-jumps'], ['death', 'cosmetics-deaths'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints'], ['nameStyle', 'cosmetics-namestyles'], ['chatBubble', 'cosmetics-chatbubbles'], ['profileFrame', 'cosmetics-frames']]) {
+  for (const [kind, rowId] of [['kill', 'cosmetics-kills'], ['trail', 'cosmetics-trails'], ['jump', 'cosmetics-jumps'], ['death', 'cosmetics-deaths'], ['gun', 'cosmetics-gunskins'], ['petHat', 'cosmetics-pethats'], ['petPaint', 'cosmetics-petpaints'], ['ridePaint', 'cosmetics-ridepaints'], ['nameStyle', 'cosmetics-namestyles'], ['chatBubble', 'cosmetics-chatbubbles'], ['profileFrame', 'cosmetics-frames'], ['killSound', 'cosmetics-killsounds'], ['hitSound', 'cosmetics-hitsounds'], ['jumpSound', 'cosmetics-jumpsounds'], ['stepSound', 'cosmetics-stepsounds']]) {
     const row = byId(rowId)
     if (row) row.innerHTML = EFFECT_KINDS[kind].ids.map((id) => effectCard(game, kind, id)).join('')
   }

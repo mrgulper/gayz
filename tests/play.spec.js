@@ -1972,6 +1972,60 @@ test('Jump and death effects: a burst when I jump, a ghost when I die', async ({
   expect(r.after).toBe(0)
 })
 
+// Sound packs (SoundPacks.js, 2026-11-25): jumps, steps, hits and kills
+// play the normal sound, or my bought pack; Settings > Audio switches
+// turn each kind off.
+test('Sound packs: normal sounds by default, my pack when bought, off by switch', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    g.shopCosmetics = {}
+    for (const k of ['killSound', 'hitSound', 'jumpSound', 'stepSound']) g.settings[k] = ''
+    for (const k of ['killSounds', 'hitSounds', 'jumpSounds', 'stepSounds']) g.settings[k] = true
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    const A = window.__audioEngine
+    let heard = []
+    const spy = (name) => { const real = A[name].bind(A); A[name] = (...a) => { heard.push(name === '_playSfx' ? a[0] : `${name}:${a[0]}`); return real(...a) } }
+    spy('_playSfx'); spy('playHit'); spy('playFootstep')
+    const listen = (fn) => { heard = []; fn(); return heard.filter((n) => !/^ui_|^hit_|^foot_/.test(n)) }
+    const p = s.bm.tryMode.pos
+    const normal = {
+      jump: listen(() => s.onJump()),
+      step: listen(() => s.onStep(p.x, p.y, p.z)),
+      hit: listen(() => s._hitFeedback({})),
+      kill: listen(() => s._hitFeedback({ kill: true })),
+    }
+    g.shopCosmetics = { hopJump: 1, robotStep: 1, tickHit: 1, popKill: 1 }
+    Object.assign(g.settings, { jumpSound: 'hopJump', stepSound: 'robotStep', hitSound: 'tickHit', killSound: 'popKill' })
+    // A pack's first play while its file still loads falls back to the
+    // normal sound - wait for the files here.
+    for (const n of ['pk_hop', 'pk_robot', 'pk_tick', 'pk_pop']) A._loadSfx(n)
+    for (let i = 0; i < 100 && !['pk_hop', 'pk_robot', 'pk_tick', 'pk_pop'].every((n) => A._sfx[n]?.length); i++) await new Promise((res) => setTimeout(res, 100))
+    const packs = {
+      jump: listen(() => s.onJump()),
+      step: listen(() => s.onStep(p.x, p.y, p.z)),
+      hit: listen(() => s._hitFeedback({})),
+      kill: listen(() => s._hitFeedback({ kill: true })),
+    }
+    for (const k of ['killSounds', 'hitSounds', 'jumpSounds', 'stepSounds']) g.settings[k] = false
+    const off = [listen(() => s.onJump()), listen(() => s.onStep(p.x, p.y, p.z)), listen(() => s._hitFeedback({})), listen(() => s._hitFeedback({ kill: true }))].flat()
+    for (const k of ['killSounds', 'hitSounds', 'jumpSounds', 'stepSounds']) g.settings[k] = true
+    g._exitBuildMode()
+    return { normal, packs, off }
+  })
+  expect(r.normal.jump).toEqual(['jump_soft'])
+  expect(r.normal.step[0]).toMatch(/^playFootstep:/)
+  expect(r.normal.hit).toEqual(['playHit:body'])
+  expect(r.normal.kill).toEqual(['playHit:kill'])
+  expect(r.packs).toEqual({ jump: ['pk_hop'], step: ['pk_robot'], hit: ['pk_tick'], kill: ['pk_pop'] })
+  expect(r.off).toEqual([])
+})
+
 // Gun skins (GunSkins.js, 2026-11-25): one skin paints every gun - the gun
 // in my hands and the one my own body holds in third person - only if I
 // own it, and back to the model's own colours with none.

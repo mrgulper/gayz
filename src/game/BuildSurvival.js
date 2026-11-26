@@ -44,6 +44,7 @@ import { myKillEffect, cleanKillEffect, playKillEffect } from './KillEffects.js'
 import { TrailMaker, myTrail, clearTrails } from './WalkTrails.js'
 import { myJumpEffect, myDeathEffect, playJumpEffect, playDeathEffect, updateDeathProps } from './JumpDeathEffects.js'
 import { myChatBubble } from './NameChatStyles.js'
+import { playMyHitSound, playMyJumpSound, playMyStepSound, stepSurface, preloadMySoundPacks } from './SoundPacks.js'
 import { openSpawnMap, closeSpawnMap, findSpawn } from './SpawnMap.js'
 import { LANDMARKS, LANDMARK_REACH } from './Landmarks.js'
 import { CITIES, TOWN_R, TOWN_SPAWN, townStyleAt, townStyleFor } from './Towns.js'
@@ -449,6 +450,8 @@ export class BuildSurvival {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
     this.active = true
+    // My sound packs (SoundPacks.js) load now, so the first kill uses them.
+    preloadMySoundPacks(this.bm.game)
     this.dead = false
     this.health = this.cfg.maxHealth
     this.maxHealth = this.cfg.maxHealth
@@ -1812,7 +1815,8 @@ export class BuildSurvival {
       void cross.offsetWidth
       cross.classList.add('hit')
     }
-    try { audioEngine.playHit?.(kill ? 'kill' : head ? 'head' : 'body') } catch { /* no audio */ }
+    // Normal hit / kill sound, or my bought pack (SoundPacks.js).
+    playMyHitSound(this.bm.game, kill ? 'kill' : head ? 'head' : 'body')
     if ((kill && (head || boss)) || amount >= BIG_HIT) this._shake(kill ? 4 : 2.5)
   }
 
@@ -3622,6 +3626,14 @@ export class BuildSurvival {
     this.jumps = (this.jumps || 0) + 1
     const feet = this.bm.tryMode.pos
     if (feet) playJumpEffect(this, myJumpEffect(this.bm.game), feet.x, feet.y, feet.z)
+    playMyJumpSound(this.bm.game)
+  }
+
+  // A footstep while I walk (BuildTryMode, twice per view-bob cycle): the
+  // block under me picks the normal sound, or my bought step pack plays.
+  onStep(x, y, z) {
+    if (this.dead || this.spectating) return
+    playMyStepSound(this.bm.game, stepSurface(this.bm.getBlockAt(Math.floor(x), Math.floor(y - 0.1), Math.floor(z))))
   }
 
   _win() {

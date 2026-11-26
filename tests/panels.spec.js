@@ -994,6 +994,38 @@ test('Shop: Name Styles, Chat Bubbles and Profile Frames', async ({ page }) => {
   expect(r).toEqual({ cards: [4, 4, 4], coins: 100, ns: 'glowName', cb: 'pinkBubble', named: true, framed: true, rows: 12, unframed: true })
 })
 
+// 2026-11-25: Shop > Kill / Hit / Jump / Footstep Sounds - 4 packs each;
+// buying one uses it and plays it once; Inventory > Cosmetics lists them;
+// Settings > Audio has an on/off switch per kind, on by default.
+test('Shop: sound packs buy, play and Settings switches', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    window.confirm = () => true
+    const played = []
+    const real = window.__audioEngine._playSfx.bind(window.__audioEngine)
+    window.__audioEngine._playSfx = (name, o) => { played.push(name); return real(name, o) }
+    g.coins = 20100
+    g.shopCosmetics = {}
+    for (const k of ['killSound', 'hitSound', 'jumpSound', 'stepSound']) g.settings[k] = ''
+    g._openShopPanel()
+    await wait(300)
+    const cards = ['#shop-killsounds', '#shop-hitsounds', '#shop-jumpsounds', '#shop-stepsounds'].map((id) => document.querySelectorAll(`${id} [data-shop-effect]`).length)
+    document.querySelector('[data-shop-effect="chipsKill"]').click()
+    await wait(100)
+    document.querySelector('[data-shop-effect="clickStep"]').click()
+    await wait(100)
+    g._openMenuInventoryPanel()
+    document.getElementById('inventory-tab-cosmetics').click()
+    await wait(200)
+    const rows = document.querySelectorAll('#cosmetics-killsounds [data-effect], #cosmetics-hitsounds [data-effect], #cosmetics-jumpsounds [data-effect], #cosmetics-stepsounds [data-effect]').length
+    const switches = ['kill', 'hit', 'jump', 'step'].map((k) => document.getElementById(`ms-${k}-sounds`)?.checked)
+    return { cards, coins: g.coins, kill: g.settings.killSound, step: g.settings.stepSound, played, rows, switches }
+  })
+  expect(r).toEqual({ cards: [4, 4, 4, 4], coins: 100, kill: 'chipsKill', step: 'clickStep', played: ['pk_chips', 'pk_click'], rows: 16, switches: [true, true, true, true] })
+})
+
 // 2026-11-25: Shop > Gun Skins - same cards as Kill Effects (one skin
 // for every gun); Inventory > Cosmetics lists them, and the Gallery's
 // Weapon tab shows every one with its price or Using.

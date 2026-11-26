@@ -15,6 +15,11 @@ export const MORE_SETTINGS = [
   { key: 'uiVolume', type: 'range', def: 50, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
   { key: 'footstepVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
   { key: 'weaponVolume', type: 'range', def: 100, min: 0, max: 100, unit: '%', page: 'audio', before: 'settings-section-sound-options' },
+  // On/off for each sound-pack kind (SoundPacks.js, 2026-11-25).
+  { key: 'killSounds', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
+  { key: 'hitSounds', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
+  { key: 'jumpSounds', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
+  { key: 'stepSounds', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
   { key: 'monoAudio', type: 'toggle', def: false, page: 'audio', before: 'reset-audio-defaults-btn' },
   { key: 'lowHealthHeartbeat', type: 'toggle', def: true, page: 'audio', before: 'reset-audio-defaults-btn' },
   { key: 'duckNearZombies', type: 'toggle', def: false, page: 'audio', before: 'reset-audio-defaults-btn' },
