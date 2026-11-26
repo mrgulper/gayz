@@ -10,6 +10,10 @@
 //                                  the Feedback box, a poll vote, an error
 //                                  report, a Gallery report alert
 //                                  (PlayerVoice.js, api/_lib/inbox.js)
+//   { action: 'seenReply', pid, id } -> the player pressed OK on a
+//                                  "Staff replied" popup
+//   { action: 'dailySummary' }  -> GitHub's site check, every 10 minutes:
+//                                  posts the owner's daily summary once a day
 //   { action: 'hof' }           -> the Hall of Fame cards (HallOfFame.js)
 //   { action: 'claimGift', pid, id } -> picks up a gift the team left for
 //                                  this Player ID (ownerPowers.js)
@@ -17,7 +21,7 @@
 import { handle } from './_lib/handle.js'
 import { publicConfig, reportPlayer, seenWarning, redeemCode, publicHallOfFame, claimGiftFor } from './_lib/admin.js'
 import { recordStats } from './_lib/playStats.js'
-import { sendFeedback, votePoll, recordError, contentReportAlert } from './_lib/inbox.js'
+import { sendFeedback, votePoll, recordError, contentReportAlert, seenReply, dailySummary } from './_lib/inbox.js'
 
 export default handle((db, body) => {
   if (body.action === 'report') return reportPlayer(db, body)
@@ -28,6 +32,8 @@ export default handle((db, body) => {
   if (body.action === 'vote') return votePoll(db, body)
   if (body.action === 'error') return recordError(db, body)
   if (body.action === 'contentReport') return contentReportAlert(db, body)
+  if (body.action === 'seenReply') return seenReply(db, body)
+  if (body.action === 'dailySummary') return dailySummary(db)
   if (body.action === 'hof') return publicHallOfFame(db)
   if (body.action === 'claimGift') return claimGiftFor(db, body)
   return publicConfig(db, body)

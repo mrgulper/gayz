@@ -73,7 +73,7 @@ export const STAFF_UID = 'gayzTeam'
 // Horde Night's extra zombies per wave.
 export const HORDE_MULT = 1.5
 
-const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
+const EMPTY = { myGifts: [], banner: null, events: {}, ends: {}, sale: null, staffMsg: null, gift: null, mapWeek: null, daily: {}, hidden: { maps: [], builds: [] }, ban: null, mute: null, warnings: [], replies: [], idShopBlocked: false, newId: null, off: [], maintenance: null, poll: null, tuning: null, worldDrop: null }
 
 function readCache() {
   try {
@@ -592,18 +592,32 @@ function seenWarnings() {
   }
 }
 
-// A warning from the team: a popup the player has to press OK on, one at
-// a time, oldest first. Only on the homepage (a running game isn't
-// interrupted; it shows when they get back), never in the Console preview
-// and never over the maintenance screen.
+const REPLY_SEEN_KEY = 'gayz-replies-seen'
+const REPLY_TPLS = ['thanks', 'added', 'working', 'fixed', 'more', 'cant']
+function seenReplies() {
+  try {
+    const list = JSON.parse(localStorage.getItem(REPLY_SEEN_KEY) || '[]')
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
+// A warning from the team, or the team's answer to this player's feedback
+// ("Staff replied", 2026-11-26): a popup the player has to press OK on,
+// one at a time, warnings first, oldest first. Only on the homepage (a
+// running game isn't interrupted; it shows when they get back), never in
+// the Console preview and never over the maintenance screen.
 export function renderWarning(game) {
   const seen = seenWarnings()
+  const seenR = seenReplies()
   const w = (Array.isArray(config.warnings) ? config.warnings : []).find((x) => x && x.id && !seen.includes(x.id))
+  const r = w ? null : (Array.isArray(config.replies) ? config.replies : []).find((x) => x && x.id && !seenR.includes(x.id))
   const onHome = !game?.menu || game.menu.style.display !== 'none'
   const maintEl = document.getElementById('maintenance-screen')
   const maintUp = !!maintEl && !maintEl.hidden
   let el = document.getElementById('warning-screen')
-  if (!w || !onHome || maintUp || embedded()) {
+  if ((!w && !r) || !onHome || maintUp || embedded()) {
     if (el) el.hidden = true
     return
   }
@@ -612,22 +626,38 @@ export function renderWarning(game) {
     el.id = 'warning-screen'
     el.setAttribute('role', 'alertdialog')
     el.setAttribute('aria-modal', 'true')
-    el.innerHTML = '<div class="maintenance-card warning-card"><h2 class="maintenance-title"></h2><p class="maintenance-text"></p><button type="button" class="warning-ok"></button></div>'
+    el.innerHTML = '<div class="maintenance-card warning-card"><h2 class="maintenance-title"></h2><p class="reply-orig"></p><p class="maintenance-text"></p><button type="button" class="warning-ok"></button></div>'
     document.body.appendChild(el)
     el.querySelector('.warning-ok').addEventListener('click', () => {
       const id = el.dataset.id
       if (!id) return
+      const reply = el.dataset.kind === 'reply'
       try {
-        localStorage.setItem(WARN_SEEN_KEY, JSON.stringify([...seenWarnings(), id].slice(-50)))
+        const key = reply ? REPLY_SEEN_KEY : WARN_SEEN_KEY
+        localStorage.setItem(key, JSON.stringify([...(reply ? seenReplies() : seenWarnings()), id].slice(-50)))
       } catch { /* blocked - the server's "seen" still hides it next time */ }
-      liveApi()({ action: 'seenWarning', pid: game?.settings?.playerId, id }).catch(() => {})
+      liveApi()({ action: reply ? 'seenReply' : 'seenWarning', pid: game?.settings?.playerId, id }).catch(() => {})
       renderWarning(game)
     })
   }
-  el.dataset.id = w.id
-  el.querySelector('.maintenance-title').textContent = t('warningTitle')
-  el.querySelector('.maintenance-text').textContent = w.text
-  el.querySelector('.warning-ok').textContent = t('warningOk')
+  const orig = el.querySelector('.reply-orig')
+  if (w) {
+    el.dataset.id = w.id
+    el.dataset.kind = 'warning'
+    el.querySelector('.maintenance-title').textContent = t('warningTitle')
+    el.querySelector('.maintenance-text').textContent = w.text
+    orig.hidden = true
+    el.querySelector('.warning-ok').textContent = t('warningOk')
+  } else {
+    el.dataset.id = r.id
+    el.dataset.kind = 'reply'
+    el.querySelector('.maintenance-title').textContent = t('staffReplyTitle')
+    orig.textContent = r.orig ? t('staffReplyYouSaid', { text: r.orig }) : ''
+    orig.hidden = !r.orig
+    const tpl = REPLY_TPLS.includes(r.tpl) ? t(`staffReplyTpl_${r.tpl}`) : ''
+    el.querySelector('.maintenance-text').textContent = [tpl, r.text || ''].filter(Boolean).join('\n\n')
+    el.querySelector('.warning-ok').textContent = t('staffReplyOk')
+  }
   el.hidden = false
 }
 
@@ -668,7 +698,7 @@ export function startLiveConfig(game) {
   // a running game goes back to the homepage.
   setInterval(() => {
     // A warning waiting for the homepage (a game just ended).
-    if (config.warnings?.length) renderWarning(game)
+    if (config.warnings?.length || config.replies?.length) renderWarning(game)
     // In a running game: a world drop that came while on the homepage,
     // and asking more often so a new one lands within a minute.
     if (game.buildMode?.survival?.active) {

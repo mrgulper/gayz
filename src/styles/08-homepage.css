@@ -2211,6 +2211,12 @@ html.ui-theme-old .home-play-tag { color: #f3e6c8; background: var(--old-ink); b
   cursor: pointer;
 }
 #warning-screen .warning-ok:hover { filter: brightness(1.1); }
+/* "Staff replied" (the team's answer to the player's feedback): the same
+   popup in a friendly green, with the player's own words quoted above. */
+#warning-screen[data-kind="reply"] .maintenance-card { border-top-color: #4ecb71; }
+#warning-screen[data-kind="reply"] .warning-ok { background: #2fa957; }
+#warning-screen .reply-orig { margin: 0 0 14px; padding: 10px 12px; font-size: 14px; font-style: italic; text-align: left; color: rgba(255, 255, 255, 0.72); background: rgba(255, 255, 255, 0.06); border-radius: 10px; overflow-wrap: anywhere; }
+#warning-screen .reply-orig[hidden] { display: none; }
 
 /* Feedback box and quick polls (PlayerVoice.js, 2026-11-13): the warning
    card's look (same dark glass over the homepage in every theme), with a

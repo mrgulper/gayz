@@ -58,7 +58,14 @@ jobs:
           if [ "$now" = down ] && [ "$prev" = up ]; then send "🔴 **GayZ is DOWN** - $why. Checking again every 10 minutes."; fi
           if [ "$now" = up ] && [ "$prev" = down ]; then send "🟢 **GayZ is back up.**"; fi
           echo "$now" > .site-state
+          echo "state=$now" >> "$GITHUB_OUTPUT"
           if [ "$now" != "$prev" ]; then echo "changed=yes" >> "$GITHUB_OUTPUT"; fi
+
+      # The owner's daily summary: the site posts it once a day after 9am
+      # Los Angeles time (api/_lib/inbox.js dailySummary); earlier pokes do nothing.
+      - name: Daily summary
+        if: steps.check.outputs.state == 'up'
+        run: curl -s -o /dev/null --max-time 20 -X POST -H 'content-type: application/json' -d '{"action":"dailySummary"}' https://gayz.vercel.app/api/live || true
 
       - name: Remember the result
         if: steps.check.outputs.changed == 'yes'

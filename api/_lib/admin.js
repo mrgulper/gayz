@@ -90,7 +90,7 @@ import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkR
 import { languageReport } from './langCheck.js'
 import { tvHide, tvFake, tvDelete, tvBan, tvUnban, tvBanList } from './tvAdmin.js'
 import { ownerCommand, giveToPid, waitingGifts, claimPidGift, OwnerError, HORDE_SIZES, OWNER_TIMES, OWNER_WEATHERS, GIVE_MAX } from './ownerPowers.js'
-import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS, cleanImages, IMAGES_MAX } from './inbox.js'
+import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, replyFeedback, setBugStage, unseenReplies, REPLY_TEMPLATES, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS, cleanImages, IMAGES_MAX } from './inbox.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -351,7 +351,7 @@ export async function worldDrop(db, { kind, who, minutes, cancel } = {}, now = D
 export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
   const ok = validPid(pid)
   const okIp = validIp(_ip)
-  const [cfg, ban, mute, warnings, gifts, ipBanRec, ips, change] = await Promise.all([
+  const [cfg, ban, mute, warnings, gifts, ipBanRec, ips, change, replies] = await Promise.all([
     db.get('liveConfig'),
     ok ? db.get(`bans/${pid}`) : null,
     ok ? db.get(`mutes/${pid}`) : null,
@@ -360,6 +360,7 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
     okIp ? db.get(`ipBans/${_ip}`) : null,
     ok && okIp ? db.get(`pidIps/${pid}`) : null,
     ok ? db.get(`idChanges/${pid}`) : null,
+    ok ? db.get(`feedbackReplies/${pid}`) : null,
   ])
   await noteIp(db, pid, _ip, ips, now).catch(() => {})
   const live = liveEvents(cfg, now)
@@ -380,6 +381,8 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
     ban: myBan,
     mute: activeMute(mute, now),
     warnings: unseenWarnings(warnings),
+    // The team's answers to this player's feedback ("Staff replied").
+    replies: unseenReplies(replies),
     // The Shop won't sell this player a custom Player ID (ShopIdentity.js).
     idShopBlocked: !!myBan || recentWarning(warnings, now),
     // The Console changed this player's Player ID: their page switches.
@@ -1450,6 +1453,8 @@ const LOG_TEXT = {
   dailySet: (b) => `Daily Challenge for ${b.day} set: ${b.type} x${Math.floor(Number(b.target) || 0)}`,
   dailyRemove: (b) => `Daily Challenge for ${b.day} back to automatic`,
   feedbackDelete: () => 'Deleted a feedback message',
+  feedbackReply: (b) => `Replied to feedback: ${REPLY_TEMPLATES.includes(b.tpl) ? `[${b.tpl}] ` : ''}"${cleanText(b.text, 80)}"`,
+  bugStage: (b) => `Bug moved to ${{ new: 'New', working: 'Working on it', fixed: 'Fixed' }[b.stage] || '?'}`,
   errorsClear: (b) => (b.key ? 'Cleared one error from the inbox' : 'Cleared every error from the inbox'),
   pollStart: (b) => `Poll started (${POLL_HOURS.includes(Number(b.hours)) ? Number(b.hours) : 72} h): "${cleanText(b.q, 80)}"`,
   pollEnd: () => 'Poll ended',
@@ -1509,6 +1514,8 @@ const ACTION_FNS = {
   inbox: (db) => inboxState(db),
   feedbackDone: (db, body) => setFeedbackDone(db, body),
   feedbackDelete: (db, body) => deleteFeedback(db, body),
+  feedbackReply: (db, body) => replyFeedback(db, body),
+  bugStage: (db, body) => setBugStage(db, body),
   errorsClear: (db, body) => clearErrors(db, body),
   pollStart: (db, body) => startPoll(db, body),
   pollEnd: (db) => endPoll(db),

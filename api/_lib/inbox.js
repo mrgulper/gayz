@@ -9,7 +9,15 @@
 //                   `pics` = how many pictures went to Discord with it
 //                   `info` (bugs only) = device, browser, screen, language,
 //                   build - what the old "Copy Bug Report" button gave
+//                   + `reply` { tpl, text, at } the team's last answer,
+//                   `stage` (bugs) new | working | fixed (2026-11-26)
+//   feedbackReplies/{pid}/{id} { tpl, text, orig, at, seen } - answers the
+//                   player sees once, in a "Staff replied" popup
+//                   (LiveConfig.js renderWarning). `tpl` = a ready-made
+//                   reply (REPLY_TEMPLATES, translated in the game)
 //   feedbackLimits/{pid} { n, at }  messages sent this hour (spam limit)
+//   alertLimits/dailySummary  the day (America/Los_Angeles) the daily
+//                   summary last went out
 //   liveConfig.poll { id, q, options: [..], until }  the poll running now
 //                   (players see it once, in a popup on the homepage)
 //   polls/{id}      { q, options, at, until, ended }  every poll, for results
@@ -31,6 +39,13 @@ export const FEEDBACK_MAX = 10000
 export const IMAGES_MAX = 3
 export const IMAGE_BYTES_MAX = 700 * 1024
 export const FEEDBACK_PER_HOUR = 5
+// Ready-made replies (2026-11-26). Same ids in the game's i18n
+// (`staffReplyTpl_<id>`) and the owner's tools.
+export const REPLY_TEMPLATES = ['thanks', 'added', 'working', 'fixed', 'more', 'cant']
+export const REPLY_MAX = 500
+export const BUG_STAGES = ['new', 'working', 'fixed']
+const REPLIES_KEPT = 10
+const REPLY_ORIG_MAX = 200
 const FEEDBACK_KEPT = 300
 export const POLL_Q_MAX = 150
 export const POLL_OPTION_MAX = 60
@@ -299,7 +314,7 @@ export async function inboxState(db, now = Date.now()) {
   return {
     alertsSetUp: alertsSetUp(),
     feedback: Object.entries(feedback || {})
-      .map(([id, f]) => ({ id, kind: FEEDBACK_KINDS.includes(f?.kind) ? f.kind : 'other', text: cleanText(f?.text, FEEDBACK_MAX), pid: validPid(f?.pid) ? f.pid : '', nick: oneLine(f?.nick, 24), info: cleanInfo(f?.info), at: Number(f?.at) || 0, done: f?.done === true }))
+      .map(([id, f]) => ({ id, kind: FEEDBACK_KINDS.includes(f?.kind) ? f.kind : 'other', text: cleanText(f?.text, FEEDBACK_MAX), pid: validPid(f?.pid) ? f.pid : '', nick: oneLine(f?.nick, 24), info: cleanInfo(f?.info), at: Number(f?.at) || 0, done: f?.done === true, reply: cleanReply(f?.reply), stage: f?.kind === 'bug' ? (BUG_STAGES.includes(f?.stage) ? f.stage : 'new') : null }))
       .sort((a, b) => b.at - a.at),
     errors: Object.entries(errors || {})
       .map(([key, e]) => ({ key, msg: oneLine(e?.msg, 300), where: oneLine(e?.where, 120), build: oneLine(e?.build, 40), count: Number(e?.count) || 0, phone: Number(e?.phone) || 0, computer: Number(e?.computer) || 0, first: Number(e?.first) || 0, last: Number(e?.last) || 0 }))
@@ -312,6 +327,118 @@ export async function setFeedbackDone(db, { id, done } = {}) {
   if (!validId(id) || !(await db.get(`feedback/${id}`))) throw new ServerError(404, 'not-found')
   await db.update({ [`feedback/${id}/done`]: done !== false })
   return { ok: true }
+}
+
+// --- Replies (2026-11-26) ---
+
+function cleanReply(r) {
+  if (!r || typeof r !== 'object') return null
+  const tpl = REPLY_TEMPLATES.includes(r.tpl) ? r.tpl : ''
+  const text = cleanText(r.text, REPLY_MAX)
+  return tpl || text ? { tpl, text, at: Number(r.at) || 0 } : null
+}
+
+// The team answers one feedback message: the player sees it the next time
+// their page asks /api/live, and the message moves to Done.
+export async function replyFeedback(db, { id, tpl, text } = {}, now = Date.now()) {
+  if (!validId(id)) throw new ServerError(400, 'bad-request')
+  const reply = cleanReply({ tpl, text, at: now })
+  if (!reply) throw new ServerError(400, 'empty-reply')
+  const f = await db.get(`feedback/${id}`)
+  if (!f) throw new ServerError(404, 'not-found')
+  const pid = validPid(f.pid) ? f.pid : ''
+  if (!pid) throw new ServerError(409, 'no-player')
+  const rid = `${now}${crypto.randomBytes(3).toString('hex')}`
+  const updates = {
+    [`feedbackReplies/${pid}/${rid}`]: { ...reply, orig: oneLine(f.text, REPLY_ORIG_MAX), seen: 0 },
+    [`feedback/${id}/reply`]: reply,
+    [`feedback/${id}/done`]: true,
+  }
+  if (f.kind === 'bug' && tpl === 'fixed') updates[`feedback/${id}/stage`] = 'fixed'
+  if (f.kind === 'bug' && tpl === 'working' && f.stage !== 'fixed') updates[`feedback/${id}/stage`] = 'working'
+  await db.update(updates)
+  const all = (await db.get(`feedbackReplies/${pid}`)) || {}
+  const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
+  if (ids.length > REPLIES_KEPT) {
+    const drop = {}
+    for (const old of ids.slice(0, ids.length - REPLIES_KEPT)) drop[`feedbackReplies/${pid}/${old}`] = null
+    await db.update(drop)
+  }
+  return { ok: true, reply }
+}
+
+// Bug tracker: New -> Working on it -> Fixed. Fixed tells the player (a
+// ready-made "fixed" reply) unless they were already told.
+export async function setBugStage(db, { id, stage } = {}, now = Date.now()) {
+  if (!validId(id) || !BUG_STAGES.includes(stage)) throw new ServerError(400, 'bad-request')
+  const f = await db.get(`feedback/${id}`)
+  if (!f) throw new ServerError(404, 'not-found')
+  if (f.kind !== 'bug') throw new ServerError(400, 'not-a-bug')
+  if (stage === 'fixed') {
+    if (f.reply?.tpl !== 'fixed' && validPid(f.pid)) return { ...(await replyFeedback(db, { id, tpl: 'fixed' }, now)), told: true }
+    await db.update({ [`feedback/${id}/stage`]: 'fixed', [`feedback/${id}/done`]: true })
+    return { ok: true, told: false }
+  }
+  await db.update({ [`feedback/${id}/stage`]: stage, [`feedback/${id}/done`]: false })
+  return { ok: true }
+}
+
+// The answers this player hasn't pressed OK on yet (publicConfig).
+export function unseenReplies(all) {
+  return Object.entries(all || {})
+    .filter(([id, r]) => validId(id) && r && !r.seen && cleanReply(r))
+    .map(([id, r]) => ({ id, ...cleanReply(r), orig: oneLine(r.orig, REPLY_ORIG_MAX) }))
+    .sort((a, b) => a.at - b.at)
+    .slice(0, 5)
+}
+
+// The player pressed OK on an answer (api/live.js).
+export async function seenReply(db, { pid, id } = {}, now = Date.now()) {
+  if (!validPid(pid) || !validId(id)) throw new ServerError(400, 'bad-request')
+  const r = await db.get(`feedbackReplies/${pid}/${id}`)
+  if (r && !r.seen) await db.update({ [`feedbackReplies/${pid}/${id}/seen`]: now })
+  return { ok: true }
+}
+
+// --- Daily summary (2026-11-26) ---
+// One private Discord post a day with the last 24 hours' counts. GitHub's
+// site check (site-check.yml) pokes /api/live every 10 minutes; the post
+// goes out on the first poke after SUMMARY_HOUR (Los Angeles time), once
+// per day. Anyone poking it early changes nothing.
+export const SUMMARY_HOUR = 9
+function laDay(now) {
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(now)).map((p) => [p.type, p.value]))
+  return { day: `${parts.year}-${parts.month}-${parts.day}`, hour: Number(parts.hour) }
+}
+
+export function summaryText(feedback, reports, errors, now) {
+  const since = now - 24 * HOUR
+  const fb = Object.values(feedback || {}).filter((f) => f && Number(f.at) >= since)
+  const n = (k) => fb.filter((f) => (FEEDBACK_KINDS.includes(f.kind) ? f.kind : 'other') === k).length
+  const open = Object.values(feedback || {}).filter((f) => f && !f.done).length
+  const bugsOpen = Object.values(feedback || {}).filter((f) => f?.kind === 'bug' && f.stage !== 'fixed').length
+  const rep = Object.values(reports || {}).filter((r) => r && Number(r.at) >= since).length
+  const errs = Object.values(errors || {})
+  const newErr = errs.filter((e) => e && Number(e.first) >= since).length
+  const errHits = errs.filter((e) => e && Number(e.last) >= since).length
+  return [
+    '📋 **Daily summary** (last 24 hours)',
+    `💬 Feedback: ${fb.length} (💡 ${n('idea')} ideas, 🐞 ${n('bug')} bugs, ${n('other')} other) - ${open} waiting in New`,
+    `🛠️ Bugs not fixed yet: ${bugsOpen}`,
+    `🚩 Player reports: ${rep}`,
+    `⚠️ Errors: ${newErr} new kind${newErr === 1 ? '' : 's'}, ${errHits} seen`,
+  ].join('\n')
+}
+
+export async function dailySummary(db, now = Date.now()) {
+  if (!alertsSetUp()) return { ok: true, sent: false }
+  const { day, hour } = laDay(now)
+  if (hour < SUMMARY_HOUR) return { ok: true, sent: false }
+  const r = await db.transaction('alertLimits/dailySummary', (cur) => (cur === day ? undefined : day))
+  if (!r.committed) return { ok: true, sent: false }
+  const [feedback, reports, errors] = await Promise.all([db.get('feedback'), db.get('playerReports'), db.get('errors')])
+  const sent = await sendAlert(db, summaryText(feedback, reports, errors, now), now)
+  return { ok: true, sent }
 }
 
 export async function deleteFeedback(db, { id } = {}) {
