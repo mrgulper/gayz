@@ -37,9 +37,11 @@ jobs:
       - name: Build
         run: npm run build
 
-  # The tests are split across 10 machines that run side by side (each
+  # The tests are split across 15 machines that run side by side (each
   # still one test at a time - see workers in playwright.config.js).
-  # One machine took ~1h for all of them. Free on a public repo.
+  # One machine took ~1h for all of them. Free on a public repo; the free
+  # plan runs up to 20 machines at once, so a 2nd run at the same time
+  # waits a little for free ones. (10 -> 15 on 2026-11-25, Gaymi.)
   tests:
     runs-on: ubuntu-latest
     # A stuck run stops here instead of running for hours.
@@ -48,8 +50,8 @@ jobs:
       # One piece failing doesn't stop the others, so every failure shows.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-    name: tests (${{ matrix.shard }}/10)
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    name: tests (${{ matrix.shard }}/15)
     steps:
       - uses: actions/checkout@v4
 
@@ -64,10 +66,10 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
-      - name: Run tests (piece ${{ matrix.shard }} of 10)
-        run: npx playwright test --shard=${{ matrix.shard }}/10
+      - name: Run tests (piece ${{ matrix.shard }} of 15)
+        run: npx playwright test --shard=${{ matrix.shard }}/15
 
-  # One check that is green only when lint, build and all 10 test pieces
+  # One check that is green only when lint, build and all 15 test pieces
   # are - the one to require in the "main needs green CI" ruleset.
   all-passed:
     name: All checks passed

@@ -1396,6 +1396,9 @@ test('homepage unlock ladder: new players see fewer buttons, games unlock the re
   // More... opens everything and it stays that way after a reload.
   await page.evaluate(() => {
     localStorage.setItem('gayz-home-ladder', 'on')
+    // In memory too: the game saves its own count (5) while the page
+    // reloads, which on slow CI machines undid the 0 below.
+    window.__game.careerStats.totalRuns = 0
     const s = JSON.parse(localStorage.getItem('gayz-career-stats') || '{}')
     s.totalRuns = 0
     localStorage.setItem('gayz-career-stats', JSON.stringify(s))
@@ -1481,7 +1484,9 @@ test('shop name change costs 100 gems and custom IDs are 5-10 characters and blo
     g._cloudUid = null
     out.signedOut = await buy('GAYMI')
     const claimed = []
-    g._cloudUid = 'test-uid'
+    // Pinned: on slow CI machines the real sign-in check can finish now
+    // and set _cloudUid back to null in the middle of the test.
+    Object.defineProperty(g, '_cloudUid', { configurable: true, get: () => 'test-uid', set: () => {} })
     g.__idBackendForTests = {
       isConfigured: () => true,
       isPlayerIdTaken: async (id) => id === 'TAKEN1',
