@@ -32,6 +32,11 @@ export const STAT_CATS = {
   quit: { keys: STAT_QUIT, max: 1 },
   // New player, or back after 1 / 2-6 / 7-29 / 30+ days away (2026-11-26).
   back: { keys: ['new', 'd1', 'd2-6', 'd7-29', 'd30up'], max: 1 },
+  // More comeback detail (2026-11-26): days played on that device in all,
+  // days since its first day (coming back only), and device + new/back.
+  days: { keys: ['1', '2', '3-6', '7-29', '30up'], max: 1 },
+  since: { keys: ['d1', 'd2', 'd3', 'd4', 'd5', 'd6', 'd7', 'd8-13', 'd14', 'd15-29', 'd30', 'd31up'], max: 1 },
+  backdev: { keys: ['phone-new', 'phone-back', 'tablet-new', 'tablet-back', 'computer-new', 'computer-back'], max: 1 },
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]
