@@ -16,6 +16,7 @@ import crypto from 'node:crypto'
 import { ServerError } from './servers.js'
 import { contentReports, cleanText, logAction } from './admin.js'
 import { sendAlert } from './inbox.js'
+import { loadRudeChecker, flagReport } from './autoMod.js'
 
 export const HELPERS_MAX = 20
 export const HELPER_NAME_MAX = 24
@@ -108,7 +109,7 @@ export async function reportChecks(db) {
 // how many other reports each player has, and every check so far.
 export async function helperReports(db, fs, { helperPw } = {}, now = Date.now()) {
   const who = await mustBeHelper(db, helperPw, now)
-  const [reports, cfg, checks] = await Promise.all([db.get('playerReports'), db.get('liveConfig'), reportChecks(db)])
+  const [reports, cfg, checks, isRude] = await Promise.all([db.get('playerReports'), db.get('liveConfig'), reportChecks(db), loadRudeChecker(db)])
   const list = Object.entries(reports || {}).map(([id, r]) => ({
     id,
     key: `p_${id}`,
@@ -119,14 +120,14 @@ export async function helperReports(db, fs, { helperPw } = {}, now = Date.now())
     where: cleanText(r?.where, 20),
     text: cleanText(r?.text, 600),
     at: Number(r?.at) || 0,
-  }))
+  })).map(flagReport(isRude))
   const perTarget = {}
   for (const r of list) perTarget[r.target] = (perTarget[r.target] || 0) + 1
   const content = await contentReports(db, fs, cfg?.hidden)
   return {
     name: who.name,
     playerReports: list.map((r) => ({ ...r, others: perTarget[r.target] - 1 })).sort((a, b) => b.at - a.at),
-    contentReports: content.list.filter((r) => !r.hidden).map((r) => ({ kind: r.kind, id: r.id, key: r.key, name: r.name, by: r.by, count: r.count, latest: r.latest, ...(r.kind === 'tv' ? { clipKind: r.clipKind, youtubeId: r.youtubeId, thumb: r.thumb } : {}) })),
+    contentReports: content.list.filter((r) => !r.hidden).map((r) => ({ kind: r.kind, id: r.id, key: r.key, name: r.name, by: r.by, count: r.count, latest: r.latest, ...(r.rude ? { rude: true } : {}), ...(r.kind === 'tv' ? { clipKind: r.clipKind, youtubeId: r.youtubeId, thumb: r.thumb } : {}) })),
     contentReportsError: content.error,
     checks,
   }

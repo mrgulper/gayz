@@ -2773,3 +2773,73 @@ test('inbox: replies, bug stages and the daily summary', async () => {
     else process.env.DISCORD_ALERT_WEBHOOK = hook
   }
 })
+
+// Auto-mod (2026-11-26): rude feedback/reports get a `rude` flag for the
+// owner's tools, and alerts leave the words out.
+test('auto-mod: flags rude feedback and reports, hides them in alerts', async () => {
+  const { sendFeedback, inboxState, summaryText } = await import('../api/_lib/inbox.js')
+  const { rudeChecker, cleanWords } = await import('../api/_lib/autoMod.js')
+  // The game's list, stand-in letters, whole words only, own words too.
+  const plain = rudeChecker([])
+  expect(plain('what a sh1t game')).toBe(true)
+  expect(plain('$HIT')).toBe(true)
+  expect(plain('my class is great', 'peacock', 'Dickens')).toBe(false)
+  expect(plain('shithead')).toBe(true)
+  expect(cleanWords(['  Big  Noob ', 'big noob', 'x', '<b>', 7, 'pomme-de-terre'])).toEqual(['big noob', 'pomme-de-terre'])
+  expect(rudeChecker(['big noob'])('you BIG   noob')).toBe(true)
+
+  const db = fakeServerDb()
+  const t0 = Date.UTC(2026, 10, 26, 20, 0)
+  const sent = []
+  const hook = process.env.DISCORD_ALERT_WEBHOOK
+  const realFetch = globalThis.fetch
+  process.env.DISCORD_ALERT_WEBHOOK = 'https://discord.com/api/webhooks/1/x'
+  globalThis.fetch = async (url, init) => {
+    if (init.body instanceof FormData) sent.push({ ...JSON.parse(init.body.get('payload_json')), files: [...init.body.values()].filter((v) => typeof v !== 'string').map((f) => f.name) })
+    else sent.push(JSON.parse(init.body))
+    return { ok: true }
+  }
+  const pic = `data:image/png;base64,${Buffer.from('fake picture bytes').toString('base64')}`
+  try {
+    await sendFeedback(db, { pid: 'ME0001', nick: 'Ann', kind: 'idea', text: 'More pets please' }, t0)
+    await sendFeedback(db, { pid: 'ME0002', nick: 'Bo', kind: 'bug', text: 'this f*cking game', images: [pic] }, t0 + 1)
+    await sendFeedback(db, { pid: 'ME0003', nick: 'shithead', kind: 'other', text: 'hello there' }, t0 + 2)
+    expect(sent[0].content).toContain('More pets please')
+    expect(sent[1].content).not.toMatch(/f\*cking/)
+    expect(sent[1].content).toContain('Hidden by auto-mod')
+    expect(sent[1].files).toEqual(['SPOILER_picture-1.png'])
+    expect(sent[2].content).toContain('(name hidden) #ME0003')
+    expect(sent[2].content).not.toContain('shithead')
+    let s = await inboxState(db)
+    expect(s.feedback.filter((f) => f.rude).map((f) => f.pid).sort()).toEqual(['ME0002', 'ME0003'])
+    expect(s.autoMod.words).toEqual([])
+    // The owner's own words count from then on, old messages too; the
+    // history line doesn't repeat them.
+    await ADMIN_ACTIONS.autoModWords(db, { words: ['pets'] })
+    s = await inboxState(db)
+    expect(s.autoMod.words).toEqual(['pets'])
+    expect(s.feedback.find((f) => f.pid === 'ME0001').rude).toBe(true)
+    expect(JSON.stringify(await db.get('adminLog'))).not.toContain('pets')
+    await expect(ADMIN_ACTIONS.autoModWords(db, { words: 'pets' })).rejects.toMatchObject({ status: 400 })
+    await ADMIN_ACTIONS.autoModWords(db, { words: [] })
+    expect((await inboxState(db)).feedback.find((f) => f.pid === 'ME0001').rude).toBeUndefined()
+    // Player reports: flagged in the owner's list and the player card.
+    await reportPlayer(db, { target: 'BAD123', targetName: 'Rude', by: 'ME0001', byName: 'Me', where: 'global', text: 'called me a wanker' }, t0 + 10)
+    await reportPlayer(db, { target: 'BAD124', targetName: 'Bo', by: 'ME0001', byName: 'Me', where: 'global', text: 'spamming' }, t0 + 11)
+    expect(sent.at(-2).content).toContain('Hidden by auto-mod')
+    expect(sent.at(-2).content).not.toContain('wanker')
+    expect(sent.at(-1).content).toContain('spamming')
+    const a = await adminState(db, null, t0 + 20)
+    expect(a.playerReports.find((r) => r.target === 'BAD123').rude).toBe(true)
+    expect(a.playerReports.find((r) => r.target === 'BAD124').rude).toBeUndefined()
+    expect((await playerCard(db, null, 'BAD123', t0 + 20)).reportsAgainst[0].rude).toBe(true)
+    // Daily summary: counts how many were hidden.
+    const text = summaryText(await db.get('feedback'), await db.get('playerReports'), {}, t0 + 100, rudeChecker([]))
+    expect(text).toContain('🙈 2 hidden by auto-mod')
+    expect(text).toContain('Player reports: 2 · 🙈 1 hidden by auto-mod')
+  } finally {
+    globalThis.fetch = realFetch
+    if (hook === undefined) delete process.env.DISCORD_ALERT_WEBHOOK
+    else process.env.DISCORD_ALERT_WEBHOOK = hook
+  }
+})
