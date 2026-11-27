@@ -15,6 +15,7 @@ import { PLAY_GAME_MODES } from '../../src/game/PlayRules.js'
 import { PLAY_WEAPONS } from '../../src/game/PlayWeapons.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { GRAPHICS_LEVELS } from '../../src/game/GraphicsLevels.js'
+import { DEATH_KEYS } from '../../src/game/DeathCells.js'
 
 export const STAT_LANGS = ['en', 'zh', 'hi', 'es', 'fr', 'ru', 'id', 'de', 'ja', 'vi', 'it', 'pt-BR']
 export const STAT_QUIT = ['home', 'panel', 'editor', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6-10', 'w11-20', 'w21up', 'nozombie']
@@ -47,6 +48,9 @@ export const STAT_CATS = {
   backdev: { keys: ['phone-new', 'phone-back', 'tablet-new', 'tablet-back', 'computer-new', 'computer-back'], max: 1 },
   load: { keys: cross(STAT_DEVICES, STAT_LOAD), max: 1 },
   fps: { keys: cross(STAT_DEVICES, STAT_GFX, STAT_FPS), max: 5 },
+  // Death Heatmap (2026-11-27): which 8-block square of the city map a
+  // death happened in (DeathCells.js), or "out" off the city.
+  death: { keys: DEATH_KEYS, max: 5 },
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]

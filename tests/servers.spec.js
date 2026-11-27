@@ -2161,15 +2161,22 @@ test('play stats: only known counts are kept, the owner report adds days', async
   await expect(recordStats(db, { who: 'x', hits: [['sum', 'visits']] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
-  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['death', '3-7'], ['death', '3-7'], ['death', 'out'], ['death', '16-0'], ['death', '-1-2'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
   await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
   await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
   const g = db.root.stats['2026-11-13'].g
   // "visits" counts once per message; guns can add up within one.
-  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 } })
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 }, death: { '3-7': 2, out: 1 } })
   expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
   const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
   expect(rep.days.length).toBe(7)
+  // Death Heatmap (2026-11-27): squares of the city map, and its top view.
+  const { deathCell } = await import('../src/game/DeathCells.js')
+  expect([deathCell(-64, -64), deathCell(63.9, 63.9), deathCell(0, 0), deathCell(64, 0), deathCell(0, -70), deathCell(NaN, 0)]).toEqual(['0-0', '15-15', '8-8', 'out', 'out', null])
+  const view = await ADMIN_ACTIONS.cityView(db, {})
+  expect(view.rows.length).toBe(128)
+  expect(view.rows.every((r) => r.length === 128 && /^[.wrgs1-4]+$/.test(r))).toBe(true)
+  expect(view.rows.join('')).toMatch(/r/)
   expect(rep.days[6].day).toBe(new Date().toISOString().slice(0, 10))
   const r2 = await (await import('../api/_lib/playStats.js')).statsReport(db, { days: 7 }, t0)
   expect(r2.days.map((d) => d.day)).toEqual(['2026-11-07', '2026-11-08', '2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'])
@@ -2235,7 +2242,11 @@ test('play stats: the page counts a visit once a day and respects the setting', 
     for (let i = 0; i < 70; i++) g._playStats.fpsSample(i < 40 ? 50 : 10, t + 20000 + i * 500)
     g.__statsFlush()
     const fpsHits = window.__statsSent.splice(0).flatMap((b) => b.hits).filter((h) => h[0] === 'fps')
-    const more = { loads, fpsHits, since: hitOf(later, 'since'), days: hitOf(later, 'days'), dev: hitOf(later, 'backdev'), oldSince: hitOf(oldDev, 'since'), oldDays: hitOf(oldDev, 'days'), oldFirst: localStorage.getItem('gayz-stats-first') }
+    g._playStats.countDeath(-60, 5)
+    g._playStats.countDeath(200, 0)
+    g.__statsFlush()
+    const deathHits = window.__statsSent.splice(0).flatMap((b) => b.hits).filter((h) => h[0] === 'death')
+    const more = { loads, fpsHits, deathHits, since: hitOf(later, 'since'), days: hitOf(later, 'days'), dev: hitOf(later, 'backdev'), oldSince: hitOf(oldDev, 'since'), oldDays: hitOf(oldDev, 'days'), oldFirst: localStorage.getItem('gayz-stats-first') }
     return { more, first, second, gun, off, runs, backs, place: g.__statsQuitPlace(), day: localStorage.getItem('gayz-stats-day') }
   })
   expect(r.first.length).toBe(1)
@@ -2252,7 +2263,7 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   expect(keys).toContain('backdev:computer-new')
   expect(keys.some((k) => k.startsWith('since:'))).toBe(false)
   // 1 (new) + 4 comebacks + this one = 6 days played.
-  expect(r.more).toEqual({ loads: 1, fpsHits: [['fps', 'computer-balanced-f45-59']], since: 'd7', days: '3-6', dev: 'computer-back', oldSince: undefined, oldDays: '2', oldFirst: 'old' })
+  expect(r.more).toEqual({ loads: 1, fpsHits: [['fps', 'computer-balanced-f45-59']], deathHits: [['death', '0-8'], ['death', 'out']], since: 'd7', days: '3-6', dev: 'computer-back', oldSince: undefined, oldDays: '2', oldFirst: 'old' })
   expect(keys.some((k) => /^hour:\d+$/.test(k))).toBe(true)
   // Same day again: a visit, not another player.
   const keys2 = r.second[0].hits.map((h) => h.join(':'))

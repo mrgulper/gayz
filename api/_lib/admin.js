@@ -92,6 +92,7 @@ import { WORLD_EVENT_KINDS, DISASTER_KINDS, TUNE_LIMITS } from '../../src/game/L
 import { statsReport } from './playStats.js'
 import { leaderboardState, hideFromBoards, unhideFromBoards, dismissCheat, runCheatScan, chatState, deleteChatMessage } from './leaderboardAdmin.js'
 import { uptimeReport } from './uptime.js'
+import { cityView } from './cityView.js'
 import { weeklyPreview } from './weekly.js'
 import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
@@ -1593,6 +1594,7 @@ const ACTION_FNS = {
   dailyRemove: (db, body) => removeDaily(db, body),
   stats: (db, body) => statsReport(db, body),
   uptime: (db) => uptimeReport(db),
+  cityView: () => cityView(),
   weeklyPreview: (db) => weeklyPreview(db),
   inbox: (db) => inboxState(db),
   feedbackDone: (db, body) => setFeedbackDone(db, body),
