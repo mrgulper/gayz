@@ -3651,6 +3651,8 @@ export class BuildSurvival {
     if (!won) {
       const at = this.bm.tryMode.pos
       if (at) playDeathEffect(this, myDeathEffect(this.bm.game), at.x, at.y, at.z)
+      // Death Heatmap (PlayStats.js): where on the city map, anonymous.
+      if (at && this.fromMenu && this.bm.activeSlot === 'map3') this.bm.game?._playStats?.countDeath?.(at.x, at.z)
     }
     // World Map: a skull on the map's travel journal (TravelJournal.js).
     if (!won && this.bm.world?.active && isEarthWorld()) {

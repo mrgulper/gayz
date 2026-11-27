@@ -3,7 +3,8 @@
 // language, new vs coming back (days away, days played in all, days since
 // the first day, and phone or computer), the mode/map/skin/weapon of
 // each game, where the game was closed, and how fast the game loads and
-// runs (seconds to load, frames per second in a game - 2026-11-26). Nothing that names the player (no Player ID, nickname or
+// runs (seconds to load, frames per second in a game - 2026-11-26), and
+// which 8-block square of the city map a death happened in (2026-11-27). Nothing that names the player (no Player ID, nickname or
 // account) is sent. Off when Settings' "Share Anonymous Usage Stats" is
 // off, inside another site's frame, and in automated browsers (tests).
 //
@@ -13,6 +14,7 @@ import { isTouchDevice } from './BuildTouch.js'
 import { INVENTORY_SKINS } from './InventorySkins.js'
 import { NO_ZOMBIE_MODES } from './PlayRules.js'
 import { GRAPHICS_LEVELS } from './GraphicsLevels.js'
+import { deathCell } from './DeathCells.js'
 
 const FIRST_HELLO_MS = 10 * 1000
 const FLUSH_EVERY_MS = 60 * 1000
@@ -103,6 +105,13 @@ export function countRun(survival) {
   count('map', map)
   count('skin', skinKind(game?.settings))
   fpsRun = { start: performance.now(), samples: [] }
+}
+
+// Death Heatmap (2026-11-27): called by BuildSurvival._die for a death on
+// the city map (map3), with where the player fell. Only the 8-block square
+// is sent (DeathCells.js), never who died.
+export function countDeath(x, z) {
+  count('death', deathCell(x, z))
 }
 
 export function loadBucket(ms) {
@@ -220,7 +229,7 @@ export function startPlayStats(g) {
   // Called right after the game is built, so this is the wait from opening
   // the page until the homepage works.
   loadMs = performance.now()
-  game._playStats = { countRun, countWeapon, fpsSample }
+  game._playStats = { countRun, countWeapon, fpsSample, countDeath }
   // Tests: set window.__playStatsForTests (gets each message), then call these.
   game.__statsHello = hello
   game.__statsFlush = flushStats
