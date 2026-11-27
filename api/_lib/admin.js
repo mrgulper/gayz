@@ -38,7 +38,11 @@
 //   Live events (Console "Live events" batch), all inside liveConfig:
 //   liveConfig.schedule/{id} { what, start, end, pct } - the event
 //                  calendar: `what` (an EVENT_IDS id, a holiday or 'sale')
-//                  is on between start and end by itself
+//                  is on between start and end by itself. The Event
+//                  Planner (2026-11-27) adds 'banner' { text, style },
+//                  'motd' { text }, 'off' { ids } and 'maintenance' { text }:
+//                  while live they win over the Console's own setting
+//                  (plannedNow). Planned giveaways: planner.js.
 //   liveConfig.sale { pct, until (0 = until stopped) } - Market sale:
 //                  buyers pay pct% less, sellers still get their full price
 //   liveConfig.staffMsg { id, text, at, until } - the latest staff message
@@ -94,6 +98,7 @@ import { leaderboardState, hideFromBoards, unhideFromBoards, dismissCheat, runCh
 import { uptimeReport } from './uptime.js'
 import { cityView } from './cityView.js'
 import { playerStory } from './playerStory.js'
+import { plannedGiveaways, addPlannedGiveaway, removePlannedGiveaway, repickGiveaway, givePlannedGiveaway, giveawayLog, GIVEAWAY_WINNERS_MAX } from './planner.js'
 import { weeklyPreview } from './weekly.js'
 import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
@@ -129,7 +134,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod', 'launch']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod', 'launch', 'plannedGiveaways']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -210,7 +215,9 @@ function cleanEvents(e) {
 
 // --- Live events: calendar, Market sale, staff message, gift, Map of
 // the Week ---
-export const SCHEDULE_WHAT = [...EVENT_IDS, ...HOLIDAYS, 'sale']
+// Event Planner kinds (2026-11-27) on top of the events, looks and sales.
+export const PLAN_WHAT = ['banner', 'motd', 'off', 'maintenance']
+export const SCHEDULE_WHAT = [...EVENT_IDS, ...HOLIDAYS, 'sale', ...PLAN_WHAT]
 export const SALE_PCTS = [10, 20, 30, 50]
 const SCHEDULE_MAX = 50
 const SCHEDULE_MAX_DAYS = 31
@@ -230,9 +237,38 @@ const validMapCode = (v) => typeof v === 'string' && /^[A-Z0-9]{6}$/.test(v)
 function cleanSchedule(all) {
   return Object.entries(all && typeof all === 'object' ? all : {})
     .filter(([id, e]) => validCode(id) && e && SCHEDULE_WHAT.includes(e.what) && Number(e.end) > Number(e.start))
-    .map(([id, e]) => ({ id, what: e.what, start: Number(e.start), end: Number(e.end), pct: e.what === 'sale' && SALE_PCTS.includes(Number(e.pct)) ? Number(e.pct) : 0 }))
+    .map(([id, e]) => ({ id, what: e.what, start: Number(e.start), end: Number(e.end), pct: e.what === 'sale' && SALE_PCTS.includes(Number(e.pct)) ? Number(e.pct) : 0, ...planExtra(e) }))
     .sort((a, b) => a.start - b.start)
 }
+
+// The extra fields an Event Planner entry carries (none for the others).
+function planExtra(e) {
+  if (e.what === 'banner') return { text: cleanText(e.text, BANNER_MAX), style: BANNER_STYLES.includes(e.style) ? e.style : 'info' }
+  if (e.what === 'motd') return { text: cleanText(e.text, MOTD_MAX) }
+  if (e.what === 'maintenance') return { text: cleanText(e.text, MAINT_TEXT_MAX) }
+  if (e.what === 'off') return { ids: SWITCH_IDS.filter((id) => Array.isArray(e.ids) && e.ids.includes(id)) }
+  return {}
+}
+
+// What the Event Planner has switched on right now. A planned banner /
+// line / maintenance wins over the Console's own; planned off-switches
+// add to the Console's. The later-starting entry wins when two overlap.
+function plannedNow(cfg, now) {
+  const out = { banner: null, motd: null, off: [], maintenance: null }
+  for (const e of cleanSchedule(cfg?.schedule)) {
+    if (!(e.start <= now && now < e.end)) continue
+    // Same id for the whole run, so a player who closed it stays closed.
+    if (e.what === 'banner' && e.text) out.banner = { text: e.text, style: e.style, until: e.end, id: e.start }
+    else if (e.what === 'motd' && e.text) out.motd = e.text
+    else if (e.what === 'maintenance') out.maintenance = { text: e.text, at: e.start }
+    else if (e.what === 'off') out.off.push(...e.ids)
+  }
+  return out
+}
+const nowBanner = (cfg, now, p = plannedNow(cfg, now)) => p.banner || liveBanner(cfg?.banner, now)
+const nowMotd = (cfg, now, p = plannedNow(cfg, now)) => p.motd || liveMotd(cfg?.motd, now)
+const nowOff = (cfg, now, p = plannedNow(cfg, now)) => SWITCH_IDS.filter((id) => cleanOff(cfg?.off).includes(id) || p.off.includes(id))
+const nowMaintenance = (cfg, now, p = plannedNow(cfg, now)) => p.maintenance || liveMaintenance(cfg?.maintenance)
 
 // The switches + calendar together: { events, ends, sale }. `ends` holds
 // when a calendar-only event stops (a Console switch has no end).
@@ -311,9 +347,9 @@ function liveMaintenance(m) {
 
 // Servers are closed while Online is switched off or during maintenance
 // (servers.js createServer/joinServer).
-export async function onlineClosed(db) {
+export async function onlineClosed(db, now = Date.now()) {
   const cfg = await db.get('liveConfig')
-  return cfg?.off?.online === true || !!liveMaintenance(cfg?.maintenance)
+  return nowOff(cfg, now).includes('online') || !!nowMaintenance(cfg, now)
 }
 
 // ---- Tuning and world drops ----
@@ -401,10 +437,11 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
   ])
   await noteIp(db, pid, _ip, ips, now).catch(() => {})
   const live = liveEvents(cfg, now)
+  const planned = plannedNow(cfg, now)
   const myBan = activeBan(ban, now) || activeBan(ipBanRec, now)
   return {
-    banner: liveBanner(cfg?.banner, now),
-    motd: liveMotd(cfg?.motd, now),
+    banner: nowBanner(cfg, now, planned),
+    motd: nowMotd(cfg, now, planned),
     events: live.events,
     ends: live.ends,
     sale: live.sale,
@@ -427,8 +464,8 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
     idShopBlocked: !!myBan || recentWarning(warnings, now),
     // The Console changed this player's Player ID: their page switches.
     newId: liveIdChange(change, now),
-    off: cleanOff(cfg?.off),
-    maintenance: liveMaintenance(cfg?.maintenance),
+    off: nowOff(cfg, now, planned),
+    maintenance: nowMaintenance(cfg, now, planned),
     poll: livePoll(cfg?.poll, now),
     tuning: liveTuning(cfg?.tuning, now),
     worldDrop: liveWorldDrop(cfg?.worldDrop, now),
@@ -564,6 +601,10 @@ export async function adminState(db, fs, now = Date.now()) {
     off: cleanOff(cfg?.off),
     maintenance: liveMaintenance(cfg?.maintenance),
     liveNow: liveEvents(cfg, now),
+    // What the Event Planner has on right now (banner, line, off, maintenance).
+    plannedNow: plannedNow(cfg, now),
+    plannedGiveaways: await plannedGiveaways(db, now).catch(() => []),
+    giveawayWinnersMax: GIVEAWAY_WINNERS_MAX,
     schedule: cleanSchedule(cfg?.schedule).filter((e) => e.end > now - SCHEDULE_KEEP_MS).map((e) => ({ ...e, state: e.end <= now ? 'ended' : e.start <= now ? 'live' : 'soon' })),
     sale: cfg?.sale && SALE_PCTS.includes(Number(cfg.sale.pct)) && (!Number(cfg.sale.until) || Number(cfg.sale.until) > now) ? { pct: Number(cfg.sale.pct), until: Number(cfg.sale.until) || 0 } : null,
     staffMsg: cfg?.staffMsg && typeof cfg.staffMsg === 'object' ? { text: cleanText(cfg.staffMsg.text, STAFF_MAX), at: Number(cfg.staffMsg.at) || 0, error: cleanText(cfg.staffMsg.error, 200) } : null,
@@ -1033,19 +1074,22 @@ export async function restore(db, { file } = {}, fs = null, now = Date.now()) {
 // --- Live events (the Console's side) ---
 
 // A calendar entry: `what` turns on at `start` and off at `end` by itself.
-export async function addSchedule(db, { what, start, end, pct } = {}, now = Date.now()) {
+export async function addSchedule(db, { what, start, end, pct, text, style, ids } = {}, now = Date.now()) {
   const st = Math.floor(Number(start))
   const en = Math.floor(Number(end))
   if (!SCHEDULE_WHAT.includes(what) || !(st > 0) || !(en > st) || en <= now) throw new ServerError(400, 'bad-request')
   if (en - st > SCHEDULE_MAX_DAYS * 86400000) throw new ServerError(400, 'too-long')
   if (what === 'sale' && !SALE_PCTS.includes(Number(pct))) throw new ServerError(400, 'bad-request')
+  const extra = PLAN_WHAT.includes(what) ? planExtra({ what, text, style, ids }) : {}
+  if ((what === 'banner' || what === 'motd') && !extra.text) throw new ServerError(400, 'no-text')
+  if (what === 'off' && !extra.ids.length) throw new ServerError(400, 'no-switch')
   const all = (await db.get('liveConfig/schedule')) || {}
   const updates = {}
   // Long-ended ones are tidied away on each add.
   for (const [id, e] of Object.entries(all)) if (!(Number(e?.end) > now - SCHEDULE_KEEP_MS)) updates[`liveConfig/schedule/${id}`] = null
   if (Object.keys(all).length - Object.keys(updates).length >= SCHEDULE_MAX) throw new ServerError(400, 'too-many')
   const id = `${now}${Math.random().toString(36).slice(2, 6)}`
-  updates[`liveConfig/schedule/${id}`] = { what, start: st, end: en, ...(what === 'sale' ? { pct: Number(pct) } : {}) }
+  updates[`liveConfig/schedule/${id}`] = { what, start: st, end: en, ...(what === 'sale' ? { pct: Number(pct) } : {}), ...extra }
   await db.update(updates)
   return { ok: true, id }
 }
@@ -1475,7 +1519,7 @@ export async function hofSkin(db, fs, { pid } = {}) {
   }
 }
 
-const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNight: 'Horde Night', halloween: 'Halloween look', christmas: 'Christmas look', sale: 'Market sale' }
+const WHAT_NAMES = { doubleCoins: 'Double Coins', doubleXp: 'Double XP', hordeNight: 'Horde Night', halloween: 'Halloween look', christmas: 'Christmas look', sale: 'Market sale', banner: 'a banner', motd: 'a message of the day', off: 'switched off', maintenance: 'maintenance' }
 
 const FEATURE_NAMES = { online: 'Online servers', chat: 'Chat', market: 'Market', sharing: 'Map & build sharing', gallery: 'Gallery', leaderboards: 'Leaderboards' }
 const BAN_NAMES = { '-1': 'Kicked', 60: 'Banned 1 hour', 1440: 'Banned 1 day', 10080: 'Banned 7 days', 0: 'Banned forever' }
@@ -1514,8 +1558,9 @@ const LOG_TEXT = {
   // The note itself stays private - only that it changed.
   note: (b) => `${cleanNote(b.text) ? 'Edited' : 'Deleted'} the notes on #${b.pid}`,
   // `label`: the backup's time in the Console's own time zone.
-  scheduleAdd: (b) => `Planned ${WHAT_NAMES[b.what] || '?'}${b.what === 'sale' ? ` ${Number(b.pct)}%` : ''}: ${day(Number(b.start) || 0)} to ${day(Number(b.end) || 0)} UTC`,
+  scheduleAdd: (b) => `Planned ${WHAT_NAMES[b.what] || '?'}${b.what === 'sale' ? ` ${Number(b.pct)}%` : ''}${b.what === 'off' ? ` ${SWITCH_IDS.filter((id) => Array.isArray(b.ids) && b.ids.includes(id)).map((id) => FEATURE_NAMES[id]).join(', ')}` : ''}${['banner', 'motd', 'maintenance'].includes(b.what) && cleanText(b.text, 60) ? ` "${cleanText(b.text, 60)}"` : ''}: ${day(Number(b.start) || 0)} to ${day(Number(b.end) || 0)} UTC`,
   scheduleRemove: () => 'Removed a planned event',
+  ...giveawayLog,
   sale: (b) => (Number(b.pct) ? `Market sale ON: ${Number(b.pct)}% off${Number(b.minutes) ? ` for ${Math.round(Number(b.minutes) / 60)} h` : ''}` : 'Market sale OFF'),
   staffMessage: (b) => `Staff message: "${cleanText(b.text, 80)}"`,
   gift: (b) => (b.cancel === true ? 'Surprise gift stopped' : `Surprise gift: ${Math.floor(Number(b.coins) || 0)} coins, ${Math.floor(Number(b.gems) || 0)} gems`),
@@ -1585,6 +1630,10 @@ const ACTION_FNS = {
   note: (db, body) => setNote(db, body),
   scheduleAdd: (db, body) => addSchedule(db, body),
   scheduleRemove: (db, body) => removeSchedule(db, body),
+  planGiveaway: (db, body) => addPlannedGiveaway(db, body),
+  planGiveawayRemove: (db, body) => removePlannedGiveaway(db, body),
+  planGiveawayRepick: (db, body) => repickGiveaway(db, body),
+  planGiveawayGive: (db, body) => givePlannedGiveaway(db, body),
   sale: (db, body) => setSale(db, body),
   staffMessage: (db, body, fs) => staffMessage(db, fs, body),
   gift: (db, body) => sendGift(db, body),
