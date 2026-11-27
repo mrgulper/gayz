@@ -4,7 +4,8 @@
 // the first day, and phone or computer), the mode/map/skin/weapon of
 // each game, where the game was closed, and how fast the game loads and
 // runs (seconds to load, frames per second in a game - 2026-11-26), and
-// which 8-block square of the city map a death happened in (2026-11-27). Nothing that names the player (no Player ID, nickname or
+// which 8-block square of the city map a death happened in, and which first
+// steps a new player reached (2026-11-27). Nothing that names the player (no Player ID, nickname or
 // account) is sent. Off when Settings' "Share Anonymous Usage Stats" is
 // off, inside another site's frame, and in automated browsers (tests).
 //
@@ -25,6 +26,11 @@ export const STATS_DAY_KEY = 'gayz-stats-day'
 // (2026-11-26, device-only like the one above).
 export const STATS_DAYS_KEY = 'gayz-stats-days'
 export const STATS_FIRST_KEY = 'gayz-stats-first'
+// Quit Funnel (2026-11-27): the first steps a brand-new device reached, so
+// the Console can show where new players stop. Only devices new since this
+// shipped have this (device-only), so old players never count.
+export const FUNNEL_KEY = 'gayz-funnel'
+export const FUNNEL_STEPS = ['home', 'run', 'kill', 'death', 'wave3', 'run2', 'day2']
 
 let game = null
 let queue = []
@@ -33,6 +39,10 @@ let queue = []
 let loadMs = null
 let loadSent = false
 let fpsRun = null
+// This device's funnel ({ start: day, done: [steps] }), read once; null =
+// not a new device (no funnel). Steps before the first hello wait here.
+let funnel
+let funnelWaiting = []
 // A game's frame rate: skip the first seconds (the world loads in), then
 // take the middle value of this many half-second readings (~30 seconds).
 const FPS_WARMUP_MS = 15 * 1000
@@ -84,6 +94,30 @@ function count(cat, key) {
   queue.push([cat, String(key)])
 }
 
+function readFunnel() {
+  if (funnel !== undefined) return funnel
+  try {
+    const f = JSON.parse(localStorage.getItem(FUNNEL_KEY) || 'null')
+    funnel = f && Array.isArray(f.done) ? f : null
+  } catch { funnel = null }
+  return funnel
+}
+
+// Counts a funnel step once per device. Before the first hello decides
+// whether this is a new device, the step waits.
+export function funnelStep(step) {
+  if (!enabled() || !FUNNEL_STEPS.includes(step)) return
+  if (funnelWaiting && !readFunnel()) {
+    if (!funnelWaiting.includes(step)) funnelWaiting.push(step)
+    return
+  }
+  const f = readFunnel()
+  if (!f || f.done.includes(step)) return
+  f.done.push(step)
+  try { localStorage.setItem(FUNNEL_KEY, JSON.stringify(f)) } catch { /* no storage */ }
+  count('funnel', step)
+}
+
 export function deviceKind() {
   if (!isTouchDevice()) return 'computer'
   return Math.min(screen.width, screen.height) >= 600 ? 'tablet' : 'phone'
@@ -104,6 +138,9 @@ export function countRun(survival) {
   count('mode', cfg.mode || 'classic')
   count('map', map)
   count('skin', skinKind(game?.settings))
+  // Quit Funnel: first game, then second game.
+  const f = readFunnel()
+  funnelStep((f ? f.done.includes('run') : funnelWaiting?.includes('run')) ? 'run2' : 'run')
   fpsRun = { start: performance.now(), samples: [] }
 }
 
@@ -220,7 +257,18 @@ export function hello() {
     if (!first) first = kind === 'new' ? today : 'old'
     store(STATS_FIRST_KEY, first)
     if (kind !== 'new') count('since', sinceKind(first, today))
+    // Quit Funnel: a new device starts one; one coming back on a later
+    // day reached "came back another day".
+    if (kind === 'new' && !readFunnel()) {
+      funnel = { start: today, done: [] }
+      funnelStep('home')
+    } else if (kind !== 'new') funnelStep('day2')
   }
+  // The first hello has decided: replay steps that came before it (a
+  // device with no funnel drops them).
+  const waiting = funnelWaiting
+  funnelWaiting = null
+  if (waiting) for (const step of waiting) funnelStep(step)
   flushStats()
 }
 
@@ -229,11 +277,12 @@ export function startPlayStats(g) {
   // Called right after the game is built, so this is the wait from opening
   // the page until the homepage works.
   loadMs = performance.now()
-  game._playStats = { countRun, countWeapon, fpsSample, countDeath }
+  game._playStats = { countRun, countWeapon, fpsSample, countDeath, funnelStep }
   // Tests: set window.__playStatsForTests (gets each message), then call these.
   game.__statsHello = hello
   game.__statsFlush = flushStats
   game.__statsQuitPlace = quitPlace
+  game.__statsFunnelReset = () => { funnel = undefined; funnelWaiting = [] }
   // Late enough that a signed-in player's account has loaded (s vs g).
   setTimeout(hello, FIRST_HELLO_MS)
   setInterval(() => flushStats(), FLUSH_EVERY_MS)

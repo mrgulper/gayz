@@ -2161,12 +2161,12 @@ test('play stats: only known counts are kept, the owner report adds days', async
   await expect(recordStats(db, { who: 'x', hits: [['sum', 'visits']] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
-  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['death', '3-7'], ['death', '3-7'], ['death', 'out'], ['death', '16-0'], ['death', '-1-2'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['death', '3-7'], ['death', '3-7'], ['death', 'out'], ['death', '16-0'], ['death', '-1-2'], ['funnel', 'home'], ['funnel', 'home'], ['funnel', 'wave9'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
   await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
   await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
   const g = db.root.stats['2026-11-13'].g
   // "visits" counts once per message; guns can add up within one.
-  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 }, death: { '3-7': 2, out: 1 } })
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 }, death: { '3-7': 2, out: 1 }, funnel: { home: 1 } })
   expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
   const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
   expect(rep.days.length).toBe(7)
@@ -2185,11 +2185,61 @@ test('play stats: only known counts are kept, the owner report adds days', async
   expect(r2.cats.mode).toContain('classic')
 })
 
+test('play stats: quit funnel counts each first step once, new devices only', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__statsSent = []
+    window.__playStatsForTests = (body) => window.__statsSent.push(body)
+    try { for (const k of ['gayz-stats-day', 'gayz-stats-days', 'gayz-stats-first', 'gayz-funnel']) localStorage.removeItem(k) } catch { /* fresh page */ }
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const run = () => g._playStats.countRun({ cfg: { mode: 'classic' }, bm: { activeSlot: 'map3' }, net: null })
+    const steps = () => { g.__statsFlush(); return window.__statsSent.splice(0).flatMap((b) => b.hits).filter((h) => h[0] === 'funnel').map((h) => h[1]) }
+    g.__statsFunnelReset()
+    window.__statsSent.length = 0
+    // A game started before the first hello waits for it.
+    run()
+    const early = steps()
+    g.__statsHello()
+    const first = steps()
+    g._playStats.funnelStep('kill')
+    g._playStats.funnelStep('kill')
+    g._playStats.funnelStep('death')
+    g._playStats.funnelStep('wave3')
+    g._playStats.funnelStep('nope')
+    run()
+    run()
+    const play = steps()
+    // Next page load, later day: came back.
+    g.__statsFunnelReset()
+    localStorage.setItem('gayz-stats-day', new Date(Date.now() - 86400000).toISOString().slice(0, 10))
+    g.__statsHello()
+    const back = steps()
+    const saved = JSON.parse(localStorage.getItem('gayz-funnel'))
+    // A device that played before (no funnel) never counts.
+    localStorage.removeItem('gayz-funnel')
+    localStorage.setItem('gayz-stats-day', new Date(Date.now() - 86400000).toISOString().slice(0, 10))
+    g.__statsFunnelReset()
+    run()
+    g.__statsHello()
+    g._playStats.funnelStep('kill')
+    const old = steps()
+    return { early, first, play, back, saved: saved.done, old }
+  })
+  expect(r.early).toEqual([])
+  expect(r.first).toEqual(['home', 'run'])
+  expect(r.play).toEqual(['kill', 'death', 'wave3', 'run2'])
+  expect(r.back).toEqual(['day2'])
+  expect(r.saved).toEqual(['home', 'run', 'kill', 'death', 'wave3', 'run2', 'day2'])
+  expect(r.old).toEqual([])
+})
+
 test('play stats: the page counts a visit once a day and respects the setting', async ({ page }) => {
   await page.addInitScript(() => {
     window.__statsSent = []
     window.__playStatsForTests = (body) => window.__statsSent.push(body)
-    try { for (const k of ['gayz-stats-day', 'gayz-stats-days', 'gayz-stats-first']) localStorage.removeItem(k) } catch { /* fresh page */ }
+    try { for (const k of ['gayz-stats-day', 'gayz-stats-days', 'gayz-stats-first', 'gayz-funnel']) localStorage.removeItem(k) } catch { /* fresh page */ }
   })
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(() => {
@@ -2271,7 +2321,7 @@ test('play stats: the page counts a visit once a day and respects the setting', 
   expect(keys2).not.toContain('sum:players')
   expect(r.gun[0].hits).toEqual([['weapon', 'rifle']])
   expect(r.off).toEqual([])
-  expect(r.runs[0].hits).toEqual([['sum', 'runs'], ['mode', 'bossHunt'], ['map', 'city'], ['skin', 'default'], ['sum', 'runs'], ['mode', 'infection'], ['map', 'server'], ['skin', 'default']])
+  expect(r.runs[0].hits).toEqual([['sum', 'runs'], ['mode', 'bossHunt'], ['map', 'city'], ['skin', 'default'], ['funnel', 'run'], ['sum', 'runs'], ['mode', 'infection'], ['map', 'server'], ['skin', 'default'], ['funnel', 'run2']])
   expect(r.place).toBe('home')
   expect(r.day).toBe(new Date().toISOString().slice(0, 10))
   // No Player ID or name goes out.

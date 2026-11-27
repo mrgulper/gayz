@@ -2162,6 +2162,8 @@ export class BuildSurvival {
   // easy custom-lobby rules give less).
   _countKill(boss, skeleton = null, tier = 'common', shine = null, hp = 100) {
     this.kills++
+    // Quit Funnel (PlayStats.js): a new player's first zombie kill.
+    if (this.fromMenu) this.bm.game?._playStats?.funnelStep?.('kill')
     this.stats.kills++
     addWarPoints(this.bm.game, zombiePts(hp) * Math.min(1, this.rewardMult || 1))
     this.perks?.onKill()
@@ -3653,6 +3655,8 @@ export class BuildSurvival {
       if (at) playDeathEffect(this, myDeathEffect(this.bm.game), at.x, at.y, at.z)
       // Death Heatmap (PlayStats.js): where on the city map, anonymous.
       if (at && this.fromMenu && this.bm.activeSlot === 'map3') this.bm.game?._playStats?.countDeath?.(at.x, at.z)
+      // Quit Funnel: a new player's first death.
+      if (this.fromMenu) this.bm.game?._playStats?.funnelStep?.('death')
     }
     // World Map: a skull on the map's travel journal (TravelJournal.js).
     if (!won && this.bm.world?.active && isEarthWorld()) {
@@ -4137,6 +4141,8 @@ export class BuildSurvival {
     this.perks?.onWaveStart()
     this.pace?.onWaveStart(n)
     this.wave = n
+    // Quit Funnel: a new player reached wave 3.
+    if (n >= 3 && this.fromMenu) this.bm.game?._playStats?.funnelStep?.('wave3')
     // x the Console's Horde Night switch (LiveConfig.js).
     this._toSpawn = Math.max(1, Math.round(waveSize(this.wave) * this.cfg.zombieCountMult * (this.bloodMoon?.mult ?? 1) * hordeMult()))
     this._bossPending = this.cfg.bossEvery && this.wave % this.cfg.bossEvery === 0 ? 1 : 0

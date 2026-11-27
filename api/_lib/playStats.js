@@ -51,6 +51,9 @@ export const STAT_CATS = {
   // Death Heatmap (2026-11-27): which 8-block square of the city map a
   // death happened in (DeathCells.js), or "out" off the city.
   death: { keys: DEATH_KEYS, max: 5 },
+  // Quit Funnel (2026-11-27): the first steps a new device reached, each
+  // counted once per device (FUNNEL_STEPS in PlayStats.js).
+  funnel: { keys: ['home', 'run', 'kill', 'death', 'wave3', 'run2', 'day2'], max: 1 },
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]
