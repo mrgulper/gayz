@@ -18,7 +18,8 @@
 //                                  every few hours, records an uptime
 //                                  heartbeat (uptime.js, `back: true` after
 //                                  an outage) and posts the Monday weekly
-//                                  report (weekly.js)
+//                                  report (weekly.js) and picks the winners
+//                                  of planned giveaways (planner.js)
 //   { action: 'hof' }           -> the Hall of Fame cards (HallOfFame.js)
 //   { action: 'claimGift', pid, id } -> picks up a gift the team left for
 //                                  this Player ID (ownerPowers.js)
@@ -29,6 +30,7 @@ import { recordStats } from './_lib/playStats.js'
 import { cheatScan } from './_lib/leaderboardAdmin.js'
 import { heartbeat } from './_lib/uptime.js'
 import { weeklyReport } from './_lib/weekly.js'
+import { runPlanner } from './_lib/planner.js'
 import * as firestoreRest from './_lib/firestoreRest.js'
 import { sendFeedback, votePoll, recordError, contentReportAlert, seenReply, dailySummary } from './_lib/inbox.js'
 
@@ -47,7 +49,7 @@ export default handle((db, body) => {
     const fs = process.env.FIREBASE_SERVICE_ACCOUNT_KEY ? firestoreRest : null
     // The heartbeat goes first so a slow summary never shows up as a gap.
     return heartbeat(db, body).catch(() => null).then((uptime) =>
-      Promise.all([dailySummary(db), cheatScan(db, fs).catch(() => null), weeklyReport(db).catch(() => null)]).then(([summary, , weekly]) => ({ ...summary, uptime, weekly }))
+      Promise.all([dailySummary(db), cheatScan(db, fs).catch(() => null), weeklyReport(db).catch(() => null), runPlanner(db).catch(() => null)]).then(([summary, , weekly, planner]) => ({ ...summary, uptime, weekly, planner }))
     )
   }
   if (body.action === 'hof') return publicHallOfFame(db)
