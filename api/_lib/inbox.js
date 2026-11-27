@@ -146,7 +146,7 @@ export async function reportAlert(db, r, now = Date.now(), files = []) {
   const text = oneLine(r.text, 600)
   const isRude = await loadRudeChecker(db)
   const rude = isRude(text)
-  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target, isRude(r.targetName))} reported by ${who(r.byName, r.by, isRude(r.byName))}${rude ? `\n${HIDDEN_LINE}` : text ? `\n> ${text}` : ''}`, now, rude ? spoilers(files) : files)
+  return sendAlert(db, `🚩 **Player report** (${oneLine(r.where, 20) || 'chat'}): ${who(r.targetName, r.target, isRude(r.targetName))} reported by ${who(r.byName, r.by, isRude(r.byName))}${r.watched ? `\n👀 **On your watch list**${typeof r.watched === 'string' && r.watched ? ` (${oneLine(r.watched, 120)})` : ''}` : ''}${rude ? `\n${HIDDEN_LINE}` : text ? `\n> ${text}` : ''}`, now, rude ? spoilers(files) : files)
 }
 
 // A long message's full words ride along as a text file (Discord shows
