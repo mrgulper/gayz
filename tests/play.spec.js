@@ -2199,3 +2199,76 @@ test('Photo Mode Selfie Cam faces you, circles you and keeps the emote going', a
     off: true, emoteStopped: '', backToFlown: true,
   })
 })
+
+// Zoom + tilt (2026-11-27): in Photo Mode the wheel and the Zoom slider
+// zoom, Q / E and the Tilt slider lean the picture, both work in the
+// selfie too, Reset puts them back, and leaving Photo Mode does as well.
+test('Photo Mode zoom and tilt: wheel, sliders, Q / E, Reset, back to normal on exit', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__testNoDraw = true
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    const cam = bm.camera
+    const fov0 = cam.fov
+    bm.spectate.enter({ photo: true })
+    bm.update(0.05)
+    const out = { panel: !!document.getElementById('play-photo-lens'), startFov: Math.abs(cam.fov - fov0) < 0.01 }
+    // The wheel (up = closer) zooms in: a narrower view.
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: -300 }))
+    out.wheelZoom = bm.spectate.zoom > 1.3 && cam.fov < fov0 - 5
+    // The Zoom slider: all the way = 6x.
+    const zoom = document.getElementById('play-photo-zoom')
+    zoom.value = '100'
+    zoom.dispatchEvent(new Event('input', { bubbles: true }))
+    out.sliderZoom = Math.abs(bm.spectate.zoom - 6) < 0.01
+    out.zoomLabel = document.getElementById('play-photo-zoom-val').textContent
+    // E held tilts right; the camera leans.
+    bm._keys.add('KeyE')
+    for (let i = 0; i < 10; i++) bm.update(0.05)
+    bm._keys.delete('KeyE')
+    out.tiltRight = bm.spectate.tilt > 10
+    // No tilt keeps the camera's right side level; tilted, it isn't.
+    const right = new cam.position.constructor(1, 0, 0).applyQuaternion(cam.quaternion)
+    out.leans = Math.abs(right.y) > 0.15
+    // The Tilt slider.
+    const tilt = document.getElementById('play-photo-tilt')
+    tilt.value = '-30'
+    tilt.dispatchEvent(new Event('input', { bubbles: true }))
+    out.sliderTilt = bm.spectate.tilt
+    // Selfie: zoom and tilt still work.
+    bm.spectate.setSelfie(true)
+    bm._keys.add('KeyQ')
+    for (let i = 0; i < 5; i++) bm.update(0.05)
+    bm._keys.delete('KeyQ')
+    out.selfieTilt = bm.spectate.tilt < -30
+    window.dispatchEvent(new WheelEvent('wheel', { deltaY: 300 }))
+    out.selfieZoom = bm.spectate.zoom < 6
+    bm.spectate.setSelfie(false)
+    // Reset.
+    document.getElementById('play-photo-lens-reset').click()
+    bm.update(0.05)
+    out.reset = bm.spectate.zoom === 1 && bm.spectate.tilt === 0 && Math.abs(cam.fov - fov0) < 0.01
+    // Leaving Photo Mode: normal again, and opening it again starts normal.
+    zoom.value = '90'
+    zoom.dispatchEvent(new Event('input', { bubbles: true }))
+    bm.spectate.setTilt(20)
+    bm.spectate.exit()
+    bm.update(0.05)
+    const right2 = new cam.position.constructor(1, 0, 0).applyQuaternion(cam.quaternion)
+    out.exitFov = Math.abs(cam.fov - fov0) < 0.01
+    out.exitLevel = Math.abs(right2.y) < 0.01
+    bm.spectate.enter({ photo: true })
+    out.reopen = bm.spectate.zoom === 1 && bm.spectate.tilt === 0 && zoom.value === String(Math.round(bm.spectate._sliderFromZoom(1)))
+    bm.spectate.exit()
+    return out
+  })
+  expect(r).toEqual({
+    panel: true, startFov: true, wheelZoom: true, sliderZoom: true, zoomLabel: '6.0x',
+    tiltRight: true, leans: true, sliderTilt: -30, selfieTilt: true, selfieZoom: true,
+    reset: true, exitFov: true, exitLevel: true, reopen: true,
+  })
+})

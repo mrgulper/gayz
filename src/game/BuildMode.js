@@ -2466,6 +2466,8 @@ export class BuildMode {
     this.camera.rotation.set(0, 0, 0)
     this.camera.rotateY(this._yaw)
     this.camera.rotateX(this._pitch)
+    // Photo Mode's tilt (PlaySpectate.setTilt) leans the picture.
+    if (this.spectate?.roll) this.camera.rotateZ(this.spectate.roll)
     this.liquids.update(dt)
     this._updateWorld()
     this.sky.update(dt)

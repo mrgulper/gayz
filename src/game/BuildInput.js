@@ -288,6 +288,11 @@ export function setupBuildInput(bm) {
   bm._onWheel = (e) => {
     if (!bm.active || bm.pickerOpen || bm.menuOpen) return
     if (e.target?.closest?.('#build-picker, #build-menu, #community-maps-panel, #build-together-panel, #build-try-map')) return
+    // Photo Mode: the wheel zooms the camera (PlaySpectate.wheel).
+    if (bm.spectate?.active && bm.spectate.photo) {
+      bm.spectate.wheel(e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY)
+      return
+    }
     bm._wheelAccum += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY
     const steps = Math.trunc(bm._wheelAccum / 60)
     if (!steps) return

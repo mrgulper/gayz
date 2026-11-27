@@ -75,6 +75,15 @@ const SELFIE_AIM = 1.25
 const SELFIE_ZOOM = 4 // blocks per second
 const SELFIE_PITCH = -0.12
 
+// Zoom + tilt (2026-11-27, Gaymi picked "keys + sliders", in the selfie
+// too, back to normal every time Photo Mode opens): zoom from a little
+// wider than normal to 6x closer, tilt up to 45 degrees either way.
+const ZOOM_MIN = 0.6
+const ZOOM_MAX = 6
+const ZOOM_WHEEL = 1.12 // each wheel notch zooms this much
+const TILT_MAX = 45 // degrees
+const TILT_SPEED = 40 // degrees per second, holding Q or E
+
 export class PlaySpectate {
   constructor(bm, blockSize) {
     this.bm = bm
@@ -88,6 +97,10 @@ export class PlaySpectate {
     this._lastPhoto = null
     this.selfie = false
     this._selfieDist = SELFIE_DIST
+    this.zoom = 1 // 1 = the normal view, 2 = twice as close
+    this.tilt = 0 // degrees, + leans the picture to the right
+    this.roll = 0 // the tilt in radians (BuildMode.update turns the camera by it)
+    this._lensFov = null // the camera's normal field of view while zoomed
   }
 
   // Photo Mode alone stops the world; a server's game can't wait.
@@ -112,7 +125,11 @@ export class PlaySpectate {
     if (!s?.active || s.dead || this.active) return
     this.active = true
     this.photo = photo
-    if (photo) this._showPhotoUi(true)
+    if (photo) {
+      this._lensFov = bm.camera.fov
+      this.resetLens()
+      this._showPhotoUi(true)
+    }
     this._watch = -1
     this._vel.set(0, 0, 0)
     // Out of the go-kart first (you leave your body behind).
@@ -148,6 +165,14 @@ export class PlaySpectate {
     }
     this._showFloor(false)
     document.body.classList.remove('play-spectating')
+    // The normal view again: no zoom, no tilt.
+    this.resetLens()
+    if (this._lensFov != null) {
+      bm.camera.fov = this._lensFov
+      bm.camera.updateProjectionMatrix()
+      this._lensFov = null
+    }
+    this._pinch = null
     if (this.photo) this._showPhotoUi(false)
     this.photo = false
     this.setFilter('none')
@@ -167,6 +192,11 @@ export class PlaySpectate {
         <p id="play-photo-hint"></p>
         <p id="play-photo-saved" aria-live="polite"></p>
         <div id="play-photo-filters" role="group"></div>
+        <div id="play-photo-lens" role="group">
+          <label class="pp-lens-row"><span class="pp-lens-name" data-lens-name="zoom"></span><input type="range" id="play-photo-zoom" min="0" max="100" step="1"><output id="play-photo-zoom-val"></output></label>
+          <label class="pp-lens-row"><span class="pp-lens-name" data-lens-name="tilt"></span><input type="range" id="play-photo-tilt" min="-${TILT_MAX}" max="${TILT_MAX}" step="1"><output id="play-photo-tilt-val"></output></label>
+          <button type="button" id="play-photo-lens-reset"></button>
+        </div>
         <div id="play-photo-btns">
           <button type="button" id="play-photo-exit"></button>
           <button type="button" id="play-photo-post" hidden></button>
@@ -192,6 +222,17 @@ export class PlaySpectate {
       for (const id of ['play-photo-exit', 'play-photo-shutter', 'play-photo-post', 'play-photo-selfie', 'play-photo-emote']) {
         ui.querySelector(`#${id}`).addEventListener('pointerdown', (e) => e.stopPropagation())
       }
+      // The zoom and tilt sliders (and Reset): touches and clicks stay here.
+      const lens = ui.querySelector('#play-photo-lens')
+      for (const ev of ['pointerdown', 'click', 'touchstart', 'touchmove', 'wheel']) lens.addEventListener(ev, (e) => e.stopPropagation(), { passive: true })
+      ui.querySelector('#play-photo-zoom').addEventListener('input', (e) => this.setZoom(this._zoomFromSlider(+e.target.value)))
+      ui.querySelector('#play-photo-tilt').addEventListener('input', (e) => this.setTilt(+e.target.value))
+      ui.querySelector('#play-photo-lens-reset').addEventListener('click', () => this.resetLens())
+      // Phones: two fingers pinch to zoom.
+      window.addEventListener('touchmove', (e) => this._onPinch(e), { passive: false, capture: true })
+      const endPinch = (e) => { if (e.touches.length < 2) this._pinch = null }
+      window.addEventListener('touchend', endPinch, { passive: true, capture: true })
+      window.addEventListener('touchcancel', endPinch, { passive: true, capture: true })
       ui.querySelector('#play-photo-post').addEventListener('click', (e) => {
         e.stopPropagation()
         this.postPhoto()
@@ -229,6 +270,103 @@ export class PlaySpectate {
       b.textContent = t(`photoFilter_${b.dataset.filter}`)
       b.classList.toggle('active', b.dataset.filter === this.filter)
     }
+    ui.querySelector('[data-lens-name="zoom"]').textContent = t('photoModeZoom')
+    ui.querySelector('[data-lens-name="tilt"]').textContent = t('photoModeTilt')
+    ui.querySelector('#play-photo-lens-reset').textContent = t('photoModeLensReset')
+    this._lensUi()
+  }
+
+  // Zoom + tilt. The zoom slider goes 0-100 evenly through the zoom
+  // (so 1x to 2x is as far as 2x to 4x).
+  _zoomFromSlider(v) {
+    return ZOOM_MIN * Math.pow(ZOOM_MAX / ZOOM_MIN, v / 100)
+  }
+
+  _sliderFromZoom(z) {
+    return (Math.log(z / ZOOM_MIN) / Math.log(ZOOM_MAX / ZOOM_MIN)) * 100
+  }
+
+  setZoom(z) {
+    this.zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z || 1))
+    // Close to 1x snaps to exactly normal, so it's easy to go back.
+    if (Math.abs(this.zoom - 1) < 0.03) this.zoom = 1
+    this._applyFov()
+    this._lensUi()
+  }
+
+  setTilt(deg) {
+    this.tilt = Math.max(-TILT_MAX, Math.min(TILT_MAX, deg || 0))
+    this.roll = THREE.MathUtils.degToRad(-this.tilt)
+    this._lensUi()
+  }
+
+  resetLens() {
+    this.zoom = 1
+    this.tilt = 0
+    this.roll = 0
+    this._pinch = null
+    this._applyFov()
+    this._lensUi()
+  }
+
+  // The camera's field of view for the zoom: a real lens zoom (2x shows
+  // half as much across), from the normal view Photo Mode opened with.
+  _applyFov() {
+    if (this._lensFov == null) return
+    const cam = this.bm.camera
+    const half = THREE.MathUtils.degToRad(this._lensFov) / 2
+    const fov = THREE.MathUtils.radToDeg(2 * Math.atan(Math.tan(half) / this.zoom))
+    if (Math.abs(cam.fov - fov) > 0.001) {
+      cam.fov = fov
+      cam.updateProjectionMatrix()
+    }
+  }
+
+  // The sliders and their numbers follow the zoom and tilt.
+  _lensUi() {
+    const ui = document.getElementById('play-photo-ui')
+    if (!ui) return
+    const zoom = ui.querySelector('#play-photo-zoom')
+    const tilt = ui.querySelector('#play-photo-tilt')
+    if (document.activeElement !== zoom) zoom.value = String(Math.round(this._sliderFromZoom(this.zoom)))
+    if (document.activeElement !== tilt) tilt.value = String(Math.round(this.tilt))
+    ui.querySelector('#play-photo-zoom-val').textContent = `${this.zoom.toFixed(1)}x`
+    ui.querySelector('#play-photo-tilt-val').textContent = `${Math.round(this.tilt)}°`
+  }
+
+  // BuildInput: the mouse wheel in Photo Mode zooms (up = closer).
+  wheel(deltaY) {
+    if (!this.photo || !deltaY) return
+    this.setZoom(this.zoom * Math.pow(ZOOM_WHEEL, -deltaY / 100))
+  }
+
+  // Two fingers on the screen (not the move stick, not a button):
+  // spreading them zooms in, pinching zooms out. Caught before the touch
+  // controls (BuildTouch) see it, so the view doesn't also turn.
+  _onPinch(e) {
+    if (!this.active || !this.photo || e.touches.length < 2) return
+    const touch = this.bm.touch
+    const free = [...e.touches].filter((tch) => tch.identifier !== touch?._stick?.id && !tch.target?.closest?.('[data-tp], #play-photo-ui button, #play-photo-ui input, #emote-wheel'))
+    if (free.length < 2) return
+    const [a, b] = free
+    const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)
+    if (touch) touch._look = null
+    e.stopPropagation()
+    e.preventDefault()
+    const p = this._pinch
+    if (!p || p.a !== a.identifier || p.b !== b.identifier) {
+      this._pinch = { a: a.identifier, b: b.identifier, d, zoom: this.zoom }
+      return
+    }
+    if (p.d > 0) this.setZoom(p.zoom * (d / p.d))
+  }
+
+  // Q / E held: tilt left / right (every frame, both cameras).
+  _updateLens(dt, keys) {
+    let dir = 0
+    if (keys.has('KeyQ')) dir -= 1
+    if (keys.has('KeyE')) dir += 1
+    if (dir) this.setTilt(this.tilt + dir * TILT_SPEED * dt)
   }
 
   // The Selfie button's look, the Emote button and the hint for the camera
@@ -467,6 +605,7 @@ export class PlaySpectate {
       bm.tryMode._drawMap(performance.now(), p.x, p.z)
       return
     }
+    if (this.photo) this._updateLens(dt, keys)
     if (this.selfie) return this._updateSelfie(dt, keys)
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
