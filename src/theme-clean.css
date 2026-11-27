@@ -806,7 +806,7 @@ html.ui-theme-clean #menu #menu-nav-buttons .nav-badge-dot:is(#upgrades-dot, #fr
    washes made for a dark panel - in Simple they're the panel's own light
    surface with a thin line, like the other panel controls (2026-10-24,
    "the hidden part its too dark make it lighter and based on the theme"). */
-html.ui-theme-clean :is(.profile-stat-card, #profile-content #highlight-reel-heading, #profile-content #rank-roadmap-heading, #profile-content #recent-unlocks-heading, #profile-content #prestige-history-heading, #highlight-reel-list, #rank-roadmap-list, #recent-unlocks-list, #prestige-history-list, #stats-dashboard-canvas, #profile-notes-input) {
+html.ui-theme-clean :is(.profile-stat-card, #profile-content #highlight-reel-heading, #profile-content #rank-roadmap-heading, #profile-content #recent-unlocks-heading, #profile-content #prestige-history-heading, #highlight-reel-list, #rank-roadmap-list, #recent-unlocks-list, #prestige-history-list, #stats-dashboard-canvas, #profile-notes-input, #capsule-input) {
   background: var(--clean-surface);
   border-color: var(--clean-line);
 }

@@ -1711,3 +1711,70 @@ test('Phone: Upgrades, Achievements and Global match How to Play', async ({ page
     await expect.poll(() => page.evaluate((p) => document.querySelector(`#${p} .panel-box`).offsetHeight, panel), { timeout: 20000 }).toBe(howTo)
   }
 })
+
+// Profile > Time Capsule (TimeCapsule.js, 2026-11-27): seal a note, it stays
+// locked, then opens with a then-vs-now and one homepage toast. Device only.
+test('Time Capsule seals, stays locked, then opens with then vs now', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const out = {}
+    localStorage.removeItem('gayz-time-capsules')
+    g._cloudUid = 'test-uid'
+    g._authReadyPromise = Promise.resolve()
+    await g._openProfilePanel()
+    document.getElementById('profile-tab-capsule').click()
+    out.tab = document.getElementById('profile-tab-capsule').textContent
+    out.options = [...document.querySelectorAll('#capsule-wait-select option')].map((o) => o.value)
+    // Empty note: not sealed.
+    document.getElementById('capsule-seal-btn').click()
+    out.empty = document.getElementById('capsule-status').textContent
+    // Custom 3 days, with HTML in the note (must show as plain text).
+    document.getElementById('capsule-input').value = 'Hi <b>me</b>'
+    const sel = document.getElementById('capsule-wait-select')
+    sel.value = 'custom'
+    sel.dispatchEvent(new Event('change'))
+    out.customShown = !document.getElementById('capsule-custom-row').hidden
+    document.getElementById('capsule-custom-days').value = '3'
+    document.getElementById('capsule-seal-btn').click()
+    const saved = JSON.parse(localStorage.getItem('gayz-time-capsules'))
+    out.days = Math.round((saved[0].opensAt - saved[0].made) / 86400000)
+    out.locked = !!document.querySelector('.capsule-locked') && !document.querySelector('.capsule-list-text')
+    out.lockedHidesText = !document.getElementById('capsule-list').textContent.includes('Hi')
+    out.toastWhileLocked = g._checkOpenedCapsules()
+    // Open it: move the date back and set "then" numbers.
+    saved[0].opensAt = Date.now() - 1000
+    saved[0].snap = { level: 1, kills: 2, coins: 3 }
+    localStorage.setItem('gayz-time-capsules', JSON.stringify(saved))
+    out.toast1 = g._checkOpenedCapsules()
+    out.toast2 = g._checkOpenedCapsules()
+    document.getElementById('profile-tab-capsule').click()
+    out.text = document.querySelector('.capsule-open .capsule-text')?.textContent
+    out.noBoldTag = !document.querySelector('.capsule-open .capsule-text b')
+    out.stats = document.querySelectorAll('.capsule-open .capsule-stats li').length
+    // Delete takes two taps.
+    const del = document.querySelector('[data-capsule-del]')
+    del.click()
+    out.afterOneTap = JSON.parse(localStorage.getItem('gayz-time-capsules')).length
+    del.click()
+    out.afterTwoTaps = JSON.parse(localStorage.getItem('gayz-time-capsules')).length
+    localStorage.removeItem('gayz-time-capsules')
+    return out
+  })
+  expect(r.tab).toBe('Time Capsule')
+  expect(r.options).toEqual(['1', '7', '30', 'custom'])
+  expect(r.empty).toBe('Write something first.')
+  expect(r.customShown).toBe(true)
+  expect(r.days).toBe(3)
+  expect(r.locked).toBe(true)
+  expect(r.lockedHidesText).toBe(true)
+  expect(r.toastWhileLocked).toBe(0)
+  expect(r.toast1).toBe(1)
+  expect(r.toast2).toBe(0)
+  expect(r.text).toBe('Hi <b>me</b>')
+  expect(r.noBoldTag).toBe(true)
+  expect(r.stats).toBe(3)
+  expect(r.afterOneTap).toBe(1)
+  expect(r.afterTwoTaps).toBe(0)
+  expect(DEVICE_ONLY_KEYS.has('gayz-time-capsules')).toBe(true)
+})

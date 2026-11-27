@@ -25,6 +25,7 @@ import { bindCommerceTabs } from './CommerceTabs.js'
 import { bindPanelFit } from './PanelFit.js'
 import { bindSettingsLog, logSettingChange } from './SettingsLog.js'
 import { bindGameplaySettings } from './GameplaySettings.js'
+import { checkOpenedCapsules } from './TimeCapsule.js'
 import { bindMoreSettings, buildMoreRows, quietHoursFactor } from './MoreSettings.js'
 import { moreKeysForPage } from './MoreSettingsList.js'
 import { GRAPHICS_LEVELS, LEVEL_LOOK } from './GraphicsLevels.js'
@@ -1503,6 +1504,9 @@ export function _bindSettings(game) {
   game._checkSettingsTabDeepLink()
   game._checkWeeklyResetImminent()
   game._checkUnclaimedQuestsReminder()
+  // Time Capsule: one toast if a capsule opened since last time (tests call it too).
+  game._checkOpenedCapsules = () => checkOpenedCapsules(game)
+  game._checkOpenedCapsules()
 
   // A click on an open panel's backdrop that lands on one of the
   // homepage's right-side buttons (the profile card or a nav button)

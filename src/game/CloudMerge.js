@@ -45,6 +45,8 @@ export const DEVICE_ONLY_KEYS = new Set([
   'gayz-settings-log',
   // CloudBuilds.js: this device's build-sync bookkeeping.
   'gayz-build-sync',
+  // TimeCapsule.js: notes to future you stay on this device (Gaymi's pick).
+  'gayz-time-capsules',
 ])
 
 // Keys whose numeric fields are running totals/balances - when both devices

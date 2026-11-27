@@ -2577,6 +2577,7 @@
           <button type="button" class="profile-tab" data-profile-page="hidden" id="profile-tab-hidden">Hidden</button>
           <button type="button" class="profile-tab" data-profile-page="trophies" id="profile-tab-trophies">Trophies</button>
           <button type="button" class="profile-tab" data-profile-page="guestbook" id="profile-tab-guestbook">Guestbook</button>
+          <button type="button" class="profile-tab" data-profile-page="capsule" id="profile-tab-capsule">Time Capsule</button>
         </div>
 
         <!-- Your Guestbook (SocialNotes.js, 2026-11-20): lines other players
@@ -2584,6 +2585,28 @@
         <div class="profile-tab-page" id="profile-page-guestbook" style="display: none">
           <p id="my-guestbook-hint">What other players wrote on your profile. You can delete any line.</p>
           <div id="my-guestbook-list" class="social-note-list"></div>
+        </div>
+
+        <!-- Time Capsule (TimeCapsule.js, 2026-11-27): a note to your future
+             self, locked for the days you pick. Kept on this device only. -->
+        <div class="profile-tab-page" id="profile-page-capsule" style="display: none">
+          <p id="capsule-hint">Write a note to future you. It stays locked until the day you pick, then shows how much you've grown.</p>
+          <div id="capsule-write">
+            <textarea id="capsule-input" maxlength="300" placeholder="Dear future me..."></textarea>
+            <p id="capsule-count" class="social-note-count">0/300</p>
+            <div id="capsule-wait-row">
+              <label for="capsule-wait-select" id="capsule-wait-label">Open in</label>
+              <select id="capsule-wait-select"><option value="7">1 week</option></select>
+            </div>
+            <div id="capsule-custom-row" hidden>
+              <label for="capsule-custom-days" id="capsule-custom-label">Days (1-365)</label>
+              <input type="number" id="capsule-custom-days" class="nickname-input" min="1" max="365" value="14" inputmode="numeric" />
+            </div>
+            <div class="friend-mail-buttons"><button type="button" id="capsule-seal-btn" class="mini-action-btn">Seal Capsule</button></div>
+            <p id="capsule-status" class="social-note-status"></p>
+          </div>
+          <h3 id="capsule-list-heading">Your Capsules</h3>
+          <div id="capsule-list" class="social-note-list"></div>
         </div>
 
         <!-- Trophies (Trophies.js, 2026-11-01): bronze / silver / gold from
@@ -2988,7 +3011,7 @@
             </ul>
 
             <h3>Stored only on your device</h3>
-            <p>Your settings, keybinds, theme colour, any homepage picture you upload and the list of settings you've changed (Settings &gt; General &gt; Your Settings Changes) stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings - including which inventory items you've locked - not the picture or the changes list). The parts of the World Map you've walked (which squares of the map are cleared of fog), your passport stamps and your travel journal (trail, where you died, where you found loot) are also kept only in your browser. The one exception: when you play the World Map mode on a server with other players, the squares you've cleared are sent through our server to the players in that game so you share one explored map - they're passed along while you play together and not kept on the server after the game. Battery Saver's Auto setting (Settings &gt; Graphics) reads your device's battery level and whether it's charging, only inside the game on your device, to switch itself on; that's never saved or sent anywhere.</p>
+            <p>Your settings, keybinds, theme colour, any homepage picture you upload and the list of settings you've changed (Settings &gt; General &gt; Your Settings Changes) and your Time Capsule notes (Profile &gt; Time Capsule, with the level, kills and coins saved alongside them) stay in your own browser and aren't sent anywhere unless you sign in to Cloud Save (which copies your settings - including which inventory items you've locked - not the picture, the changes list or your Time Capsules). The parts of the World Map you've walked (which squares of the map are cleared of fog), your passport stamps and your travel journal (trail, where you died, where you found loot) are also kept only in your browser. The one exception: when you play the World Map mode on a server with other players, the squares you've cleared are sent through our server to the players in that game so you share one explored map - they're passed along while you play together and not kept on the server after the game. Battery Saver's Auto setting (Settings &gt; Graphics) reads your device's battery level and whether it's charging, only inside the game on your device, to switch itself on; that's never saved or sent anywhere.</p>
 
             <h3>Anonymous usage counters</h3>
             <p>A few features track simple aggregate counts (like how often a setting gets opened) to understand what's actually used. These are just totals - they aren't tied to your account or identity in any readable way.</p>

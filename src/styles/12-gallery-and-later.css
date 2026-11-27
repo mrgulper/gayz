@@ -801,8 +801,10 @@ html.ui-theme-old .panel-box .nameplate-clan {
   box-sizing: border-box;
 }
 
-/* Pin a stat to the top: the same oval as the other dropdowns, both themes. */
-#pinned-stat-select {
+/* Pin a stat to the top (and Time Capsule's Open in): the same oval as the
+   other dropdowns, both themes. */
+#pinned-stat-select,
+#capsule-wait-select {
   border-radius: 999px;
   padding: 6px 30px 6px 14px;
   font-family: inherit;
@@ -816,14 +818,16 @@ html.ui-theme-old .panel-box .nameplate-clan {
   background-repeat: no-repeat;
   background-position: right 12px center;
 }
-html.ui-theme-old #pinned-stat-select {
+html.ui-theme-old #pinned-stat-select,
+html.ui-theme-old #capsule-wait-select {
   background-color: transparent !important;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23000' stroke-width='2'/%3E%3C/svg%3E") !important;
   background-repeat: no-repeat !important;
   background-position: right 12px center !important;
   border: 1px solid #4a2c10;
 }
-html.ui-theme-old #pinned-stat-select option {
+html.ui-theme-old #pinned-stat-select option,
+html.ui-theme-old #capsule-wait-select option {
   color: #000;
   background: #f1e0b8;
 }

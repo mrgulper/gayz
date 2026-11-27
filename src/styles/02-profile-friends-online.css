@@ -980,3 +980,76 @@ html.ui-theme-old .panel-box #cloudsave-region-select {
   align-items: center;
   gap: 6px;
 }
+
+/* Profile > Time Capsule (TimeCapsule.js, 2026-11-27): same note rows as
+   the Guestbook; the write box is full width so it fits a phone. */
+#profile-page-capsule {
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+#capsule-hint {
+  font-size: 12px;
+  opacity: 0.7;
+  margin: 0 0 4px;
+  text-align: center;
+  max-width: 420px;
+}
+#capsule-write {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+#capsule-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 90px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #f4f1e6;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--menu-panel-border);
+  border-radius: 6px;
+  resize: vertical;
+}
+#capsule-wait-row,
+#capsule-custom-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+#capsule-custom-row[hidden] {
+  display: none;
+}
+#capsule-custom-days {
+  width: 90px;
+  text-align: center;
+}
+#capsule-list-heading {
+  margin: 10px 0 0;
+  font-size: 15px;
+}
+.capsule-text {
+  white-space: pre-wrap;
+  font-size: 14px;
+}
+.capsule-stats {
+  margin: 0;
+  padding: 0 0 0 18px;
+  font-size: 13px;
+}
+.capsule-diff {
+  opacity: 0.7;
+}
+.capsule-locked {
+  opacity: 0.85;
+}
