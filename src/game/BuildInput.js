@@ -91,6 +91,10 @@ export function setupBuildInput(bm) {
       }
       if (!e.repeat && bm.spectate.photo) {
         if (e.code === 'KeyP' || e.code === 'Enter') bm.spectate.snap()
+        // Selfie Cam: F turns the camera round to you; the Emote key opens
+        // the wheel while it's on.
+        else if (e.code === 'KeyF') bm.spectate.setSelfie(!bm.spectate.selfie)
+        else if (bm.spectate.selfie && e.code === getKeyFor('emote')) bm.spectate.toggleEmotes()
       } else if (!e.repeat) {
         if (e.code === getKeyFor('use') && bm.spectate.hasPlayers()) bm.spectate.onKey(e.code)
         else if (e.code === getKeyFor('use')) startUse(bm)

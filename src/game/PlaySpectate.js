@@ -27,6 +27,14 @@
 // the saved picture are the same), and once a photo's taken, Post to
 // Gallery sends it (a smaller JPEG) to the Gallery's Photo section.
 //
+// Selfie Cam (2026-11-27, Gaymi: "a button in photo mode that turns the
+// camera around to face my character, so I can pose with an emote"):
+// the Selfie button (or F) puts you back where you stood, facing the way
+// you looked, and the camera turns round to look at you. The mouse (or a
+// finger drag) circles it around you, W / S (or the stick) brings it
+// closer or farther, and the emote wheel (Z, or the Emote button) works -
+// the emote keeps going until you leave the selfie. F again flies.
+//
 // Escape goes back to the pause screen and puts the camera back where you
 // were. Owned by BuildMode (`bm.spectate`), driven from its update() and
 // key/mouse handlers.
@@ -57,6 +65,16 @@ const MIN_EYE = BOTTOM + 0.4 // lowest the camera goes, in blocks
 const POST_WIDTH = 960
 const POST_MAX = 290000
 
+// Selfie Cam: how far the camera is from you (blocks), where it aims (blocks
+// above your feet - your chest), how fast W / S move it, and the little
+// downward look it starts with.
+const SELFIE_DIST = 3
+const SELFIE_MIN = 1.2
+const SELFIE_MAX = 8
+const SELFIE_AIM = 1.25
+const SELFIE_ZOOM = 4 // blocks per second
+const SELFIE_PITCH = -0.12
+
 export class PlaySpectate {
   constructor(bm, blockSize) {
     this.bm = bm
@@ -68,6 +86,8 @@ export class PlaySpectate {
     this.photo = false
     this.filter = 'none'
     this._lastPhoto = null
+    this.selfie = false
+    this._selfieDist = SELFIE_DIST
   }
 
   // Photo Mode alone stops the world; a server's game can't wait.
@@ -113,6 +133,7 @@ export class PlaySpectate {
   exit() {
     if (!this.active) return
     const bm = this.bm
+    this._endSelfie()
     this.active = false
     bm.survival.spectating = false
     if (this._saved) {
@@ -149,6 +170,8 @@ export class PlaySpectate {
         <div id="play-photo-btns">
           <button type="button" id="play-photo-exit"></button>
           <button type="button" id="play-photo-post" hidden></button>
+          <button type="button" id="play-photo-emote" hidden></button>
+          <button type="button" id="play-photo-selfie" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><path d="M9 12a3 3 0 0 1 5.2-2"/><path d="M15 14a3 3 0 0 1-5.2 2"/><path d="M14.4 8.2v2h-2M9.6 17.8v-2h2"/></svg><span></span></button>
           <button type="button" id="play-photo-shutter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 8h4l2-3h6l2 3h4v12H3z"/><circle cx="12" cy="13" r="4"/></svg></button>
         </div>`
       document.body.appendChild(ui)
@@ -166,12 +189,20 @@ export class PlaySpectate {
         const b = e.target.closest('[data-filter]')
         if (b) this.setFilter(b.dataset.filter)
       })
-      for (const id of ['play-photo-exit', 'play-photo-shutter', 'play-photo-post']) {
+      for (const id of ['play-photo-exit', 'play-photo-shutter', 'play-photo-post', 'play-photo-selfie', 'play-photo-emote']) {
         ui.querySelector(`#${id}`).addEventListener('pointerdown', (e) => e.stopPropagation())
       }
       ui.querySelector('#play-photo-post').addEventListener('click', (e) => {
         e.stopPropagation()
         this.postPhoto()
+      })
+      ui.querySelector('#play-photo-selfie').addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.setSelfie(!this.selfie)
+      })
+      ui.querySelector('#play-photo-emote').addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.toggleEmotes()
       })
       ui.querySelector('#play-photo-shutter').addEventListener('click', (e) => {
         e.stopPropagation()
@@ -185,8 +216,10 @@ export class PlaySpectate {
     if (!ui) return
     ui.style.display = on ? '' : 'none'
     if (!on) return
-    ui.querySelector('#play-photo-hint').textContent = t('photoModeHint')
     ui.querySelector('#play-photo-exit').textContent = t('photoModeExit')
+    ui.querySelector('#play-photo-selfie span').textContent = t('photoModeSelfie')
+    ui.querySelector('#play-photo-emote').textContent = t('actionEmote')
+    this._selfieUi()
     ui.querySelector('#play-photo-shutter').setAttribute('aria-label', t('photoModeSnap'))
     ui.querySelector('#play-photo-shutter').title = t('photoModeSnap')
     const post = ui.querySelector('#play-photo-post')
@@ -196,6 +229,69 @@ export class PlaySpectate {
       b.textContent = t(`photoFilter_${b.dataset.filter}`)
       b.classList.toggle('active', b.dataset.filter === this.filter)
     }
+  }
+
+  // The Selfie button's look, the Emote button and the hint for the camera
+  // you're using.
+  _selfieUi() {
+    const ui = document.getElementById('play-photo-ui')
+    if (!ui) return
+    ui.querySelector('#play-photo-hint').textContent = t(this.selfie ? 'photoModeSelfieHint' : 'photoModeHint')
+    const b = ui.querySelector('#play-photo-selfie')
+    b.classList.toggle('active', this.selfie)
+    b.setAttribute('aria-pressed', String(this.selfie))
+    ui.querySelector('#play-photo-emote').hidden = !this.selfie
+  }
+
+  // Selfie Cam on or off (the Selfie button, or F).
+  setSelfie(on) {
+    on = !!on
+    if (!this.active || !this.photo || on === this.selfie) return
+    const bm = this.bm
+    const tm = bm.tryMode
+    if (on) {
+      // Where the free camera was, for flying on afterwards.
+      this._freeCam = { pos: bm.camera.position.clone(), yaw: bm._yaw, pitch: bm._pitch }
+      // You stand where you were when Photo Mode opened, facing the way
+      // you were looking, and the camera looks back at your face.
+      if (this._savedPos) tm.pos.copy(this._savedPos)
+      tm.vel?.set(0, 0, 0)
+      const yaw = this._saved?.yaw ?? bm._yaw
+      tm.selfieYaw = yaw
+      bm._yaw = yaw + Math.PI
+      bm._pitch = SELFIE_PITCH
+      this._selfieDist = SELFIE_DIST
+      this._vel.set(0, 0, 0)
+      this.selfie = true
+    } else {
+      this._endSelfie()
+      const f = this._freeCam
+      if (f) {
+        bm.camera.position.copy(f.pos)
+        bm._yaw = f.yaw
+        bm._pitch = f.pitch
+      }
+      this._freeCam = null
+      // Your body goes back out of sight (unless a third-person view is on).
+      tm._updateBody(0)
+    }
+    this._selfieUi()
+  }
+
+  // Leaving the selfie (or Photo Mode): the emote stops, the wheel closes.
+  _endSelfie() {
+    if (!this.selfie) return
+    this.selfie = false
+    this.bm.tryMode.selfieYaw = null
+    const em = this.bm.survival?.emotes
+    em?.close(false)
+    em?.stop()
+  }
+
+  // The Emote button (and the Emote key) while taking a selfie.
+  toggleEmotes() {
+    if (!this.selfie) return
+    this.bm.survival?.emotes?.toggleBar()
   }
 
   // A filter for the photos (and the live view while in Photo Mode).
@@ -371,6 +467,7 @@ export class PlaySpectate {
       bm.tryMode._drawMap(performance.now(), p.x, p.z)
       return
     }
+    if (this.selfie) return this._updateSelfie(dt, keys)
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion)
     const right = new THREE.Vector3(1, 0, 0).applyQuaternion(cam.quaternion)
     const dir = new THREE.Vector3()
@@ -410,5 +507,43 @@ export class PlaySpectate {
     bm.specials.update(dt, null)
     tm._drawMap(performance.now())
     tm._setUnderwater(tm._liquidAtEye(tm.pos))
+  }
+
+  // Selfie Cam: you stand still, the camera circles you. The mouse already
+  // turned it (BuildMode.update sets its rotation from _yaw / _pitch);
+  // here it moves back from your chest along the way it looks, stopping
+  // short of a wall or the ground.
+  _updateSelfie(dt, keys) {
+    const bm = this.bm
+    const cam = bm.camera
+    const B = this.B
+    const tm = bm.tryMode
+    let zoom = 0
+    if (keys.has('KeyW')) zoom -= 1
+    if (keys.has('KeyS')) zoom += 1
+    const stick = bm._touchMove || bm._padMove
+    if (stick) zoom -= stick.y
+    this._selfieDist = Math.max(SELFIE_MIN, Math.min(SELFIE_MAX, this._selfieDist + zoom * SELFIE_ZOOM * dt))
+    const aim = this._aim || (this._aim = new THREE.Vector3())
+    aim.set(tm.pos.x, tm.pos.y + SELFIE_AIM, tm.pos.z)
+    const back = (this._back || (this._back = new THREE.Vector3())).set(0, 0, 1).applyQuaternion(cam.quaternion)
+    let dist = this._selfieDist
+    for (let d = 0.3; d <= this._selfieDist; d += 0.1) {
+      if (bm._cellSolidTop(Math.floor(aim.x + back.x * d), Math.floor(aim.y + back.y * d), Math.floor(aim.z + back.z * d)) > 0) {
+        dist = Math.max(0.3, d - 0.3)
+        break
+      }
+    }
+    cam.position.set((aim.x + back.x * dist) * B, (aim.y + back.y * dist) * B, (aim.z + back.z * dist) * B)
+    tm.vel?.set(0, 0, 0)
+    if (this._floor) this._floor.position.set(Math.round(cam.position.x / B) * B, BOTTOM * B, Math.round(cam.position.z / B) * B)
+    // Your body, posing (Emotes.poseEmote) - the world may be frozen, so
+    // it's moved here.
+    tm._updateBody(dt)
+    const s = bm.survival
+    if (s?.active) bm.gadgets.updatePlates(s.zombieCells(), dt)
+    bm.specials.update(dt, null)
+    tm._drawMap(performance.now())
+    tm._setUnderwater(false)
   }
 }

@@ -2134,3 +2134,68 @@ test('Pet and ride looks: hats and paint on my pets, paint on my kart', async ({
   })
   expect(r).toEqual({ kartNeon: true, petHat: true, petPainted: true, cowHat: true, cowPainted: true, cowOwnMats: true, cowBack: true, unowned: true })
 })
+
+// Selfie Cam (2026-11-27): in Photo Mode the Selfie button turns the camera
+// round to face you, your body shows, the mouse circles it, the emote keeps
+// going until the selfie ends, and F flies again from where you were.
+test('Photo Mode Selfie Cam faces you, circles you and keeps the emote going', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__testNoDraw = true
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    const B = bm.tryMode.B
+    const me = bm.tryMode.pos.clone()
+    bm.spectate.enter({ photo: true })
+    // Fly away first.
+    bm._keys.add('KeyW')
+    for (let i = 0; i < 20; i++) bm.update(0.05)
+    bm._keys.delete('KeyW')
+    const flown = bm.camera.position.clone()
+    const out = { btn: !!document.getElementById('play-photo-selfie'), emoteHidden: document.getElementById('play-photo-emote').hidden }
+    document.getElementById('play-photo-selfie').click()
+    bm.update(0.05)
+    out.on = bm.spectate.selfie
+    out.pressed = document.getElementById('play-photo-selfie').getAttribute('aria-pressed')
+    out.emoteShown = !document.getElementById('play-photo-emote').hidden
+    out.backHome = bm.tryMode.pos.distanceTo(me) < 0.01
+    out.bodyShown = !!bm.tryMode._body?.group.visible
+    // The camera is near you and looks at you.
+    const cam = bm.camera
+    const chest = me.clone().multiplyScalar(B)
+    chest.y += 1.25 * B
+    const look = new cam.position.constructor(0, 0, -1).applyQuaternion(cam.quaternion)
+    const toMe = chest.clone().sub(cam.position)
+    out.near = toMe.length() / B < 3.2
+    out.looksAtMe = look.dot(toMe.normalize()) > 0.99
+    // Turning the mouse circles it round you (same distance).
+    const d0 = cam.position.distanceTo(chest)
+    bm._yaw += 1
+    bm.update(0.05)
+    out.circled = Math.abs(cam.position.distanceTo(chest) - d0) < 0.2 * B
+    // S moves it farther.
+    bm._keys.add('KeyS')
+    for (let i = 0; i < 10; i++) bm.update(0.05)
+    bm._keys.delete('KeyS')
+    out.farther = cam.position.distanceTo(chest) > d0 + 0.5 * B
+    // The emote keeps going past its usual time.
+    s.emotes.play('dance')
+    for (let i = 0; i < 100; i++) { bm.update(0.05); s.emotes.update(0.05) }
+    out.stillDancing = s.emotes.current
+    // F: back to flying, from the spot you flew to.
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyF', bubbles: true }))
+    out.off = !bm.spectate.selfie
+    out.emoteStopped = s.emotes.current
+    out.backToFlown = cam.position.distanceTo(flown) < 0.01
+    bm.spectate.exit()
+    return out
+  })
+  expect(r).toEqual({
+    btn: true, emoteHidden: true, on: true, pressed: 'true', emoteShown: true, backHome: true, bodyShown: true,
+    near: true, looksAtMe: true, circled: true, farther: true, stillDancing: 'dance',
+    off: true, emoteStopped: '', backToFlown: true,
+  })
+})

@@ -1781,10 +1781,12 @@ export class BuildTryMode {
     // The emote camera (applyView) glides round to your front while you
     // emote standing still, and back when it ends or you walk.
     const em = this.bm.survival?.active ? this.bm.survival.emotes : null
-    const camOn = !!em?.current && !this._seatEye && !this.camHeld && this.view !== 2 && Math.hypot(this.vel.x, this.vel.z) < 0.5
+    // Selfie Cam (PlaySpectate) holds the camera itself.
+    const selfie = !!this.bm.spectate?.selfie
+    const camOn = !selfie && !!em?.current && !this._seatEye && !this.camHeld && this.view !== 2 && Math.hypot(this.vel.x, this.vel.z) < 0.5
     this._emoteCam = (this._emoteCam || 0) + ((camOn ? 1 : 0) - (this._emoteCam || 0)) * (1 - Math.exp(-EMOTE_CAM_RATE * dt))
     if (this._emoteCam < 0.002) this._emoteCam = 0
-    const show = this.active && (!!this.view || this._emoteCam > 0.02 || !!this.bm.survival?.couch?.joined) && !!this._armSkin
+    const show = this.active && (selfie || !!this.view || this._emoteCam > 0.02 || !!this.bm.survival?.couch?.joined) && !!this._armSkin
     if (show && (!this._body || this._bodySkin !== this._armSkin)) this._buildBody()
     if (!this._body) return
     this._body.group.visible = show
@@ -1793,7 +1795,8 @@ export class BuildTryMode {
     const body = this._body
     const p = this.pos
     body.group.position.set(p.x * B, p.y * B, p.z * B)
-    body.group.rotation.y = this.bm._yaw + Math.PI
+    // In a selfie you face where you were looking; the camera turns alone.
+    body.group.rotation.y = (selfie && this.selfieYaw != null ? this.selfieYaw : this.bm._yaw) + Math.PI
     // Lower while crouching.
     body.char.position.y = body.lift - (this._crouch ? (HEIGHT - CROUCH_HEIGHT) * B * 0.5 : 0)
     const lp = body.char.limbPivots
@@ -1879,7 +1882,7 @@ export class BuildTryMode {
   applyView() {
     // A kill cam holds the camera (camHeld): third person stays out of it.
     const k = smoothStep(Math.min(1, this._emoteCam || 0))
-    if (!this.active || this.camHeld || (!this.view && k <= 0.001)) return null
+    if (!this.active || this.camHeld || this.bm.spectate?.selfie || (!this.view && k <= 0.001)) return null
     const cam = this.bm.camera
     const eye = cam.position.clone()
     const quat = cam.quaternion.clone()
