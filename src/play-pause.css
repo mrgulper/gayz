@@ -757,8 +757,12 @@ html.ui-theme-biome #play-photo-shutter { color: var(--biome-ink) !important; }
 html.ui-theme-biome #play-photo-btns button:hover { background: var(--biome-button-hover); }
 html.ui-theme-biome #play-photo-saved { color: #fff; }
 /* Photo filters: a row of pills under the hint, the picked one gold. */
-#play-photo-filters {
+/* The filters and the Sky picker stack under the hint. */
+#play-photo-top {
   position: absolute; left: 50%; top: 56px; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: calc(100vw - 32px);
+}
+#play-photo-filters {
   display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; width: max-content; max-width: calc(100vw - 32px);
   pointer-events: auto;
 }
@@ -777,7 +781,44 @@ html.ui-theme-biome #play-photo-saved { color: #fff; }
 #play-photo-btns #play-photo-selfie.active { background: var(--pp-gold); color: #1b140a; border-color: var(--pp-gold); }
 html.ui-theme-old #play-photo-btns #play-photo-selfie.active { background: #6b4a22; color: #f3e2b8; }
 html.ui-theme-biome #play-photo-btns #play-photo-selfie.active { background: var(--biome-accent); color: rgb(var(--biome-bg-rgb)); border-color: var(--biome-accent); }
-body.touch-play-on #play-photo-filters { top: 12px; }
+body.touch-play-on #play-photo-top { top: 12px; }
+/* The Sky picker (PlaySpectate.setSky): same pills as the filters, a
+   "Sky" tag first; Custom opens a time and a weather menu under it.
+   Narrow screens: one row that slides sideways instead of wrapping. */
+#play-photo-sky {
+  display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; align-items: center; width: max-content; max-width: calc(100vw - 32px);
+  pointer-events: auto;
+}
+#play-photo-sky-label { font-size: 13px; font-weight: 700; padding: 0 4px; text-shadow: 0 1px 4px #000; white-space: nowrap; }
+#play-photo-sky button,
+#play-photo-sky-custom select {
+  height: 32px; padding: 0 12px; border-radius: 999px; font: inherit; font-size: 13px; white-space: nowrap; cursor: pointer; color: inherit;
+  background: rgba(18, 15, 10, 0.85); border: 1px solid rgba(var(--pp-gold-rgb), 0.45);
+}
+#play-photo-sky button.active { background: var(--pp-gold); color: #1b140a; border-color: var(--pp-gold); }
+#play-photo-sky button:hover:not(.active) { background: rgba(var(--pp-gold-rgb), 0.25); }
+#play-photo-sky-custom { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; pointer-events: auto; font-size: 13px; }
+#play-photo-sky-custom[hidden] { display: none; }
+#play-photo-sky-custom label { display: inline-flex; align-items: center; gap: 6px; text-shadow: 0 1px 4px #000; }
+#play-photo-sky-custom select option { color: #1b140a; background: #f1e6c8; }
+@media (max-width: 700px) {
+  #play-photo-sky { flex-wrap: nowrap; justify-content: flex-start; width: auto; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+  #play-photo-sky::-webkit-scrollbar { display: none; }
+  #play-photo-sky > * { flex: none; }
+}
+body.touch-play-on #play-photo-sky { flex-wrap: nowrap; justify-content: flex-start; width: auto; overflow-x: auto; scrollbar-width: none; touch-action: pan-x; }
+body.touch-play-on #play-photo-sky > * { flex: none; }
+html.ui-theme-old #play-photo-sky button,
+html.ui-theme-old #play-photo-sky-custom select { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
+html.ui-theme-old #play-photo-sky button.active { background: #6b4a22; color: #f3e2b8; }
+html.ui-theme-old #play-photo-sky-label,
+html.ui-theme-old #play-photo-sky-custom label { color: #f3e2b8; font-family: 'Rye', serif; }
+html.ui-theme-biome #play-photo-sky button,
+html.ui-theme-biome #play-photo-sky-custom select { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #play-photo-sky button.active { background: var(--biome-accent); color: rgb(var(--biome-bg-rgb)); border-color: var(--biome-accent); }
+html.ui-theme-biome #play-photo-sky button:hover:not(.active) { background: var(--biome-button-hover); }
+html.ui-theme-biome #play-photo-sky-label,
+html.ui-theme-biome #play-photo-sky-custom label { color: #fff; }
 html.ui-theme-old #play-photo-filters button { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
 html.ui-theme-old #play-photo-filters button.active { background: #6b4a22; color: #f3e2b8; }
 html.ui-theme-biome #play-photo-filters button { background: var(--biome-surface); border-color: var(--biome-edge); }

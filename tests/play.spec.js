@@ -2272,3 +2272,54 @@ test('Photo Mode zoom and tilt: wheel, sliders, Q / E, Reset, back to normal on 
     reset: true, exitFov: true, exitLevel: true, reopen: true,
   })
 })
+
+// The Sky picker (2026-11-27): a row of skies for the shot, only on this
+// screen; the real sky comes back when Photo Mode closes.
+test('Photo Mode Sky picker: presets, Blood Moon, Custom, real sky back on exit', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__testNoDraw = true
+    const bm = g.buildMode
+    const s = bm.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    const sky = bm.sky
+    const real = { time: sky.time, weather: sky.weather, now: sky._now, clock: sky._clock }
+    bm.spectate.enter({ photo: true })
+    bm.update(0.05)
+    const click = (id) => document.querySelector(`#play-photo-sky [data-sky="${id}"]`).click()
+    const out = { buttons: document.querySelectorAll('#play-photo-sky [data-sky]').length, normalLit: document.querySelector('[data-sky="normal"]').classList.contains('active') }
+    click('night')
+    out.night = sky.time === 'night' && sky._now === 'clear' && sky.nightAmount() > 0.9
+    out.nightLit = document.querySelector('[data-sky="night"]').classList.contains('active')
+    // The others on a server still get the real sky.
+    out.realSent = sky.skyState().n === real.now
+    click('bloodMoon')
+    out.blood = sky._blood === 1 && sky.time === 'night'
+    click('rain')
+    out.rain = sky._now === 'mediumRain' && sky._blood === 0 && sky.time === real.time
+    click('custom')
+    out.customOpen = !document.getElementById('play-photo-sky-custom').hidden
+    const time = document.getElementById('play-photo-sky-time')
+    const weather = document.getElementById('play-photo-sky-weather')
+    time.value = 'sunset'
+    time.dispatchEvent(new Event('change', { bubbles: true }))
+    weather.value = 'blizzard'
+    weather.dispatchEvent(new Event('change', { bubbles: true }))
+    out.custom = sky.time === 'sunset' && sky._now === 'blizzard'
+    // A picked sky holds: no clock, no random rolls.
+    for (let i = 0; i < 10; i++) bm.update(0.5)
+    out.holds = sky._now === 'blizzard' && sky.time === 'sunset'
+    bm.spectate.exit()
+    out.back = sky.time === real.time && sky.weather === real.weather && sky._now === real.now && sky._photo === null && sky._clock >= real.clock
+    bm.spectate.enter({ photo: true })
+    out.reopen = bm.spectate.skyPick === 'normal' && document.querySelector('[data-sky="normal"]').classList.contains('active')
+    bm.spectate.exit()
+    return out
+  })
+  expect(r).toEqual({
+    buttons: 11, normalLit: true, night: true, nightLit: true, realSent: true, blood: true, rain: true,
+    customOpen: true, custom: true, holds: true, back: true, reopen: true,
+  })
+})

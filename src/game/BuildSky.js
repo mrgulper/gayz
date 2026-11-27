@@ -284,6 +284,10 @@ export class BuildSky {
     this._flashColor = new THREE.Color(0xe6e4ff)
     this._disasterPick = 'none'
     this._editorChoice = null
+    // Photo Mode's Sky picker (photoSky): the real sky, kept while the
+    // picked one shows; and seconds left of quick (not slow) changes.
+    this._photo = null
+    this._fastFor = 0
     document.getElementById('build-mode-time-btn')?.addEventListener('click', () => this.cycleTime())
     document.getElementById('build-mode-weather-btn')?.addEventListener('click', () => this.cycleWeather())
     document.getElementById('build-mode-disaster-btn')?.addEventListener('click', () => this.cycleDisaster())
@@ -428,6 +432,9 @@ export class BuildSky {
   // didn't see the same thing I had on my screen"): the host sends this
   // with each sync (PlayNet) and the others follow() it.
   skyState() {
+    const p = this._photo
+    // In Photo Mode the others still get the real sky, not the picked one.
+    if (p) return { c: +p.clock.toFixed(1), n: p.now, g: p.goal, r: +Math.max(0, p.rainbowIn).toFixed(1), d: this.disasters.state(), b: this.bloodMoon ? 1 : 0 }
     return { c: +this._clock.toFixed(1), n: this._now, g: this._goal, r: +Math.max(0, this._rainbowIn).toFixed(1), d: this.disasters.state(), b: this.bloodMoon ? 1 : 0 }
   }
 
@@ -435,6 +442,7 @@ export class BuildSky {
   // next noon or midnight, and/or hold a weather for a while before the
   // random rolls take over again. The others see it through the host.
   ownerSet({ time, weather } = {}) {
+    if (this._photo) return
     if ((time === 'day' || time === 'night') && this.time === 'cycle') {
       const want = time === 'night' ? 0.5 : 0
       let c = Math.floor(this._clock / CYCLE_SECONDS) * CYCLE_SECONDS + want * CYCLE_SECONDS
@@ -450,6 +458,12 @@ export class BuildSky {
 
   // The host's sky (null: back to rolling our own, e.g. we became the host).
   follow(state) {
+    // Photo Mode's own sky stays; the host's is kept for when it closes.
+    if (this._photo) {
+      this._photo.host = state || null
+      if (state) this.bloodMoon = state.b === 1
+      return
+    }
     if (!state) {
       this._following = false
       return
@@ -471,6 +485,7 @@ export class BuildSky {
   // A game from the homepage starts / ends: the day-night cycle and
   // random weather, then back to the editor's own choice.
   forGame(on) {
+    this._photoRestore()
     this._following = false
     this._inGame = !!on
     this.bloodMoon = false
@@ -504,6 +519,7 @@ export class BuildSky {
   }
 
   onExit() {
+    this._photoRestore()
     this.bodies.show(false)
     this._active = false
     this._shownKind = null
@@ -517,6 +533,55 @@ export class BuildSky {
     const game = this.bm.game
     try { audioEngine.setAmbientBed(false) } catch { /* no audio */ }
     audioEngine.setWeatherAudio(!!game?.raining && !!game?.gameStarted, !!game?.snowing && !!game?.gameStarted)
+  }
+
+  // Photo Mode's Sky picker (2026-11-27, Gaymi: "a row of buttons to set
+  // the sky for the shot ... put back to normal when Photo Mode closes"):
+  // time 'now' (keep the time of day showing), 'day', 'sunset' or 'night';
+  // any weather from SKY_WEATHERS but Random; blood: a Blood Moon's red.
+  // It shows straight away and holds (no rolls, no clock) - only on this
+  // screen; photoSkyEnd() puts the real sky back.
+  photoSky(time, weather, blood = false) {
+    if (!SKY_WEATHERS.includes(weather) || weather === 'random') weather = 'clear'
+    if (!this._photo) {
+      this._photo = { time: this.time, weather: this.weather, now: this._now, goal: this._goal, clock: this._clock, rerollIn: this._rerollIn, stepIn: this._stepIn, rainbowIn: this._rainbowIn, following: this._following, host: undefined, blood: false }
+    }
+    const p = this._photo
+    this.time = SKY_TIMES.includes(time) && time !== 'cycle' ? time : p.time
+    this._clock = p.clock
+    this.weather = weather
+    this._now = this._goal = weather
+    this._rainbowIn = 0
+    this.rainbow = 0
+    p.blood = !!blood
+    this._blood = p.blood ? 1 : 0
+    this._fastFor = 3
+    this.apply()
+  }
+
+  photoSkyEnd() {
+    if (!this._photo) return
+    this._photoRestore()
+    this.apply()
+  }
+
+  // The real sky's fields back (no redraw).
+  _photoRestore() {
+    const p = this._photo
+    if (!p) return
+    this._photo = null
+    this.time = p.time
+    this.weather = p.weather
+    this._now = p.now
+    this._goal = p.goal
+    this._clock = p.clock
+    this._rerollIn = p.rerollIn
+    this._stepIn = p.stepIn
+    this._rainbowIn = p.rainbowIn
+    this._blood = this.bloodMoon ? 1 : 0
+    this._fastFor = 3
+    // The host's newest sky, if one came while the picked one showed.
+    if (p.host !== undefined) this.follow(p.host)
   }
 
   // instant: no fade (leaving the editor / the game).
@@ -622,7 +687,7 @@ export class BuildSky {
       this._shownKind = w
       this._showOverlays(w)
       // Random eases the sound over the step too.
-      audioEngine.setWeatherAudio(RAIN_SOUND[w] || 0, SNOW_SOUND[w] || 0, this.weather === 'random' ? 25 : 2)
+      audioEngine.setWeatherAudio(RAIN_SOUND[w] || 0, SNOW_SOUND[w] || 0, this.weather === 'random' && !(this._fastFor > 0) ? 25 : 2)
       const l = LIGHTNING[w]
       this._lightningIn = l ? l[0] * 0.5 + Math.random() * l[1] : 0
       this.screen.set(SCREEN[w] || {})
@@ -636,7 +701,7 @@ export class BuildSky {
   // smoothly (k: 0 = jump straight there).
   _easeLook(dt) {
     const k = dt > 0 ? 1 - Math.exp(-(this.weather === 'random' ? SKY_EASE_SLOW : SKY_EASE) * dt) : 1
-    this._blood += ((this.bloodMoon ? 1 : 0) - this._blood) * (this._active ? 1 - Math.exp(-0.6 * Math.max(0, dt)) : 1)
+    this._blood += ((this._photo ? (this._photo.blood ? 1 : 0) : this.bloodMoon ? 1 : 0) - this._blood) * (this._active ? 1 - Math.exp(-0.6 * Math.max(0, dt)) : 1)
     if (!this._active) {
       // Outside the editor/Play nothing is showing - no easing needed.
       this._tint.copy(this._tintGoal)
@@ -777,7 +842,10 @@ export class BuildSky {
 
   update(dt) {
     const bm = this.bm
-    if (this.time === 'cycle') {
+    // Photo Mode's picked sky: the real day goes on underneath.
+    if (this._photo) this._photo.clock += dt
+    if (this._fastFor > 0) this._fastFor -= dt
+    if (this.time === 'cycle' && !this._photo) {
       this._clock += dt
       const now = performance.now()
       // Recolor every frame is cheap; moving the sun redraws shadows, so
@@ -801,7 +869,7 @@ export class BuildSky {
     this._updateWind(dt)
     this.lightning.update(dt)
     this._easeLook(dt)
-    this.weather3d.setSlow(this.weather === 'random')
+    this.weather3d.setSlow(this.weather === 'random' && !(this._fastFor > 0))
     // Thunder still on its way.
     for (let i = this._thunder.length - 1; i >= 0; i--) {
       if ((this._thunder[i][0] -= dt) <= 0) {
