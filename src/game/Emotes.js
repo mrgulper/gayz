@@ -478,7 +478,8 @@ export class Emotes {
 
   update(dt) {
     if (this.current && this.s.dead) this.stop()
-    if (this._left > 0 && (this._left -= dt) <= 0) this.stop()
+    // Selfie Cam (PlaySpectate): it keeps going until the selfie ends.
+    if (this._left > 0 && !this.s.bm?.spectate?.selfie && (this._left -= dt) <= 0) this.stop()
     if (this.open && (this.s.dead || !this.s.active)) this.close(false)
   }
 

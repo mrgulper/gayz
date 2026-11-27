@@ -699,7 +699,7 @@ body.scope-on #build-try-crosshair { visibility: hidden; }
    saved" note. Phones keep the move stick, look area and up/down buttons
    so the camera can still fly. Golden by default; Old and biome below. */
 body.play-photo #app > :not(#scene),
-body.play-photo > :not(#app):not(#play-photo-ui):not(#touch-play):not(script):not(style) { visibility: hidden !important; }
+body.play-photo > :not(#app):not(#play-photo-ui):not(#touch-play):not(#emote-wheel):not(script):not(style) { visibility: hidden !important; }
 body.play-photo #touch-play .tp-btn:not(.tp-jump):not(.tp-crouch) { visibility: hidden !important; }
 #play-photo-ui {
   --pp-gold: #e8c25a;
@@ -715,7 +715,9 @@ body.play-photo #touch-play .tp-btn:not(.tp-jump):not(.tp-crouch) { visibility: 
 @keyframes play-photo-flash { from { opacity: 0.85; } to { opacity: 0; } }
 #play-photo-hint {
   position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  margin: 0; padding: 6px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
+  margin: 0; padding: 6px 16px; border-radius: 18px; font-size: 14px;
+  /* Narrow screens: wraps instead of running off the sides. */
+  width: max-content; max-width: calc(100vw - 32px); box-sizing: border-box; text-align: center; white-space: normal;
   background: rgba(18, 15, 10, 0.7); border: 1px solid rgba(var(--pp-gold-rgb), 0.45);
 }
 #play-photo-saved {
@@ -727,6 +729,7 @@ body.play-photo #touch-play .tp-btn:not(.tp-jump):not(.tp-crouch) { visibility: 
 @keyframes play-photo-saved { 0% { opacity: 0; } 15%, 70% { opacity: 1; } 100% { opacity: 0; } }
 #play-photo-btns {
   position: absolute; right: 24px; bottom: 24px; display: flex; gap: 14px; align-items: center;
+  flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 48px);
   pointer-events: auto;
 }
 #play-photo-btns button {
@@ -740,6 +743,8 @@ body.play-photo #touch-play .tp-btn:not(.tp-jump):not(.tp-crouch) { visibility: 
 /* Phones: the shutter sits where the fire button was, Exit above it. */
 body.touch-play-on #play-photo-btns { flex-direction: column-reverse; right: 18px; bottom: 30%; }
 body.touch-play-on #play-photo-hint { display: none; }
+/* A narrow window: no room for the key tips above the filters. */
+@media (max-width: 700px) { #play-photo-hint { display: none; } }
 html.ui-theme-old #play-photo-ui { color: #2b1d0e; }
 html.ui-theme-old #play-photo-hint,
 html.ui-theme-old #play-photo-btns button { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
@@ -765,6 +770,13 @@ html.ui-theme-biome #play-photo-saved { color: #fff; }
 #play-photo-filters button:hover:not(.active) { background: rgba(var(--pp-gold-rgb), 0.25); }
 #play-photo-post { height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px; }
 #play-photo-post[hidden] { display: none; }
+/* Selfie Cam: the Selfie button (lit while it's on) and the Emote button. */
+#play-photo-selfie, #play-photo-emote { height: 44px; padding: 0 18px; border-radius: 999px; font-size: 15px; display: inline-flex; align-items: center; gap: 8px; }
+#play-photo-selfie svg { width: 20px; height: 20px; }
+#play-photo-emote[hidden] { display: none; }
+#play-photo-btns #play-photo-selfie.active { background: var(--pp-gold); color: #1b140a; border-color: var(--pp-gold); }
+html.ui-theme-old #play-photo-btns #play-photo-selfie.active { background: #6b4a22; color: #f3e2b8; }
+html.ui-theme-biome #play-photo-btns #play-photo-selfie.active { background: var(--biome-accent); color: rgb(var(--biome-bg-rgb)); border-color: var(--biome-accent); }
 body.touch-play-on #play-photo-filters { top: 12px; }
 html.ui-theme-old #play-photo-filters button { background: rgba(232, 214, 176, 0.92); border-color: #6b4a22; font-family: 'Rye', serif; }
 html.ui-theme-old #play-photo-filters button.active { background: #6b4a22; color: #f3e2b8; }
