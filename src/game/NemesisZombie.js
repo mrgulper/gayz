@@ -278,7 +278,7 @@ export class NemesisZombie {
     const name = zombieName(z.nameIdx)
     if (mine) {
       const coins = NEMESIS_COINS * z.nemesis
-      s._earn(coins)
+      s._earn(coins, 'bosses')
       saveNemesis(null)
       logBeaten(z.nemesis)
       s._message(t('nemesisBeaten', { name, n: Math.round(coins * (s.cfg?.coinMult ?? 1)) }), 5)

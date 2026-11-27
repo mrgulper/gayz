@@ -95,6 +95,7 @@ export function meet(game, id, say) {
   const coins = BOOK_COINS + (done ? BOOK_DONE_COINS : 0)
   if (game) {
     game.coins = (game.coins || 0) + coins
+    game._playStats?.countCoins?.('bankIn', 'rewards', coins)
     saveShopProgress(game)
     game._renderCurrencyBar?.()
   }

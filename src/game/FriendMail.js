@@ -123,6 +123,7 @@ export function checkFriendChallenges(game, endData, now = Date.now()) {
   if (paid) {
     saveActiveChallenges(left)
     game.coins += paid
+    game._playStats?.countCoins?.('bankIn', 'mail', paid)
   }
   return paid
 }
@@ -279,6 +280,7 @@ async function sendGift(game) {
   if (!ok) return
   // Taken only now that the send worked.
   game.coins -= coins
+  game._playStats?.countCoins?.('bankOut', 'mail', coins)
   if (itemCount) {
     const bag = loadBag()
     bag[item] = Math.max(0, (bag[item] || 0) - itemCount)
@@ -390,7 +392,10 @@ async function actOnMail(game, id, act) {
   if (act === 'open' && m.kind === 'gift') {
     const coins = Math.max(0, Math.min(GIFT_MAX_COINS, Math.floor(Number(m.coins) || 0)))
     const count = Math.max(0, Math.min(GIFT_MAX_ITEMS, Math.floor(Number(m.itemCount) || 0)))
-    if (coins) game.coins += coins
+    if (coins) {
+      game.coins += coins
+      game._playStats?.countCoins?.('bankIn', 'mail', coins)
+    }
     if (count && parseKey(m.item)) {
       const bag = loadBag()
       bag[m.item] = (bag[m.item] || 0) + count

@@ -328,7 +328,7 @@ export class TrainingGround {
     const s = this.s
     const first = !trainingDone()
     markDone()
-    if (first) s._earn(TRAIN_COINS)
+    if (first) s._earn(TRAIN_COINS, 'minigames')
     this.firstFinish = first
     this._el?.remove()
     this._el = null

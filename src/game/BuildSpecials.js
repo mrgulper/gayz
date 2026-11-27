@@ -787,6 +787,7 @@ export class BuildSpecials {
         st.until = this._time + 2.5
         if (!late && s) {
           s.coins = (s.coins || 0) + fx.coins
+          s._coinStat?.('campIn', 'minigames', fx.coins)
           s._renderHud()
         }
         this._sound(late ? 'pop' : 'chime')
@@ -954,7 +955,10 @@ export class BuildSpecials {
         st.until = this._time + 4
         const same = new Set(roll).size
         const win = same === 1 ? fx.three : same === 2 ? fx.two : 0
-        if (win) s.coins = (s.coins || 0) + win
+        if (win) {
+          s.coins = (s.coins || 0) + win
+          s._coinStat?.('campIn', 'minigames', win)
+        }
         this._msg(win ? `${st.show} - ${t('specialWonCoins', { n: win })}` : `${st.show} - ${t('specialNothing')}`)
         this._sound(win ? 'chime' : 'pop')
         this._overlaysDirty = true
@@ -1017,6 +1021,7 @@ export class BuildSpecials {
         return true
       }
       s.coins -= fx.cost
+      s._coinStat?.('campOut', 'specials', fx.cost)
       this._bench++
       s._renderHud()
       this._sound('hum')
@@ -1037,6 +1042,7 @@ export class BuildSpecials {
       }
       s.inv._take(s.inv.hotbar, s.inv.active, coins * fx.per)
       s.coins = (s.coins || 0) + coins
+      s._coinStat?.('campIn', 'minigames', coins)
       s._renderHud()
       this._sound('pop')
       this._msg(t('specialRecycled', { n: coins }))
@@ -1268,7 +1274,7 @@ export class BuildSpecials {
         return true
       }
       s._breakTimer = 0.01
-      s._earn(fx.coins)
+      s._earn(fx.coins, 'minigames')
       this._sound('bell')
       this._msg(t('specialWaveEarly', { n: fx.coins }))
       return true
@@ -1383,6 +1389,7 @@ export class BuildSpecials {
       return false
     }
     s.coins -= cost
+    s._coinStat?.('campOut', 'specials', cost)
     s._renderHud()
     return true
   }
@@ -1408,6 +1415,7 @@ export class BuildSpecials {
     }
     if (prize.coins) {
       s.coins = (s.coins || 0) + prize.coins
+      s._coinStat?.('campIn', 'minigames', prize.coins)
       return t('specialWonCoins', { n: prize.coins })
     }
     if (prize.heal) {

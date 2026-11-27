@@ -211,6 +211,7 @@ export function startWeekly(game) {
         saveWeekly(now)
       }
       game.coins += reward
+      game._playStats?.countCoins?.('bankIn', 'challenges', reward)
       saveShopProgress(game)
       game._renderCurrencyBar?.()
       game._renderTeamPanel?.()

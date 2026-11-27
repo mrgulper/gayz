@@ -108,7 +108,10 @@ export async function buyOrWear(game, id) {
   const ask = cost.currency === 'gems' || needsBuyConfirm(game.settings, cost.amount)
   if (ask && !window.confirm(t('shopMoreSkinsConfirm', { name: skin.name, price: game._formatSkinPrice(cost.currency, cost.amount) }))) return
   if (cost.currency === 'gems') game.gems -= cost.amount
-  else game.coins -= cost.amount
+  else {
+    game.coins -= cost.amount
+    game._playStats?.countCoins?.('bankOut', 'skins', cost.amount)
+  }
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   game._addSkinToInventory(id)
   game._afterTradeChange() // saves, refreshes the currency bar and Inventory

@@ -124,6 +124,7 @@ export function updateBook(game) {
   for (const m of due) paid += BOOK_PRIZES[m]
   if (paid && game) {
     game.coins = (game.coins || 0) + paid
+    game._playStats?.countCoins?.('bankIn', 'pets', paid)
     saveShopProgress(game)
     game._renderCurrencyBar?.()
     game._showHomepageToast?.(t('petBookPrize', { p: due[due.length - 1], n: paid }))

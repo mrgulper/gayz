@@ -34,6 +34,7 @@ export function traveller(s, id) {
       },
       pay(n) {
         s.coins = (s.coins || 0) + n
+        s._coinStat?.('campIn', 'places', n)
         s._renderHud?.()
       },
       leaveRide: () => s.kart?.leave?.(),

@@ -230,7 +230,7 @@ export class PizzaDelivery {
       s._message(t('pizzaCold', { n: Math.round(paid * (s.cfg?.coinMult ?? 1)) }), 3)
       try { audioEngine.playSpecial?.('burp') } catch { /* no audio */ }
     }
-    s._earn(paid)
+    s._earn(paid, 'minigames')
     s._renderHud?.()
     s.bingo?.note('pizza')
     disposeGroup(d.mark)

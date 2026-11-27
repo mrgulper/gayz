@@ -139,32 +139,33 @@ export class TreeSkills {
   onKill({ shine = null, paid = 0, boss = false, bossCoins = 0 } = {}) {
     const s = this.s
     if (this.has('hitAndRun')) this._killBoost = HIT_AND_RUN.s
-    if (this.has('goldenTouch') && shine) s._earn(Math.round(paid * GOLDEN_TOUCH))
-    if (this.has('bossBounty') && boss) s._earn(bossCoins)
+    if (this.has('goldenTouch') && shine) s._earn(Math.round(paid * GOLDEN_TOUCH), 'skills')
+    if (this.has('bossBounty') && boss) s._earn(bossCoins, 'skills')
     if (this.has('streakCash') && s.streak > 0 && s.streak % STREAK_CASH.every === 0) {
-      s._earn(STREAK_CASH.coins)
+      s._earn(STREAK_CASH.coins, 'skills')
       s._message(t('skillStreakCash', { n: s.streak }), 2)
     }
     if (this.has('tipJar') && this._tipWave !== s.wave) {
       this._tipWave = s.wave
-      s._earn(TIP_JAR)
+      s._earn(TIP_JAR, 'skills')
     }
   }
 
   // A loot chest was opened: its ammo, after Scrounger.
   chestAmmo(ammo) {
-    if (this.has('luckyChest')) this.s._earn(LUCKY_CHEST)
+    if (this.has('luckyChest')) this.s._earn(LUCKY_CHEST, 'skills')
     return this.has('scrounger') ? Math.round(ammo * (1 + SCROUNGER)) : ammo
   }
 
   // A wave was cleared (coinPerWave: what clearing it paid).
   onWaveCleared(coinPerWave) {
     const s = this.s
-    if (this.has('wavePay')) s._earn(Math.round(coinPerWave * WAVE_PAY))
+    if (this.has('wavePay')) s._earn(Math.round(coinPerWave * WAVE_PAY), 'skills')
     if (this.has('interest')) {
       const n = Math.min(INTEREST.max, Math.floor(Math.max(0, s.coins) * INTEREST.rate))
       if (n > 0) {
         s.coins += n
+        s._coinStat?.('campIn', 'skills', n)
         s._coinsEarned = (s._coinsEarned || 0) + n
       }
     }

@@ -74,6 +74,7 @@ export function flyTo(survival, x, z) {
     return false
   }
   survival.coins -= info.cost
+  survival._coinStat?.('campOut', 'travel', info.cost)
   survival._travelAt = performance.now()
   tm.pos.set(cx + 0.5, top + 1, cz + 0.5)
   tm.vel?.set(0, 0, 0)

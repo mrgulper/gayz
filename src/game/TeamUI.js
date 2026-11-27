@@ -282,6 +282,7 @@ function feed(game, id) {
   if ((game.coins || 0) < cost) return game._showHomepageToast(t('teamSnackCoins', { n: cost }))
   if (feedSnack(id, snack) !== 'ok') return
   game.coins -= cost
+  game._playStats?.countCoins?.('bankOut', 'pets', cost)
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   saveShopProgress(game)
   game._renderCurrencyBar?.()
@@ -427,6 +428,7 @@ export async function startTeamBattle(game) {
       PetRank.pushTrophies(game)
       const reward = won ? WIN_COINS : LOSS_COINS
       game.coins += reward
+      game._playStats?.countCoins?.('bankIn', 'pets', reward)
       saveShopProgress(game)
       game._renderCurrencyBar?.()
       renderTeamPanel(game)

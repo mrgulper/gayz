@@ -267,6 +267,7 @@ export async function playTournament(game, renderTeam) {
       saveTourney(dd)
       if (reward) {
         game.coins += reward
+        game._playStats?.countCoins?.('bankIn', 'pets', reward)
         saveShopProgress(game)
         game._renderCurrencyBar?.()
       }

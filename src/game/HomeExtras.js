@@ -295,6 +295,7 @@ function claimWorldGoal(game, which) {
   if (!got) return
   saveCareerStats(game.careerStats)
   game.coins += got.coins
+  game._playStats?.countCoins?.('bankIn', 'rewards', got.coins)
   saveShopProgress(game)
   game._renderCurrencyBar?.()
   game._fireConfetti?.()
@@ -622,6 +623,7 @@ function claimBirthday(game) {
   game.careerStats.birthdayClaimedYear = year
   saveCareerStats(game.careerStats)
   game.coins += coins
+  game._playStats?.countCoins?.('bankIn', 'rewards', coins)
   saveShopProgress(game)
   game._renderCurrencyBar?.()
   game._fireConfetti?.()

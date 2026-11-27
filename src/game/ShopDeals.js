@@ -164,7 +164,10 @@ export async function buyDeal(game, key) {
   const ask = it.currency === 'gems' || needsBuyConfirm(game.settings, price)
   if (ask && !window.confirm(t('shopMoreSkinsConfirm', { name, price: game._formatSkinPrice(it.currency, price) }))) return
   if (it.currency === 'gems') game.gems -= price
-  else game.coins -= price
+  else {
+    game.coins -= price
+    game._playStats?.countCoins?.('bankOut', 'deals', price)
+  }
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   grantItem(game, it)
   await useItem(game, it)

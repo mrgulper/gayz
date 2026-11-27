@@ -16,6 +16,7 @@ import { PLAY_WEAPONS } from '../../src/game/PlayWeapons.js'
 import { MARKET_SKINS } from '../../src/game/MarketSkins.js'
 import { GRAPHICS_LEVELS } from '../../src/game/GraphicsLevels.js'
 import { DEATH_KEYS } from '../../src/game/DeathCells.js'
+import { COIN_CATS, COIN_MAX } from '../../src/game/CoinFlow.js'
 
 export const STAT_LANGS = ['en', 'zh', 'hi', 'es', 'fr', 'ru', 'id', 'de', 'ja', 'vi', 'it', 'pt-BR']
 export const STAT_QUIT = ['home', 'panel', 'editor', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6-10', 'w11-20', 'w21up', 'nozombie']
@@ -54,6 +55,9 @@ export const STAT_CATS = {
   // Quit Funnel (2026-11-27): the first steps a new device reached, each
   // counted once per device (FUNNEL_STEPS in PlayStats.js).
   funnel: { keys: ['home', 'run', 'kill', 'death', 'wave3', 'run2', 'day2'], max: 1 },
+  // Coin Flow (2026-11-27): coins earned / spent per group (CoinFlow.js).
+  // These hits carry an amount: [cat, key, coins].
+  ...Object.fromEntries(Object.entries(COIN_CATS).map(([cat, keys]) => [cat, { keys, max: COIN_MAX, amount: true }])),
 }
 const HITS_MAX = 40
 export const STATS_DAYS = [7, 14, 30, 90]
@@ -68,8 +72,10 @@ export async function recordStats(db, { who, hits } = {}, now = Date.now()) {
     const [cat, key] = [String(h[0]), String(h[1])]
     const rule = STAT_CATS[cat]
     if (!rule || !rule.keys.includes(key)) continue
+    const n = rule.amount ? Math.floor(Number(h[2])) : 1
+    if (!(n > 0)) continue
     const path = `stats/${dayOf(now)}/${who}/${cat}/${key}`
-    add[path] = Math.min(rule.max, (add[path] || 0) + 1)
+    add[path] = Math.min(rule.max, (add[path] || 0) + n)
   }
   await db.increment(add)
   return { ok: true }

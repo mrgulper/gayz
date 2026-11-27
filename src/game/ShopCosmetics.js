@@ -83,7 +83,10 @@ export function buyOrWearCosmetic(game, id) {
   const ask = currency === 'gems' || needsBuyConfirm(game.settings, price)
   if (ask && !window.confirm(t('shopMoreSkinsConfirm', { name, price: game._formatSkinPrice(currency, price) }))) return
   if (currency === 'gems') game.gems -= price
-  else game.coins -= price
+  else {
+    game.coins -= price
+    game._playStats?.countCoins?.('bankOut', 'cosmetics', price)
+  }
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   if (!game.shopCosmetics || typeof game.shopCosmetics !== 'object') game.shopCosmetics = {}
   game.shopCosmetics[id] = 1

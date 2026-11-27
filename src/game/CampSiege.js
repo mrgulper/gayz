@@ -158,7 +158,7 @@ export class CampSiege {
     const s = this.s
     if (won) {
       const before = s._coinsEarned
-      s._earn(COINS + COINS_PER_WAVE * (s.wave || 0))
+      s._earn(COINS + COINS_PER_WAVE * (s.wave || 0), 'quests')
       s._bonusXp = (s._bonusXp || 0) + BONUS_XP
       s.stats.sieges = (s.stats.sieges || 0) + 1
       s._message(t('siegeWon', { n: s._coinsEarned - before, xp: BONUS_XP }), 6)

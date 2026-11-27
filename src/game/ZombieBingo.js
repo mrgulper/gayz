@@ -139,13 +139,13 @@ export class ZombieBingo {
       newLines++
     })
     if (newLines) {
-      s._earn(LINE_COINS * newLines)
+      s._earn(LINE_COINS * newLines, 'minigames')
       s._message(t('bingoLine', { n: Math.round(LINE_COINS * newLines * (s.cfg?.coinMult ?? 1)) }), 4)
       try { audioEngine.playSpecial?.('dingdong') } catch { /* no audio */ }
     }
     if (!this.full && now === SIZE * SIZE - 1) {
       this.full = true
-      s._earn(FULL_COINS)
+      s._earn(FULL_COINS, 'minigames')
       const game = s.bm.game
       if (game) {
         game.gems = (game.gems || 0) + FULL_GEMS

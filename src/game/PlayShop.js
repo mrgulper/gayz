@@ -474,7 +474,7 @@ export class PlayShop {
         // No room: the coins back.
         s.coins += this._price(item)
         s._message(t('invFull'))
-      }
+      } else s._coinStat?.('campOut', 'items', this._price(item))
     } else if (act === 'trap') {
       const trap = [...SHOP_TRAPS, ...(s.td ? SHOP_TOWERS : [])].find((x) => x.id === id)
       if (!trap || s.coins < this._price(trap)) return
@@ -483,6 +483,7 @@ export class PlayShop {
       if (left >= trap.n) s._message(t('invFull'))
       else {
         s.coins -= this._price(trap)
+        s._coinStat?.('campOut', 'traps', this._price(trap))
         try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       }
     } else if (act === 'upgrade') {
@@ -490,6 +491,7 @@ export class PlayShop {
       const level = s.upgrades[id] || 0
       if (!up || level >= up.costs.length || s.coins < this._upCost(up, level)) return
       s.coins -= this._upCost(up, level)
+      s._coinStat?.('campOut', 'upgrades', this._upCost(up, level))
       try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       s.upgrades[id] = level + 1
       if (id === 'mag') s.mag = Math.min(s.mag, s.magSize())
@@ -503,7 +505,7 @@ export class PlayShop {
       const q = this.quests.find((x) => x.id === id)
       if (!q || q.claimed || this._statValue(q.stat) < q.goal) return
       q.claimed = true
-      s._earn(q.reward)
+      s._earn(q.reward, 'quests')
     }
     s._renderHud()
     if (this.panelOpen) this._renderPanel()

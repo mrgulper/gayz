@@ -88,6 +88,7 @@ export function buy(game, i, day = today()) {
   const kept = addCreature(c)
   if (!kept) return 'petShopFull'
   game.coins -= price
+  game._playStats?.countCoins?.('bankOut', 'pets', price)
   saveShopProgress(game)
   game._renderCurrencyBar?.()
   try {

@@ -230,7 +230,7 @@ export function openPinball(s) {
     if (P._paid) return
     P._paid = true
     const coins = Math.min(MAX_PIN_COINS, Math.floor(P.score / PTS_PER_COIN))
-    if (coins > 0) s._earn(coins)
+    if (coins > 0) s._earn(coins, 'minigames')
     P.coins = coins
     if (P.score > best) {
       best = P.score
@@ -546,7 +546,7 @@ export function openChess(s) {
     G.done = res === 'stale' ? 'stale' : G.S.turn === 'b' ? 'win' : 'lose'
     if (G.done === 'win' && !G.paid) {
       G.paid = true
-      s._earn(CHESS_WIN_COINS)
+      s._earn(CHESS_WIN_COINS, 'minigames')
       s._renderHud?.()
       sfx('chime')
     }

@@ -368,6 +368,7 @@ export function claimGift(game) {
   if (!coins && !gems) return
   addToList(GIFTS_GOT_KEY, g.id)
   game.coins = (game.coins || 0) + coins
+  game._playStats?.countCoins?.('bankIn', 'gifts', coins)
   game.gems = (game.gems || 0) + gems
   saveShopProgress(game)
   game._renderCurrencyBar?.()
@@ -386,6 +387,7 @@ export function receiveGift(game, g, key = 'ownerGiftGot') {
   const skins = (Array.isArray(g.skins) ? g.skins : []).filter((id) => typeof id === 'string').slice(0, 5)
   if (!coins && !gems && !skins.length) return
   game.coins = (game.coins || 0) + coins
+  game._playStats?.countCoins?.('bankIn', 'gifts', coins)
   game.gems = (game.gems || 0) + gems
   for (const id of skins) game._addSkinToInventory?.(id)
   if (game._afterTradeChange) game._afterTradeChange()
@@ -430,6 +432,7 @@ export async function redeemGiftCode(game, code) {
   const coins = Math.max(0, Math.floor(Number(res.coins) || 0))
   const skins = (Array.isArray(res.skins) ? res.skins : []).filter((id) => typeof id === 'string')
   game.coins = (game.coins || 0) + coins
+  game._playStats?.countCoins?.('bankIn', 'gifts', coins)
   for (const id of skins) game._addSkinToInventory?.(id)
   if (game._afterTradeChange) game._afterTradeChange()
   else saveShopProgress(game)

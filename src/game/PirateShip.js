@@ -174,6 +174,7 @@ export class PirateShip {
     sh.looted = true
     const s = this.s
     s.coins = (s.coins || 0) + PIRATE_COINS
+    s._coinStat?.('campIn', 'places', PIRATE_COINS)
     s.inv?.add({ kind: 'item', id: 'treasureMap', n: 1 })
     s._renderHud?.()
     s._message(t('pirateLoot', { n: PIRATE_COINS }), 5)

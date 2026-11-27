@@ -212,6 +212,7 @@ export function startLeaderBattle(game, i, { world = false, say = null } = {}) {
         reward = leaderCoins(i)
       }
       game.coins += reward
+      game._playStats?.countCoins?.('bankIn', 'pets', reward)
       saveShopProgress(game)
       game._renderCurrencyBar?.()
       game._renderTeamPanel?.()

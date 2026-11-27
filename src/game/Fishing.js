@@ -75,7 +75,7 @@ export class Fishing {
       add: (item) => s.inv.add(item),
       earn: (n) => {
         const before = s._coinsEarned
-        s._earn(n)
+        s._earn(n, 'minigames')
         s._renderHud()
         return s._coinsEarned - before
       },

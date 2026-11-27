@@ -88,7 +88,7 @@ export class TreasureMaps {
     }
     s._fx?.confetti?.(x * B, (y + 0.8) * B, z * B)
     const before = s._coinsEarned
-    s._earn(between(COINS))
+    s._earn(between(COINS), 'chests')
     const coins = s._coinsEarned - before
     const gems = between(GEMS)
     const game = s.bm.game

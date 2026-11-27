@@ -401,6 +401,7 @@ export class ThemePark {
       const s = this.s
       const n = g.hits * TICKET_COINS
       s.coins = (s.coins || 0) + n
+      s._coinStat?.('campIn', 'places', n)
       s._renderHud?.()
       s._message(t('parkWhackOver', { h: g.hits, n }), 5)
       for (const h of this._heads) h.up = 0

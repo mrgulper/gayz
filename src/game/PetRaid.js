@@ -122,6 +122,7 @@ export function raidEnd(game, won, bossId) {
   const item = rollItem()
   giveItem(item)
   game.coins += RAID_COINS
+  game._playStats?.countCoins?.('bankIn', 'pets', RAID_COINS)
   saveShopProgress(game)
   game._renderCurrencyBar?.()
   game._renderTeamPanel?.()

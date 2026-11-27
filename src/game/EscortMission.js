@@ -209,7 +209,7 @@ export function escortMission(s, me, kind = KINDS[Math.floor(Math.random() * KIN
     r.endT = 2.5
     if (won) {
       const before = s._coinsEarned
-      s._earn(COINS[kind] + COINS_PER_WAVE * (s.wave || 0))
+      s._earn(COINS[kind] + COINS_PER_WAVE * (s.wave || 0), 'quests')
       s._bonusXp = (s._bonusXp || 0) + BONUS_XP
       s.stats.escorts = (s.stats.escorts || 0) + 1
       s._message(t('escortWon', { n: s._coinsEarned - before, xp: BONUS_XP }), 6)

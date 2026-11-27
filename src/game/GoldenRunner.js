@@ -129,7 +129,7 @@ export function goldenRunner(s, me) {
   const burst = () => {
     const n = COINS + COINS_PER_WAVE * (s.wave || 0)
     const before = s._coinsEarned
-    s._earn(n)
+    s._earn(n, 'places')
     s._message(t('goldenRunnerCaught', { n: s._coinsEarned - before }), 5)
     s._renderHud()
     try { audioEngine.playSpecial?.('diamondZombie') } catch { /* no audio */ }
