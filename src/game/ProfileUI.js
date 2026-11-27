@@ -13,6 +13,7 @@ import { t } from './i18n.js'
 import { levelFromXp } from './Xp.js'
 import { renderTrophies } from './Trophies.js'
 import { bindSocialNotes, loadMyGuestbook } from './SocialNotes.js'
+import { renderCapsules } from './TimeCapsule.js'
 import { applyMyNameLook } from './NameChatStyles.js'
 
 // Levels panel - opened by the level coin on the profile card: your XP
@@ -203,6 +204,8 @@ export async function _openProfilePanel(game) {
   // Guestbook tab (SocialNotes.js): loads when its tab is clicked, or now if it's the open tab.
   bindSocialNotes(game)
   if (document.getElementById('profile-tab-guestbook')?.classList.contains('active')) loadMyGuestbook(game)
+  // Time Capsule tab (TimeCapsule.js): device only, so it can draw every time.
+  renderCapsules(game)
   if (game.profileContent) game.profileContent.style.display = ''
   // The Trophies tab (Trophies.js).
   renderTrophies(game)

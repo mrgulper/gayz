@@ -31,6 +31,10 @@ import weeklyEn from './i18n/weekly-en.js'
 import weeklyZh from './i18n/weekly-zh.js'
 import weeklyHi from './i18n/weekly-hi.js'
 import weeklyEs from './i18n/weekly-es.js'
+import capsuleEn from './i18n/capsule-en.js'
+import capsuleZh from './i18n/capsule-zh.js'
+import capsuleHi from './i18n/capsule-hi.js'
+import capsuleEs from './i18n/capsule-es.js'
 import rankEn from './i18n/rank-en.js'
 import rankZh from './i18n/rank-zh.js'
 import rankHi from './i18n/rank-hi.js'
@@ -95,6 +99,11 @@ Object.assign(en, weeklyEn)
 Object.assign(zh, weeklyZh)
 Object.assign(hi, weeklyHi)
 Object.assign(es, weeklyEs)
+// Time Capsule (TimeCapsule.js, 2026-11-27).
+Object.assign(en, capsuleEn)
+Object.assign(zh, capsuleZh)
+Object.assign(hi, capsuleHi)
+Object.assign(es, capsuleEs)
 // Pet battle leaderboard (PetRank.js, 2026-11-24).
 Object.assign(en, rankEn)
 Object.assign(zh, rankZh)
