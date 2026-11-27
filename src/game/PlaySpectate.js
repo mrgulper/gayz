@@ -47,6 +47,7 @@ import { t } from './i18n.js'
 import { postToGallery } from './GalleryUI.js'
 import { PHOTO_FILTERS, filterDefs, applyFilter } from './PhotoFilters.js'
 import { isOffline } from './Offline.js'
+import { SKY_WEATHERS } from './BuildSky.js'
 import { _censorText } from './Game.js'
 
 const FLY_SPEED = 14 // blocks per second
@@ -83,6 +84,25 @@ const ZOOM_MAX = 6
 const ZOOM_WHEEL = 1.12 // each wheel notch zooms this much
 const TILT_MAX = 45 // degrees
 const TILT_SPEED = 40 // degrees per second, holding Q or E
+// The Sky picker (2026-11-27, Gaymi): [id, time, weather, Blood Moon].
+// Time 'now' keeps the time of day showing. Normal = the real sky,
+// Custom = any time + any weather (the two menus under the row).
+const PHOTO_SKIES = [
+  ['normal'],
+  ['day', 'day', 'clear'],
+  ['sunset', 'sunset', 'clear'],
+  ['night', 'night', 'clear'],
+  ['bloodMoon', 'night', 'clear', true],
+  ['fog', 'now', 'fog'],
+  ['rain', 'now', 'mediumRain'],
+  ['snow', 'now', 'mediumSnow'],
+  ['thunderstorm', 'now', 'thunderstorm'],
+  ['eclipse', 'day', 'eclipse'],
+  ['custom'],
+]
+const SKY_TIME_CHOICES = ['now', 'day', 'sunset', 'night']
+// (read when the menu's made: BuildSky.js may load after this file)
+const skyWeatherChoices = () => SKY_WEATHERS.filter((w) => w !== 'random')
 
 export class PlaySpectate {
   constructor(bm, blockSize) {
@@ -94,6 +114,8 @@ export class PlaySpectate {
     this._saved = null
     this.photo = false
     this.filter = 'none'
+    this.skyPick = 'normal'
+    this.customSky = { time: 'now', weather: 'clear' }
     this._lastPhoto = null
     this.selfie = false
     this._selfieDist = SELFIE_DIST
@@ -176,6 +198,7 @@ export class PlaySpectate {
     if (this.photo) this._showPhotoUi(false)
     this.photo = false
     this.setFilter('none')
+    this.setSky('normal')
     this._lastPhoto = null
   }
 
@@ -191,7 +214,14 @@ export class PlaySpectate {
         <div id="play-photo-flash"></div>
         <p id="play-photo-hint"></p>
         <p id="play-photo-saved" aria-live="polite"></p>
-        <div id="play-photo-filters" role="group"></div>
+        <div id="play-photo-top">
+          <div id="play-photo-filters" role="group"></div>
+          <div id="play-photo-sky" role="group"><span id="play-photo-sky-label"></span></div>
+          <div id="play-photo-sky-custom" hidden>
+            <label><span data-sky-name="time"></span><select id="play-photo-sky-time">${SKY_TIME_CHOICES.map((id) => `<option value="${id}"></option>`).join('')}</select></label>
+            <label><span data-sky-name="weather"></span><select id="play-photo-sky-weather">${skyWeatherChoices().map((id) => `<option value="${id}"></option>`).join('')}</select></label>
+          </div>
+        </div>
         <div id="play-photo-lens" role="group">
           <label class="pp-lens-row"><span class="pp-lens-name" data-lens-name="zoom"></span><input type="range" id="play-photo-zoom" min="0" max="100" step="1"><output id="play-photo-zoom-val"></output></label>
           <label class="pp-lens-row"><span class="pp-lens-name" data-lens-name="tilt"></span><input type="range" id="play-photo-tilt" min="-${TILT_MAX}" max="${TILT_MAX}" step="1"><output id="play-photo-tilt-val"></output></label>
@@ -218,6 +248,29 @@ export class PlaySpectate {
         e.stopPropagation()
         const b = e.target.closest('[data-filter]')
         if (b) this.setFilter(b.dataset.filter)
+      })
+      // The Sky picker's buttons and Custom's two menus.
+      const sky = ui.querySelector('#play-photo-sky')
+      for (const [id] of PHOTO_SKIES) {
+        const b = document.createElement('button')
+        b.type = 'button'
+        b.dataset.sky = id
+        sky.appendChild(b)
+      }
+      for (const el of [sky, ui.querySelector('#play-photo-sky-custom')]) {
+        for (const ev of ['pointerdown', 'click', 'touchstart', 'touchmove', 'wheel']) el.addEventListener(ev, (e) => e.stopPropagation(), { passive: true })
+      }
+      sky.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-sky]')
+        if (b) this.setSky(b.dataset.sky)
+      })
+      ui.querySelector('#play-photo-sky-time').addEventListener('change', (e) => {
+        this.customSky.time = e.target.value
+        this.setSky('custom')
+      })
+      ui.querySelector('#play-photo-sky-weather').addEventListener('change', (e) => {
+        this.customSky.weather = e.target.value
+        this.setSky('custom')
       })
       for (const id of ['play-photo-exit', 'play-photo-shutter', 'play-photo-post', 'play-photo-selfie', 'play-photo-emote']) {
         ui.querySelector(`#${id}`).addEventListener('pointerdown', (e) => e.stopPropagation())
@@ -270,6 +323,13 @@ export class PlaySpectate {
       b.textContent = t(`photoFilter_${b.dataset.filter}`)
       b.classList.toggle('active', b.dataset.filter === this.filter)
     }
+    ui.querySelector('#play-photo-sky-label').textContent = t('photoSkyLabel')
+    for (const b of ui.querySelectorAll('[data-sky]')) b.textContent = t(`photoSky_${b.dataset.sky}`)
+    ui.querySelector('[data-sky-name="time"]').textContent = t('photoSkyTime')
+    ui.querySelector('[data-sky-name="weather"]').textContent = t('photoSkyWeather')
+    for (const o of ui.querySelectorAll('#play-photo-sky-time option')) o.textContent = o.value === 'now' ? t('photoSkyNow') : t(`buildTime_${o.value}`)
+    for (const o of ui.querySelectorAll('#play-photo-sky-weather option')) o.textContent = t(`buildWeather_${o.value}`)
+    this._skyUi()
     ui.querySelector('[data-lens-name="zoom"]').textContent = t('photoModeZoom')
     ui.querySelector('[data-lens-name="tilt"]').textContent = t('photoModeTilt')
     ui.querySelector('#play-photo-lens-reset').textContent = t('photoModeLensReset')
@@ -439,6 +499,36 @@ export class PlaySpectate {
     const canvas = this.bm.renderer?.domElement
     if (canvas) canvas.style.filter = this.filter === 'none' ? '' : `url(#gz-photo-${this.filter})`
     for (const b of document.querySelectorAll('#play-photo-filters [data-filter]')) b.classList.toggle('active', b.dataset.filter === this.filter)
+  }
+
+  // The Sky picker: a sky for the shot (only on this screen), or Normal
+  // for the real one. Photo Mode closing puts Normal back (exit()).
+  setSky(id) {
+    const pick = PHOTO_SKIES.find(([s]) => s === id) ? id : 'normal'
+    this.skyPick = pick
+    const sky = this.bm.sky
+    if (sky) {
+      if (pick === 'normal') sky.photoSkyEnd()
+      else if (pick === 'custom') sky.photoSky(this.customSky.time, this.customSky.weather)
+      else {
+        const [, time, weather, blood] = PHOTO_SKIES.find(([s]) => s === pick)
+        sky.photoSky(time, weather, !!blood)
+      }
+    }
+    this._skyUi()
+  }
+
+  _skyUi() {
+    const ui = document.getElementById('play-photo-ui')
+    if (!ui) return
+    for (const b of ui.querySelectorAll('[data-sky]')) {
+      const on = b.dataset.sky === this.skyPick
+      b.classList.toggle('active', on)
+      b.setAttribute('aria-pressed', on ? 'true' : 'false')
+    }
+    ui.querySelector('#play-photo-sky-custom').hidden = this.skyPick !== 'custom'
+    ui.querySelector('#play-photo-sky-time').value = this.customSky.time
+    ui.querySelector('#play-photo-sky-weather').value = this.customSky.weather
   }
 
   // Post to Gallery: the last photo taken, to the Photo section.
