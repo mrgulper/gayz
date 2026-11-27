@@ -189,6 +189,7 @@ export class RollingQuests {
     this.state.claimed.add(spawnedAt)
     saveState(this.state)
     game.coins += template.rewardCoins
+    game._playStats?.countCoins?.('bankIn', 'quests', template.rewardCoins)
     return { coins: template.rewardCoins, xp: template.rewardXp }
   }
 }

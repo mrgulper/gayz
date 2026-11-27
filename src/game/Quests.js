@@ -56,6 +56,7 @@ export class Quests {
     this.claimed.add(id)
     saveClaimed(this.claimed)
     game.coins += quest.rewardCoins
+    game._playStats?.countCoins?.('bankIn', 'quests', quest.rewardCoins)
     return true
   }
 }

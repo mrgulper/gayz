@@ -1354,11 +1354,19 @@ export class BuildSurvival {
 
   // Coins come in through here, so Loot Rush doubles them all (and so
   // does a Blood Moon, and the Console's Double Coins switch).
-  _earn(n) {
+  // why = its Coin Flow group (CoinFlow.js campIn), for the owner's charts.
+  _earn(n, why = 'other') {
     const got = Math.round(n * this._coinMult())
     this.coins += got
     this._coinsEarned += got
     this.bingo?.note('coins', got)
+    this._coinStat('campIn', why, got)
+  }
+
+  // Coin Flow (2026-11-27): n in-game coins came in (campIn) or went out
+  // (campOut) for this group. Only totals are sent (PlayStats.countCoins).
+  _coinStat(cat, key, n) {
+    this.bm?.game?._playStats?.countCoins?.(cat, key, n)
   }
 
   // What every coin earned is multiplied by. perks = false leaves out my
@@ -2056,7 +2064,7 @@ export class BuildSurvival {
     // their coins - a guest, so none of my stats, quests or rewards.
     const p2Gear = !by && !sunOnly && this._p2Shot ? this.couch?.gear : null
     // A mutant (a meteor's, WorldEvents.js) pays extra.
-    if (z.mutant && !by && !sunOnly && !p2Gear) this._earn(MUTANT_COINS)
+    if (z.mutant && !by && !sunOnly && !p2Gear) this._earn(MUTANT_COINS, 'kills')
     audioEngine.playZombieDeath?.(1, this._panTo(z.x, z.z))
     const skeleton = SKELETON_KINDS[z.kind] ? z.kind : null
     if (by) this.net?.queueCredit(by, z.boss, skeleton, z.tier, false, z.shine, [z.x, z.y, z.z], z.maxHealth)
@@ -2185,7 +2193,7 @@ export class BuildSurvival {
       bingo.reach('streak', this.streak)
     }
     const paid = Math.round(COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine))
-    this._earn(paid)
+    this._earn(paid, 'kills')
     if (ZOMBIE_SHINES[shine]) {
       const stat = `${shine}Kills`
       this.stats[stat] = (this.stats[stat] || 0) + 1
@@ -2197,7 +2205,7 @@ export class BuildSurvival {
     }
     if (boss) {
       this.bosses++
-      this._earn(BOSS_COINS)
+      this._earn(BOSS_COINS, 'bosses')
       this._message(t('buildPlayBossDown', { n: Math.round(BOSS_COINS * (this.cfg?.coinMult ?? 1)) }))
     }
     // Skill tree: Golden Touch, Boss Bounty, Streak Cash, Tip Jar.
@@ -2223,7 +2231,7 @@ export class BuildSurvival {
   // coins and a boss's bonus), a "+Assist" message and the assists stat.
   _countAssist(boss, tier = 'common', shine = null) {
     const n = Math.round((COIN_PER_KILL * (ZOMBIE_TIERS[tier]?.coins ?? 1) * shineCoins(shine) + (boss ? BOSS_COINS : 0)) * ASSIST_SHARE)
-    this._earn(n)
+    this._earn(n, 'kills')
     this.stats.assists = (this.stats.assists || 0) + 1
     this._message(t('buildPlayAssist', { n: Math.round(n * (this.cfg?.coinMult ?? 1)) }))
     this._report('assist', { boss: !!boss, tier })
@@ -2920,7 +2928,7 @@ export class BuildSurvival {
     const n = lo + Math.floor(Math.random() * (hi - lo + 1))
     const kept = n - this.inv.add({ kind: 'item', id: 'candy', n })
     const before = this._coinsEarned
-    this._earn(PINATA_COINS)
+    this._earn(PINATA_COINS, 'chests')
     setTimeout(() => this.active && this._message(t('zombieShinePinataLoot', { n: kept, coins: this._coinsEarned - before }), 4), 1800)
     this._renderHud()
   }
@@ -4052,7 +4060,7 @@ export class BuildSurvival {
         const rush = this.cfg.mode === 'zombieRush' || !!this.speedrun
         this._breakTimer = this.td ? TD_BREAK : rush ? RUSH_WAVE_BREAK : WAVE_BREAK
         if (this.wave > 0) {
-          this._earn(COIN_PER_WAVE)
+          this._earn(COIN_PER_WAVE, 'waves')
           this.skills?.onWaveCleared(COIN_PER_WAVE)
           // Zombie Defense: the last wave held is a win.
           if (this.cfg.mode === 'zombieDefense' && this.wave >= DEFENSE_WAVES) {
@@ -4383,7 +4391,7 @@ export class BuildSurvival {
       // The waves I've lived through pay like my own.
       const cleared = wave > this.wave && this.wave > 0
       if (cleared) {
-        this._earn(COIN_PER_WAVE)
+        this._earn(COIN_PER_WAVE, 'waves')
         this.skills?.onWaveCleared(COIN_PER_WAVE)
         this._message(this._trapSupplies())
       }

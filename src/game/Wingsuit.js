@@ -134,10 +134,10 @@ export class Wingsuit {
     r.got = true
     r.mesh.material.color.set(0x6fe36f)
     this._got++
-    s._earn(RING_COINS)
+    s._earn(RING_COINS, 'minigames')
     let msg = t('wingRing', { n: this._got, max: RINGS, c: RING_COINS })
     if (this._got === RINGS) {
-      s._earn(ALL_RINGS_COINS)
+      s._earn(ALL_RINGS_COINS, 'minigames')
       msg = t('wingAllRings', { n: ALL_RINGS_COINS })
     }
     s._message(msg, 2)

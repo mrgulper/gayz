@@ -207,6 +207,7 @@ export class Graveyard {
     yd.looted = true
     const s = this.s
     s.coins = (s.coins || 0) + GRAVE_COINS
+    s._coinStat?.('campIn', 'places', GRAVE_COINS)
     s._renderHud?.()
     s._message(t('graveLoot', { n: GRAVE_COINS }), 5)
   }

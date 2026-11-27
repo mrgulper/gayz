@@ -2162,11 +2162,13 @@ test('play stats: only known counts are kept, the owner report adds days', async
   await expect(recordStats(db, { who: 'g', hits: [] }, t0)).rejects.toThrow()
   await expect(recordStats(db, { who: 'g', hits: Array(41).fill(['sum', 'visits']) }, t0)).rejects.toThrow()
   await recordStats(db, { who: 'g', hits: [['sum', 'visits'], ['sum', 'visits'], ['sum', 'players'], ['hour', '15'], ['device', 'phone'], ['lang', 'es'], ['mode', 'classic'], ['map', 'city'], ['skin', 'alisa'], ['weapon', 'rifle'], ['weapon', 'rifle'], ['quit', 'w3'], ['back', 'd2-6'], ['back', 'd99'], ['days', '3-6'], ['since', 'd7'], ['since', 'd9'], ['backdev', 'phone-back'], ['load', 'phone-s2-4'], ['load', 'phone-s99'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-potato-f20-29'], ['fps', 'phone-moon-f60up'], ['death', '3-7'], ['death', '3-7'], ['death', 'out'], ['death', '16-0'], ['death', '-1-2'], ['funnel', 'home'], ['funnel', 'home'], ['funnel', 'wave9'], ['mode', 'hackerMode'], ['lang', '../x'], ['nope', 'x'], 'junk'] }, t0)
+  // Coin Flow hits carry an amount; one group adds at most 100,000 a message.
+  await recordStats(db, { who: 'g', hits: [['bankIn', 'quests', 250], ['bankIn', 'quests', 50], ['bankIn', 'gifts', 999999], ['campOut', 'items', -5], ['campOut', 'items'], ['bankOut', 'nope', 10]] }, t0)
   await recordStats(db, { who: 's', hits: [['sum', 'visits'], ['mode', 'classic']] }, t0)
   await recordStats(db, { who: 'g', hits: [['sum', 'visits']] }, t0 - 86400000)
   const g = db.root.stats['2026-11-13'].g
   // "visits" counts once per message; guns can add up within one.
-  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 }, death: { '3-7': 2, out: 1 }, funnel: { home: 1 } })
+  expect(g).toEqual({ sum: { visits: 1, players: 1 }, hour: { 15: 1 }, device: { phone: 1 }, lang: { es: 1 }, mode: { classic: 1 }, map: { city: 1 }, skin: { alisa: 1 }, weapon: { rifle: 2 }, quit: { w3: 1 }, back: { 'd2-6': 1 }, days: { '3-6': 1 }, since: { d7: 1 }, backdev: { 'phone-back': 1 }, load: { 'phone-s2-4': 1 }, fps: { 'phone-potato-f20-29': 2 }, death: { '3-7': 2, out: 1 }, funnel: { home: 1 }, bankIn: { quests: 300, gifts: 100000 } })
   expect(db.root.stats['2026-11-13'].s).toEqual({ sum: { visits: 1 }, mode: { classic: 1 } })
   const rep = await ADMIN_ACTIONS.stats(db, { days: 7 })
   expect(rep.days.length).toBe(7)
@@ -2233,6 +2235,35 @@ test('play stats: quit funnel counts each first step once, new devices only', as
   expect(r.back).toEqual(['day2'])
   expect(r.saved).toEqual(['home', 'run', 'kill', 'death', 'wave3', 'run2', 'day2'])
   expect(r.old).toEqual([])
+})
+
+test('play stats: coin flow adds up coins per group and sends totals', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__statsSent = []
+    window.__playStatsForTests = (body) => window.__statsSent.push(body)
+  })
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    g.__statsFlush()
+    window.__statsSent.length = 0
+    const c = g._playStats.countCoins
+    c('bankIn', 'quests', 100)
+    c('bankIn', 'quests', 50)
+    c('bankOut', 'pets', 300)
+    c('campIn', 'mystery', 7)
+    c('campOut', 'items', 0)
+    c('nope', 'x', 5)
+    c('campIn', 'waves', 20)
+    c('campIn', 'other', 10)
+    g.__statsFlush()
+    const hits = window.__statsSent.splice(0).flatMap((b) => b.hits)
+    // Totals are sent once: nothing left for the next send.
+    g.__statsFlush()
+    return { hits, again: window.__statsSent.length }
+  })
+  expect(r.hits).toEqual([['bankIn', 'quests', 150], ['bankOut', 'pets', 300], ['campIn', 'other', 17], ['campIn', 'waves', 20]])
+  expect(r.again).toBe(0)
 })
 
 test('play stats: the page counts a visit once a day and respects the setting', async ({ page }) => {

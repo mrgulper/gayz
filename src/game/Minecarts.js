@@ -231,6 +231,7 @@ export class Minecarts {
     tm.vel?.set(0, 0, 0)
     if (!arrived) return
     s.coins = (s.coins || 0) + CART_COINS
+    s._coinStat?.('campIn', 'places', CART_COINS)
     s._renderHud?.()
     s._message(t('cartEnd', { n: CART_COINS }), 3)
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

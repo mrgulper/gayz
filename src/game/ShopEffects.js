@@ -162,6 +162,7 @@ export function buyOrUseEffect(game, id) {
   const name = K.name(id)
   if (needsBuyConfirm(game.settings, price) && !window.confirm(t('shopMoreSkinsConfirm', { name, price: game._formatSkinPrice('coins', price) }))) return
   game.coins -= price
+  game._playStats?.countCoins?.('bankOut', 'effects', price)
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   if (!game.shopCosmetics || typeof game.shopCosmetics !== 'object') game.shopCosmetics = {}
   game.shopCosmetics[id] = 1

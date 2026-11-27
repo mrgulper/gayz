@@ -1742,6 +1742,7 @@ export class PartyMode {
     const won = this._won()
     if (won && game) {
       game.coins = (game.coins || 0) + WIN_COINS
+      game._playStats?.countCoins?.('bankIn', 'wins', WIN_COINS)
       saveShopProgress(game)
       game._renderCurrencyBar?.()
     }

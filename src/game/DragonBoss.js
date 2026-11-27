@@ -345,6 +345,7 @@ export class DragonBoss {
     const d = this.d
     d.dying = 0.01
     s.coins = (s.coins || 0) + HOARD_COINS
+    s._coinStat?.('campIn', 'places', HOARD_COINS)
     s._renderHud?.()
     const game = s.bm.game
     if (game) {

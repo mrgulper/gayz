@@ -223,7 +223,7 @@ export class ZombieBlimp {
     for (const id of LOOT) s._drops?.spawnItem(id, x + (Math.random() - 0.5) * 4, y + 1.2, z + (Math.random() - 0.5) * 4)
     const find = s.finds?.pick?.()
     if (find) s._drops?.spawnItem(find, x, y + 1.4, z)
-    s._earn(BLIMP_COINS)
+    s._earn(BLIMP_COINS, 'places')
     s._renderHud?.()
     s._message(t('blimpCrashed', { n: Math.round(BLIMP_COINS * (s.cfg?.coinMult ?? 1)) }), 5)
     s.bingo?.note('blimp')

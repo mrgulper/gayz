@@ -90,6 +90,7 @@ export function _checkLoginStreak(game) {
   const bonusDays = Math.min(game.loginStreak.streak, LOGIN_STREAK_MAX_BONUS_DAYS)
   const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
   game.coins += coinBonus
+  game._playStats?.countCoins?.('bankIn', 'login', coinBonus)
   if (usedFreeze) {
     game._showLoreToast(t('loginStreakFreezeUsedToast', { n: game.loginStreak.streak, coins: coinBonus }))
   } else if (!wasConsecutive && previousLastDate) {
@@ -171,6 +172,7 @@ export function _onPlayEvent(game, type, data) {
   let coins = data.coins
   if (game.settings.mutators[_weeklyFeaturedMutatorKey()]) coins += WEEKLY_FEATURED_MUTATOR_BONUS_COINS
   game.coins += coins
+  game._playStats?.countCoins?.('bankIn', 'games', coins)
   game.careerStats.lifetimePointsEarned = (game.careerStats.lifetimePointsEarned || 0) + points
   if (data.died) game.achievements.unlock('first_death')
   if (data.kills >= 100) game.achievements.unlock('centurion')
@@ -250,6 +252,7 @@ export function _onPlayEvent(game, type, data) {
   // Added after the run is recorded, so the run's own coins stay just
   // what it earned.
   game.coins += levelCoins
+  game._playStats?.countCoins?.('bankIn', 'levels', levelCoins)
   // Friend Challenges (FriendMail.js): any accepted challenge this game reached pays out.
   checkFriendChallenges(game, data)
   // Career totals (_recordRunEnd just added game run to them).
@@ -576,6 +579,7 @@ export function _claimDailyChallenge(game) {
   // x2 while the Double XP / rewards switch is on.
   const m = rewardMult()
   game.coins += reward.coins * m
+  game._playStats?.countCoins?.('bankIn', 'challenges', reward.coins * m)
   game.xp += reward.xp * m
   saveShopProgress(game)
   game._showHomepageToast(t('dailyChallengeClaimedToast', { coins: reward.coins * m, xp: reward.xp * m, n: reward.streak }))
@@ -622,6 +626,7 @@ export function _claimQuest(game, id) {
   // Double XP / rewards switch: the same reward again on top.
   const coins = QUESTS.find((q) => q.id === id)?.rewardCoins || 0
   game.coins += coins * (rewardMult() - 1)
+  game._playStats?.countCoins?.('bankIn', 'quests', coins * (rewardMult() - 1))
   saveShopProgress(game)
   game._showHomepageToast(t('questClaimedToast', { n: coins * rewardMult() }))
   game._renderQuestsPanel()
@@ -642,6 +647,7 @@ export function _claimRollingQuest(game, spawnedAt) {
   // Double XP / rewards switch: x2 (claim() already paid the coins once).
   const m = rewardMult()
   game.coins += reward.coins * (m - 1)
+  game._playStats?.countCoins?.('bankIn', 'quests', reward.coins * (m - 1))
   game.xp += reward.xp * m
   saveShopProgress(game)
   game._showHomepageToast(t('rollingQuestClaimedToast', { coins: reward.coins * m, xp: reward.xp * m }))
@@ -1089,6 +1095,7 @@ export function _recordRunEnd(game, survived) {
     if (game.careerStats.lifetimePlaytimeSeconds >= m.seconds && !game.careerStats.playtimeMilestonesGranted.includes(m.id)) {
       game.careerStats.playtimeMilestonesGranted.push(m.id)
       game.coins += m.rewardCoins
+      game._playStats?.countCoins?.('bankIn', 'milestones', m.rewardCoins)
       game._showLoreToast(t('playtimeMilestoneToast', { hours: Math.round(m.seconds / 3600), coins: m.rewardCoins }))
     }
   }

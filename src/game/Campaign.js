@@ -249,7 +249,7 @@ export class Campaign {
       st.done = false
       st.started = true
       saveStory(st)
-      s._earn(FINALE_COINS)
+      s._earn(FINALE_COINS, 'quests')
       s._renderHud?.()
       try { audioEngine.playSpecial?.('firework') } catch { /* no audio */ }
       this.scene(CHAPTERS.length)
@@ -257,7 +257,7 @@ export class Campaign {
     }
     st.done = true
     saveStory(st)
-    s._earn(CHAPTER_COINS)
+    s._earn(CHAPTER_COINS, 'quests')
     s._renderHud?.()
     s._message(t('storyChapterDone', { n: ch + 1, c: CHAPTER_COINS }), 5)
     try { audioEngine.playSpecial?.('bell') } catch { /* no audio */ }

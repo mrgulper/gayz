@@ -675,6 +675,7 @@ function fillWarTop(game, ranked) {
       if (!btn || !markClaimed(btn.dataset.prize)) return
       const coins = Number(btn.dataset.coins) || 0
       game.coins += coins
+      game._playStats?.countCoins?.('bankIn', 'rewards', coins)
       game._afterTradeChange?.()
       game._renderCurrencyBar?.()
       game._showHomepageToast?.(t('clanWarClaimed', { n: coins }))

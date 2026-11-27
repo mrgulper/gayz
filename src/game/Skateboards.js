@@ -139,6 +139,7 @@ export class Skateboards {
     } else if (this.landed.length) {
       const coins = this.landed.length * TRICK_COINS
       s.coins = (s.coins || 0) + coins
+      s._coinStat?.('campIn', 'minigames', coins)
       s._renderHud?.()
       s._message(t('skateTricks', { tricks: this.landed.map((k) => t(`skateTrick_${k}`)).join(' + '), n: coins }), 2.5)
       try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

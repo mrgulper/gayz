@@ -208,6 +208,7 @@ export class CampWheel {
     if (p.id === 'coins') {
       if (game) {
         game.coins = (game.coins || 0) + p.n
+        game._playStats?.countCoins?.('bankIn', 'wins', p.n)
         saveShopProgress(game)
         game._renderCurrencyBar?.()
       }

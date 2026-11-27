@@ -55,11 +55,13 @@ export function rollPrize(tier, rnd = Math.random) {
 export function givePrize(game, prize) {
   if (prize.type === 'coins') {
     game.coins += prize.amount
+    game._playStats?.countCoins?.('bankIn', 'crates', prize.amount)
     return prize
   }
   if (ownsItem(game, prize.it)) {
     const dupCoins = Math.max(50, Math.round((coinValue(prize.it) * DUPLICATE_SHARE) / 50) * 50)
     game.coins += dupCoins
+    game._playStats?.countCoins?.('bankIn', 'crates', dupCoins)
     return { ...prize, dupCoins }
   }
   grantItem(game, prize.it)
@@ -186,6 +188,7 @@ export function buyAndSpin(game, tier) {
     return null
   }
   game.coins -= cfg.cost
+  game._playStats?.countCoins?.('bankOut', 'crates', cfg.cost)
   return openNow(game, tier)
 }
 

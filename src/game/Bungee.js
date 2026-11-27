@@ -191,7 +191,7 @@ export class Bungee {
       if (s.inv.add({ kind: 'item', id, n: 1 }) > 0) s._drops?.spawnItem(id, bag.x, bag.y + 1, bag.z)
       got.push(itemName(id))
     }
-    s._earn(BAG_COINS)
+    s._earn(BAG_COINS, 'minigames')
     s._renderHud?.()
     s._message(t('bungeeGrab', { n: Math.round(BAG_COINS * (s.cfg?.coinMult ?? 1)), items: got.join(', ') }), 3)
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

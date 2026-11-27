@@ -331,6 +331,7 @@ export async function _buyMarketListing(game, listing) {
     game._showHomepageToast(t('marketAlreadySold'))
   } else {
     game.coins -= price
+    game._playStats?.countCoins?.('bankOut', 'market', price)
     try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
     game._addSkinToInventory(entry.id)
     game._afterTradeChange()
@@ -378,6 +379,7 @@ export async function _claimMarketSales(game) {
       const price = _safeStatNumber(claimed.price)
       const earned = Math.max(0, price - game._marketFee(price))
       game.coins += earned
+      game._playStats?.countCoins?.('bankIn', 'selling', earned)
       saveShopProgress(game)
       game._renderCurrencyBar()
       const entry = INVENTORY_SKINS.find((skin) => skin.id === claimed.skinId)
@@ -830,6 +832,7 @@ export function _confirmCratePurchase(game) {
     return
   }
   game.coins -= totalCost
+  game._playStats?.countCoins?.('bankOut', 'crates', totalCost)
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   game.crateStock[tier] = (game.crateStock[tier] || 0) + qty
   game._showHomepageToast(t('crateBought', { n: qty, name: t(`crateTier${tier.charAt(0).toUpperCase()}${tier.slice(1)}`) }))

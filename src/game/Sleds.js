@@ -125,6 +125,7 @@ export class Sleds {
     if (run < RUN_MIN) return
     const coins = Math.floor(run / RUN_STEP) * SLED_COINS
     s.coins = (s.coins || 0) + coins
+    s._coinStat?.('campIn', 'minigames', coins)
     s._renderHud?.()
     s._message(t('sledRun', { n: run, v: Math.round(top), c: coins }), 3)
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

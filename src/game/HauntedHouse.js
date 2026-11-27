@@ -242,6 +242,7 @@ export class HauntedHouse {
     h.looted = true
     const s = this.s
     s.coins = (s.coins || 0) + HAUNT_COINS
+    s._coinStat?.('campIn', 'places', HAUNT_COINS)
     s.inv?.add({ kind: 'item', id: Math.random() < 0.5 ? 'potionInvis' : 'potionSpeed', n: 1 })
     s._renderHud?.()
     s._message(t('hauntLoot', { n: HAUNT_COINS }), 5)

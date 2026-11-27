@@ -318,6 +318,7 @@ export class Ufo {
     if (!s.dead) this._tp(ab.x, s._groundUnder(ab.x, ab.y + 3, ab.z), ab.z)
     if (won) {
       s.coins = (s.coins || 0) + UFO_COINS
+      s._coinStat?.('campIn', 'places', UFO_COINS)
       s._renderHud?.()
       s._message(t('ufoEscaped', { n: UFO_COINS }), 5)
     }

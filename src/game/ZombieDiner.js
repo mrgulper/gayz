@@ -314,7 +314,7 @@ export class ZombieDiner {
     if (!this.holding) {
       // Empty hands: throw them out.
       if (c.zombie) {
-        s._earn(SPOT_COINS)
+        s._earn(SPOT_COINS, 'minigames')
         s._renderHud?.()
         this._reveal(c, 'dinerSpotted', { n: Math.round(SPOT_COINS * (s.cfg?.coinMult ?? 1)) })
       } else {
@@ -332,7 +332,7 @@ export class ZombieDiner {
       return this._leave(c)
     }
     const paid = DISH_COINS + (c.waited <= TIP_S ? TIP_COINS : 0)
-    s._earn(paid)
+    s._earn(paid, 'minigames')
     s._renderHud?.()
     s._message(t(c.waited <= TIP_S ? 'dinerServedTip' : 'dinerServed', { n: Math.round(paid * (s.cfg?.coinMult ?? 1)) }), 3)
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

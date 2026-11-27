@@ -314,6 +314,7 @@ export class DanceOff {
     if (won) {
       const coins = DANCE_COINS + this.perfects * PERFECT_COINS
       s.coins = (s.coins || 0) + coins
+      s._coinStat?.('campIn', 'minigames', coins)
       s._renderHud?.()
       if (!s.net || s.net.isHost) {
         const me = s.bodyPos()

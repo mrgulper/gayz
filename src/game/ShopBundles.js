@@ -125,7 +125,10 @@ export async function buyOrWearBundle(game, id) {
   const ask = cost.currency === 'gems' || needsBuyConfirm(game.settings, cost.amount)
   if (ask && !window.confirm(t('shopMoreSkinsConfirm', { name, price: game._formatSkinPrice(cost.currency, cost.amount) }))) return
   if (cost.currency === 'gems') game.gems -= cost.amount
-  else game.coins -= cost.amount
+  else {
+    game.coins -= cost.amount
+    game._playStats?.countCoins?.('bankOut', 'bundles', cost.amount)
+  }
   try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
   if (!game.shopCosmetics || typeof game.shopCosmetics !== 'object') game.shopCosmetics = {}
   if (!ownsSkin(game, b.skin)) game._addSkinToInventory(b.skin)

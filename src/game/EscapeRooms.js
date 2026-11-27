@@ -402,7 +402,10 @@ export class EscapeRooms {
     if (this.solved[i]) return
     this.solved[i] = true
     if (!fromNet && !this.race && this._guest()) s.net.queueHit('es' + i, 0)
-    if (!this.broke[i]) s.coins = (s.coins || 0) + ROOM_COINS
+    if (!this.broke[i]) {
+      s.coins = (s.coins || 0) + ROOM_COINS
+      s._coinStat?.('campIn', 'places', ROOM_COINS)
+    }
     // The stone in the far wall slides away.
     const bm = s.bm
     bm._suppressUndoRecording = true
@@ -472,6 +475,7 @@ export class EscapeRooms {
     this.done = true
     const s = this.s
     s.coins = (s.coins || 0) + ESC_COINS
+    s._coinStat?.('campIn', 'places', ESC_COINS)
     this._bar.remove()
     const online = this.race && s.net && !s.net.closed
     if (online) {

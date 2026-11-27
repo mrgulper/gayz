@@ -297,7 +297,7 @@ export class Survivors {
       return
     }
     this.quest = null
-    this.s._earn(QUEST_COINS)
+    this.s._earn(QUEST_COINS, 'quests')
     this.s._message(`${t('buildPlaySurvivorQuestDone', { n: QUEST_COINS })} ${this.s._trapSupplies()}`, 4)
     this.s._renderHud()
   }

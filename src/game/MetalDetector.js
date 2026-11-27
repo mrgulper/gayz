@@ -89,7 +89,7 @@ export class MetalDetector {
     }
     const [lo, hi] = DIG_COINS
     const before = s._coinsEarned
-    s._earn(lo + Math.floor(Math.random() * (hi - lo + 1)))
+    s._earn(lo + Math.floor(Math.random() * (hi - lo + 1)), 'chests')
     const coins = s._coinsEarned - before
     const id = FINDS[Math.floor(Math.random() * FINDS.length)]
     const lost = s.inv.add({ kind: 'item', id, n: 1 })

@@ -3311,6 +3311,7 @@ export class Game {
     if (this.weeklyChallenge.progress >= this.weeklyDef.target) {
       this.weeklyChallenge.completed = true
       this.coins += this.weeklyDef.rewardCoins
+      this._playStats?.countCoins?.('bankIn', 'challenges', this.weeklyDef.rewardCoins)
       saveShopProgress(this)
       this._showLoreToast(t('weeklyChallengeComplete', { title: t(this.weeklyDef.titleKey), coins: this.weeklyDef.rewardCoins }))
     }
@@ -3886,7 +3887,10 @@ export class Game {
     const name = entry.nameKey ? t(entry.nameKey) : entry.name
     await this._removeSkinFromInventory(id)
     if (entry.sell.currency === 'gems') this.gems += entry.sell.amount
-    else this.coins += entry.sell.amount
+    else {
+      this.coins += entry.sell.amount
+      this._playStats?.countCoins?.('bankIn', 'selling', entry.sell.amount)
+    }
     this._afterTradeChange()
     this._showHomepageToast(t('skinSoldToast', { name, price: this._formatSkinPrice(entry.sell.currency, entry.sell.amount) }))
   }

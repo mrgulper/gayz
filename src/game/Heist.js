@@ -264,6 +264,7 @@ export class Heist {
     const sneaky = !b.alarm && b.guards.every((zb) => zb.asleep || !s.zombies.includes(zb))
     const n = HEIST_COINS * (sneaky ? STEALTH_X : 1)
     s.coins = (s.coins || 0) + n
+    s._coinStat?.('campIn', 'places', n)
     s._renderHud?.()
     s._message(t(sneaky ? 'heistLootSneaky' : 'heistLoot', { n }), 5)
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }

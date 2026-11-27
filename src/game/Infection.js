@@ -409,6 +409,7 @@ export class Infection {
     const coins = !won ? 0 : meInf ? INFECTED_WIN_COINS : HUMAN_WIN_COINS
     if (coins && game) {
       game.coins = (game.coins || 0) + coins
+      game._playStats?.countCoins?.('bankIn', 'wins', coins)
       saveShopProgress(game)
       game._renderCurrencyBar?.()
     }

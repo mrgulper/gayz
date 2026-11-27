@@ -732,6 +732,7 @@ async function fight(game, rerender) {
       const reward = finishBattle(won)
       if (reward) {
         game.coins += reward
+        game._playStats?.countCoins?.('bankIn', 'pets', reward)
         saveShopProgress(game)
         game._renderCurrencyBar?.()
       }

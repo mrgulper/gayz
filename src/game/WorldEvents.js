@@ -252,7 +252,7 @@ export class WorldEvents {
     s.inv.add({ kind: 'item', id: 'healthpack', n: 2 })
     s.inv.add({ kind: 'item', id: 'ammobox', n: 1 })
     const trap = s._trapSupplies()
-    s._earn(CRATE_COINS)
+    s._earn(CRATE_COINS, 'chests')
     s._message(`${t('buildPlayEventSupplyGot', { n: CRATE_COINS })} ${trap}`, 4)
     s._renderHud()
     this._removeCrate()
