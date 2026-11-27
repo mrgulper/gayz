@@ -93,6 +93,7 @@ import { statsReport } from './playStats.js'
 import { leaderboardState, hideFromBoards, unhideFromBoards, dismissCheat, runCheatScan, chatState, deleteChatMessage } from './leaderboardAdmin.js'
 import { uptimeReport } from './uptime.js'
 import { cityView } from './cityView.js'
+import { playerStory } from './playerStory.js'
 import { weeklyPreview } from './weekly.js'
 import { launchState, saveLaunchItems, setLaunchPublic } from './launch.js'
 import { helperList, addHelper, removeHelper, helperLogin, helperReports, checkReport, reportChecks } from './helpers.js'
@@ -1576,6 +1577,7 @@ const ACTION_FNS = {
   restore: (db, body, fs) => restore(db, body, fs),
   lookup: (db, body, fs) => lookupPlayer(db, fs, body),
   card: (db, body, fs) => playerCard(db, fs, body.pid),
+  story: (db, body, fs) => playerStory(db, fs, body),
   warn: (db, body) => warnPlayer(db, body),
   deleteWarning: (db, body) => deleteWarning(db, body),
   mute: (db, body, fs) => mutePlayer(db, fs, body),

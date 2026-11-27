@@ -3165,3 +3165,38 @@ test('leaderboard cleanup: hide, cheat alarm, chat viewer', async () => {
   expect(log).toContain('Hid')
   expect(log).toContain('Deleted a chat message by Cheaty')
 })
+
+// Player story (2026-11-27): one timeline from what's already stored.
+test('player story: one timeline of everything about a player', async () => {
+  const { playerStory } = await import('../api/_lib/playerStory.js')
+  const db = fakeServerDb()
+  const t0 = Date.UTC(2026, 10, 27, 20, 0)
+  await reportPlayer(db, { target: 'STORY1', targetName: 'Storey', by: 'OTHER1', byName: 'Other', where: 'server', text: 'spamming' }, t0)
+  await warnPlayer(db, { pid: 'STORY1', text: 'Be nice', nick: 'Storey' }, t0 + 1000)
+  await ADMIN_ACTIONS.warn(db, { pid: 'STORY1', text: 'Second one', nick: 'Storey' }, null)
+  await ADMIN_ACTIONS.giveTo(db, { pid: 'STORY1', coins: 50, nick: 'Storey' }, null)
+  await ADMIN_ACTIONS.warn(db, { pid: 'STORY12', text: 'Someone else', nick: 'X' }, null)
+  await db.update({ 'pidIps/STORY1/abcdefghijklmnopqrst': t0 + 5000, 'feedback/f1': { kind: 'bug', text: 'it broke', pid: 'STORY1', nick: 'Storey', at: t0 + 6000 }, 'idChanges/OLDONE1': { to: 'STORY1', at: t0 - 1000 } })
+  const fs = {
+    accountsByPid: async () => [{ uid: 'storyuid1', nickname: 'Storey', bestNight: 7, lastActiveAt: t0 + 7000 }],
+    chatByUid: async (room) => (room === 'globalChat' ? [{ id: 'm1', uid: 'storyuid1', nick: 'Storey', text: 'hello all', at: t0 + 8000 }] : []),
+  }
+  const s = await playerStory(db, fs, { pid: 'STORY1' }, t0 + 9000)
+  const texts = s.events.map((e) => e.text)
+  // Newest first, every source there.
+  expect(s.events.map((e) => e.at)).toEqual([...s.events.map((e) => e.at)].sort((a, b) => b - a))
+  expect(s.events[s.events.length - 1].text).toContain('#OLDONE1')
+  expect(texts).toContain('Reported by Other (server)')
+  expect(texts).toContain('Said in in-game chat')
+  expect(texts).toContain('Last opened the game')
+  expect(texts).toContain('Sent feedback (bug)')
+  expect(texts.some((t) => t.startsWith('Gift for Storey #STORY1'))).toBe(true)
+  expect(texts.some((t) => t.includes('best wave 7'))).toBe(true)
+  // The logged warning shows once; the unlogged one still shows; nobody else's.
+  expect(texts.filter((t) => t.startsWith('Warned')).length).toBe(2)
+  expect(texts.some((t) => t.includes('STORY12'))).toBe(false)
+  expect(s.lastSeen).toBe(t0 + 5000)
+  await expect(playerStory(db, null, { pid: 'bad id!' })).rejects.toMatchObject({ status: 400 })
+  // Through the admin door, without Firestore.
+  expect((await ADMIN_ACTIONS.story(db, { pid: 'STORY1' }, null)).events.length).toBeGreaterThan(3)
+})

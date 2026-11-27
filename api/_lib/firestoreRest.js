@@ -322,6 +322,25 @@ export async function recentChat(room, limit = 40) {
     })
 }
 
+// One player's messages in one chat room (`uid` equal only, so no extra
+// Firestore index is needed; newest first after sorting here).
+export async function chatByUid(room, uid, limit = 30) {
+  const rows = await call(':runQuery', {
+    structuredQuery: {
+      from: [{ collectionId: room }],
+      where: { fieldFilter: { field: { fieldPath: 'uid' }, op: 'EQUAL', value: { stringValue: uid } } },
+      limit,
+    },
+  })
+  return (rows || [])
+    .filter((r) => r.document?.name && r.document.name.includes(`/documents/${room}/`))
+    .map((r) => {
+      const f = r.document.fields || {}
+      return { id: r.document.name.split('/').pop(), uid: str(f.uid), nick: str(f.nickname), text: str(f.text), at: int(f.createdAt) }
+    })
+    .sort((a, b) => b.at - a.at)
+}
+
 export async function deleteChat(room, id) {
   await call(`/${room}/${enc(id)}`, undefined, 'DELETE')
 }
