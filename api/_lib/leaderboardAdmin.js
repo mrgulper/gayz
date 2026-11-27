@@ -21,6 +21,7 @@ import { ServerError } from './servers.js'
 import { ACHIEVEMENTS } from '../../src/game/Achievements.js'
 import { sendAlert } from './inbox.js'
 import { loadRudeChecker } from './autoMod.js'
+import { watchBoards } from './watchList.js'
 
 const HOUR = 60 * 60 * 1000
 export const SCAN_EVERY_MS = 3 * HOUR
@@ -107,7 +108,9 @@ export async function runCheatScan(db, fs, now = Date.now()) {
     if (found.length > 5) lines.push(`…and ${found.length - 5} more.`)
     await sendAlert(db, `🚩 **Cheat alarm** - ${found.length === 1 ? 'a score looks' : `${found.length} scores look`} impossible:\n${lines.join('\n')}\nOpen the Leaderboard tab to hide them (or dismiss if it's real).`, now)
   }
-  return { scanned: true, found: found.length }
+  // Watch list: anyone flagged who's newly in a top 10 (watchList.js).
+  const watched = await watchBoards(db, boards, Object.fromEntries(BOARDS.map(([id, title]) => [id, title])), now).catch(() => 0)
+  return { scanned: true, found: found.length, watched }
 }
 
 async function trimAlerts(db) {

@@ -106,6 +106,7 @@ import { languageReport } from './langCheck.js'
 import { tvHide, tvFake, tvDelete, tvBan, tvUnban, tvBanList } from './tvAdmin.js'
 import { ownerCommand, giveToPid, waitingGifts, claimPidGift, OwnerError, HORDE_SIZES, OWNER_TIMES, OWNER_WEATHERS, GIVE_MAX } from './ownerPowers.js'
 import { livePoll, reportAlert, inboxState, setFeedbackDone, deleteFeedback, replyFeedback, setBugStage, unseenReplies, REPLY_TEMPLATES, clearErrors, startPoll, endPoll, deletePoll, testAlert, POLL_HOURS, cleanImages, IMAGES_MAX } from './inbox.js'
+import { watchOnline, watchReport, watchState, watchFor, watchPlayer, unwatchPlayer, clearWatchAlerts, watchMoveUpdates } from './watchList.js'
 
 export const EVENT_IDS = ['doubleCoins', 'doubleXp', 'hordeNight']
 export const HOLIDAYS = ['halloween', 'christmas']
@@ -134,7 +135,7 @@ const LOG_KEPT = 300
 // they're left out).
 // Helper accounts are left out on purpose: restoring an old file must
 // never bring back a helper the owner removed.
-export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod', 'launch', 'plannedGiveaways']
+export const BACKUP_PATHS = ['liveConfig', 'bans', 'ipBans', 'idChanges', 'playerReports', 'reportsSeen', 'adminLog', 'warnings', 'mutes', 'playerNotes', 'giftCodes', 'giftCodesUsed', 'reportChecks', 'hallOfFame', 'autoMod', 'launch', 'plannedGiveaways', 'watchList']
 // Restore leaves the history alone: it stays a true record (including the
 // Restore itself).
 const RESTORE_PATHS = BACKUP_PATHS.filter((p) => p !== 'adminLog')
@@ -424,7 +425,7 @@ export async function worldDrop(db, { kind, who, minutes, cancel } = {}, now = D
 export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
   const ok = validPid(pid)
   const okIp = validIp(_ip)
-  const [cfg, ban, mute, warnings, gifts, ipBanRec, ips, change, replies] = await Promise.all([
+  const [cfg, ban, mute, warnings, gifts, ipBanRec, ips, change, replies, watched] = await Promise.all([
     db.get('liveConfig'),
     ok ? db.get(`bans/${pid}`) : null,
     ok ? db.get(`mutes/${pid}`) : null,
@@ -434,8 +435,11 @@ export async function publicConfig(db, { pid, _ip } = {}, now = Date.now()) {
     ok && okIp ? db.get(`pidIps/${pid}`) : null,
     ok ? db.get(`idChanges/${pid}`) : null,
     ok ? db.get(`feedbackReplies/${pid}`) : null,
+    // On the team's watch list? (watchList.js: "came online" ping)
+    ok ? db.get(`watchList/${pid}`) : null,
   ])
   await noteIp(db, pid, _ip, ips, now).catch(() => {})
+  if (watched) await watchOnline(db, pid, watched, now).catch(() => {})
   const live = liveEvents(cfg, now)
   const planned = plannedNow(cfg, now)
   const myBan = activeBan(ban, now) || activeBan(ipBanRec, now)
@@ -494,7 +498,8 @@ export async function reportPlayer(db, body = {}, now = Date.now()) {
     },
     [`reportLimits/${by}/${target}`]: now,
   })
-  await reportAlert(db, { target, targetName: body.targetName, by, byName: body.byName, where: body.where, text: body.text }, now, cleanImages(body.images))
+  const watched = await watchReport(db, target, { by, byName: body.byName, text: body.text }, now).catch(() => null)
+  await reportAlert(db, { target, targetName: body.targetName, by, byName: body.byName, where: body.where, text: body.text, watched: watched ? watched.why || true : null }, now, cleanImages(body.images))
   const all = (await db.get('playerReports')) || {}
   const ids = Object.keys(all).sort((a, b) => (all[a]?.at || 0) - (all[b]?.at || 0))
   if (ids.length > REPORTS_KEPT) {
@@ -620,6 +625,8 @@ export async function adminState(db, fs, now = Date.now()) {
     dailyTypes: DAILY_TEMPLATES.map((d) => ({ type: d.type, targets: d.targets })),
     checks: await reportChecks(db),
     helpers: await helperList(db),
+    // The watch list and its alerts (watchList.js).
+    watch: await watchState(db, now).catch(() => ({ list: [], alerts: [], days: [] })),
     history: Object.values(log || {})
       .map((e) => ({ at: Number(e?.at) || 0, text: cleanText(e?.text, 300) }))
       .sort((a, b) => b.at - a.at),
@@ -732,7 +739,7 @@ export async function changeId(db, fs, { pid, newId, nick } = {}, now = Date.now
     }
     await fs.setLeaderboardPid(uid, to).catch(() => {})
   }
-  await db.update({ [`idChanges/${pid}`]: { to, at: now, nick: cleanText(nick, 24) } })
+  await db.update({ [`idChanges/${pid}`]: { to, at: now, nick: cleanText(nick, 24) }, ...(await watchMoveUpdates(db, pid, to).catch(() => ({}))) })
   return { ok: true, to, signedIn: !!uid }
 }
 
@@ -909,6 +916,7 @@ export async function playerCard(db, fs, pid, now = Date.now()) {
     ipBan: ipBanList(ipBans, now).find((r) => r.pid === pid) || null,
     movedTo: liveIdChange(change, now),
     shopBlocked: !!liveBan || recentWarning(warnings, now),
+    watch: await watchFor(db, pid, now).catch(() => null),
   }
 }
 
@@ -1599,6 +1607,8 @@ const LOG_TEXT = {
   lbUnhide: (b) => `Put ${cleanText(b.name, 24) || '?'}${validPid(b.pid) ? ` #${b.pid}` : ''} back on the leaderboards`,
   cheatDismiss: (b) => `Dismissed a cheat alarm${cleanText(b.name, 24) ? ` on ${cleanText(b.name, 24)}` : ''}`,
   chatDelete: (b) => `Deleted a chat message${cleanText(b.nick, 24) ? ` by ${cleanText(b.nick, 24)}` : ''}: "${cleanText(b.text, 60)}"`,
+  watch: (b) => `Put ${cleanText(b.name, 24) || '?'} #${cleanText(b.pid, 40)} on the watch list ${Number(b.days) ? `for ${Number(b.days)} days` : 'with no end date'}${cleanText(b.why, 60) ? ` ("${cleanText(b.why, 60)}")` : ''}`,
+  unwatch: (b) => `Took ${cleanText(b.name, 24) || '?'} #${cleanText(b.pid, 40)} off the watch list`,
   restore: (b) => `Restored the backup from ${cleanText(b.label, 40) || (Number(b.file?.at) ? `${day(Number(b.file.at))} UTC` : '?')}`,
 }
 
@@ -1688,6 +1698,9 @@ const ACTION_FNS = {
   cheatScanNow: (db, body, fs) => runCheatScan(db, fs),
   chat: (db, body, fs) => chatState(db, fs),
   chatDelete: (db, body, fs) => deleteChatMessage(db, fs, body),
+  watch: (db, body) => watchPlayer(db, body),
+  unwatch: (db, body) => unwatchPlayer(db, body),
+  watchClear: (db, body) => clearWatchAlerts(db, body),
   // A helper's own buttons: each checks the helper's password itself
   // (helpers.js), so they only ever work for a real helper.
   helperLogin: (db, body) => helperLogin(db, body),
