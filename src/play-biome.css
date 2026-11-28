@@ -329,3 +329,6 @@ html.ui-theme-biome :is(#play-hud-info, #play-compass, .kill-feed-line) {
   color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); text-shadow: none;
 }
 html.ui-theme-biome .compass-mark { border-bottom-color: var(--biome-ink); }
+
+/* Pet Races' Cheer button (CampRace.js) follows the biome like the camp prompts. */
+html.ui-theme-biome #pet-race-cheer { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }

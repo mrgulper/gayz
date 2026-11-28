@@ -971,3 +971,55 @@ test('run perks, an escort mission and a camp siege in Zombie Survival', async (
   })
   expect(r).toEqual({ cards: 3, waits: true, picked: true, harder: true, escort: true, path: true, chases: true, lost: true, ...(r.siege !== undefined ? { siege: true, unsafe: true, held: true } : {}) })
 })
+
+// Six ideas batch 2 (2026-11-27): Pet Races at camp - pick your pet, bet on
+// any racer at its odds, the race runs on a sky track and you come back.
+test('Pet Races: odds, a bet, the sky track, cheering and the payout', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    // The camp builds its booths on its first update (stepped by hand: CI is slow).
+    for (let i = 0; i < 50 && !s.camp.race; i++) {
+      s.camp.update(0.05)
+      await new Promise((res) => setTimeout(res, 50))
+    }
+    const R = s.camp.race
+    const RM = R.lib
+    const out = { post: !!R?.group }
+    // No pets yet: the screen says so.
+    localStorage.removeItem('gayz-creatures')
+    R.openPick()
+    out.noPets = document.querySelectorAll('#camp-screen .race-pet').length === 0 && !!document.querySelector('#camp-screen .camp-screen-btn')
+    const mine = { t: 'z', k: null, r: 'rare', n: 0, b: false, l: 5, id: 1 }
+    const bots = RM.botPets(mine)
+    out.bots = bots.length === 5 && new Set(bots.map((b) => `${b.t}${b.k}`)).size === 5
+    // Odds: always in range; a much faster field makes my pet a long shot.
+    const odds = RM.oddsFor([mine, ...bots], 0)
+    out.odds = odds.length === 6 && odds.every((o) => o >= RM.ODDS_MIN && o <= RM.ODDS_MAX)
+    out.bets = RM.cleanBet(9999, 2000) === RM.MAX_BET && RM.cleanBet(50, 20) === 20 && RM.cleanBet('x', 100) === 0 && RM.payout(50, 2.5) === 125
+    // The bet screen: tap a racer and an amount, then Start.
+    s.coins = 300
+    R.openBet(mine, bots)
+    out.rows = document.querySelectorAll('#camp-screen .race-row').length
+    document.querySelectorAll('#camp-screen .race-row')[0].click()
+    document.querySelector('#camp-screen .race-amount[data-n="100"]').click()
+    out.sum = /100/.test(document.querySelector('#camp-screen .race-sum').textContent)
+    const home = { x: s.bm.tryMode.pos.x, z: s.bm.tryMode.pos.z }
+    document.querySelector('#camp-screen .race-go').click()
+    const race = R.race
+    out.started = !document.getElementById('camp-screen') && !!race && s.coins === 200
+    out.sky = s.bm.tryMode.pos.y > RM.RACE_Y && s.bm.getBlockAt(race.ox + 5, RM.RACE_Y, race.oz + 1) === 'whiteconcrete'
+    out.cheerBtn = !!document.getElementById('pet-race-cheer')
+    out.saveHome = s.camp.race.home().x === home.x
+    for (let i = 0; i < 31; i++) R.update(0.1)
+    out.cheer = race.phase === 'run' && s.camp.use() === true && race.run[0].boost > 0
+    race.run[0].p = 100 // my pet wins
+    for (let i = 0; i < 400 && race.phase === 'run'; i++) R.update(0.1)
+    out.won = race.order[0] === 0 && s.coins === 200 + RM.payout(100, race.odds[0])
+    for (let i = 0; i < 50 && R.race; i++) R.update(0.1)
+    out.back = !R.race && Math.abs(s.bm.tryMode.pos.x - home.x) < 0.01 && !s.bm.getBlockAt(race.ox + 5, RM.RACE_Y, race.oz + 1) && !document.getElementById('pet-race-cheer')
+    return out
+  })
+  expect(r).toEqual({ post: true, noPets: true, bots: true, odds: true, bets: true, rows: 6, sum: true, started: true, sky: true, cheerBtn: true, saveHome: true, cheer: true, won: true, back: true })
+})

@@ -47,6 +47,10 @@ import raidEn from './i18n/raid-en.js'
 import raidZh from './i18n/raid-zh.js'
 import raidHi from './i18n/raid-hi.js'
 import raidEs from './i18n/raid-es.js'
+import raceEn from './i18n/race-en.js'
+import raceZh from './i18n/race-zh.js'
+import raceHi from './i18n/race-hi.js'
+import raceEs from './i18n/race-es.js'
 import shopSkinsEn from './i18n/shopskins-en.js'
 import shopSkinsZh from './i18n/shopskins-zh.js'
 import shopSkinsHi from './i18n/shopskins-hi.js'
@@ -119,6 +123,11 @@ Object.assign(en, raidEn)
 Object.assign(zh, raidZh)
 Object.assign(hi, raidHi)
 Object.assign(es, raidEs)
+// Pet Races (CampRace.js, 2026-11-27).
+Object.assign(en, raceEn)
+Object.assign(zh, raceZh)
+Object.assign(hi, raceHi)
+Object.assign(es, raceEs)
 Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)

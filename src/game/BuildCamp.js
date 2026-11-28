@@ -34,6 +34,7 @@ import { CampTreehouse } from './CampTreehouse.js'
 import { CampPlaza, WIDE as PLAZA_WIDE } from './CampPlaza.js'
 import { CampMuseum, WIDE as MUSEUM_WIDE } from './CampMuseum.js'
 import { Campaign, WIDE as LAB_WIDE } from './Campaign.js'
+import { CampRace } from './CampRace.js'
 import { paintStyledName } from './NameChatStyles.js'
 
 export const COIN_PER_KILL = 10
@@ -154,6 +155,8 @@ export class BuildCamp {
     this.museum?.dispose()
     this.museum = null
     this.lab?.dispose()
+    this.race?.dispose()
+    this.race = null
     this.lab = null
     this.s?.pizza?.disposeCounter()
     if (this._prompt) this._prompt.style.display = 'none'
@@ -186,6 +189,8 @@ export class BuildCamp {
     const shop = this.s.shop
     if (!shop) return false
     if (shop.panelOpen) return true
+    // Pet Races (CampRace.js): the post, or Cheer during a race.
+    if (this.race?.use()) return true
     // The Lucky Wheel (CampWheel.js).
     if (this.wheel?.use()) return true
     // The Treehouse's ladder (CampTreehouse.js).
@@ -256,7 +261,11 @@ export class BuildCamp {
       this.lab.build(taken)
       // The Pizza counter (PizzaDelivery.js, 2026-11-09).
       if (this.lab.spot) taken.push({ ...this.lab.spot, wide: LAB_WIDE })
-      this.s?.pizza?.buildCounter(this, taken)
+      const pz = this.s?.pizza?.buildCounter(this, taken)
+      if (pz) taken.push({ ...pz, wide: 3 })
+      // The Pet Races post, on open ground (CampRace.js, 2026-11-27).
+      this.race = new CampRace(this)
+      this.race.build(taken)
       this.taken = taken
     }
     this.museum?.update()
@@ -265,6 +274,7 @@ export class BuildCamp {
     this.aquarium?.update(dt)
     this.zoo?.update(dt)
     this.wheel?.update(dt)
+    this.race?.update(dt)
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     const wheel = !npc && !this.s.shop?.panelOpen && !!this.wheel?.near()
     const tree = !npc && !wheel && !this.s.shop?.panelOpen && !!this.treehouse?.near()
@@ -272,8 +282,9 @@ export class BuildCamp {
     const mus = !npc && !wheel && !tree && !st && !this.s.shop?.panelOpen && !!this.museum?.near()
     const lab = !npc && !wheel && !tree && !st && !mus && !this.s.shop?.panelOpen && !!this.lab?.near()
     const pz = !npc && !wheel && !tree && !st && !mus && !lab && !this.s.shop?.panelOpen && !!this.s?.pizza?.near()
+    const rc = !npc && !wheel && !tree && !st && !mus && !lab && !pz && !this.s.shop?.panelOpen && !!this.race?.near()
     if (this._prompt) {
-      this._prompt.style.display = npc || wheel || tree || st || mus || lab || pz ? 'block' : 'none'
+      this._prompt.style.display = npc || wheel || tree || st || mus || lab || pz || rc ? 'block' : 'none'
       if (npc && this._promptFor !== npc.id) {
         this._promptFor = npc.id
         this._prompt.textContent = t('campTalk', { name: t(`campNpc_${npc.id}`) })
@@ -295,6 +306,9 @@ export class BuildCamp {
       } else if (pz && this._promptFor !== `pizza${!!this.s.pizza.job}`) {
         this._promptFor = `pizza${!!this.s.pizza.job}`
         this._prompt.textContent = this.s.pizza.prompt()
+      } else if (rc && this._promptFor !== 'race') {
+        this._promptFor = 'race'
+        this._prompt.textContent = t('racePrompt')
       }
     }
   }
