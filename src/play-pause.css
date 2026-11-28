@@ -1624,8 +1624,18 @@ html.ui-theme-clean #camp-screen .camp-screen-btn { color: var(--clean-fg); back
 #camp-screen :is(.race-row, .race-amount).pick { background: rgba(255, 210, 63, 0.28); border-color: #ffd23f; box-shadow: 0 0 0 1px #ffd23f; }
 #camp-screen .race-amounts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
 #camp-screen .race-amount { min-width: 64px; min-height: 40px; padding: 4px 14px; font-weight: 700; border-radius: 999px; }
-#camp-screen .race-custom { width: 110px; min-height: 40px; box-sizing: border-box; text-align: center; border-radius: 999px; }
+#camp-screen .race-custom { width: 110px; min-height: 40px; box-sizing: border-box; text-align: center; border-radius: 999px; color: inherit; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 40%, transparent); }
+#camp-screen .race-custom::placeholder { color: inherit; opacity: 0.7; }
 #camp-screen .race-btns { display: flex; gap: 8px; justify-content: center; }
+/* The Shop Stand (CampStand.js): what's on it, your bag, and the picked item's price. */
+#camp-screen .stand-head { align-self: flex-start; font-size: 14px; }
+#camp-screen :is(.stand-on, .stand-bag) { max-height: 22vh; overflow-y: auto; }
+#camp-screen .stand-row.on { cursor: default; }
+#camp-screen .stand-off { min-width: 0; min-height: 34px; padding: 2px 12px; font-size: 13px; }
+#camp-screen .stand-edit { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; }
+#camp-screen .stand-custom.pick { border-color: #ffd23f; box-shadow: 0 0 0 1px #ffd23f; }
+#camp-screen .stand-put:disabled { opacity: 0.5; cursor: default; }
+#camp-screen .stand-offer { font-size: 15px; text-align: center; }
 #pet-race-cheer {
   position: fixed; left: 50%; top: calc(50% + 84px); transform: translateX(-50%); z-index: 18;
   min-width: 140px; min-height: 48px; padding: 8px 26px; font: 800 18px/1 system-ui, sans-serif;

@@ -22,6 +22,7 @@
 //   Chess (CampPlaza.js, 2026-11-06).
 // - The Zombie Museum (CampMuseum.js) and Dr. Goo's lab, where the Story
 //   Campaign is told (Campaign.js), 2026-11-06.
+// - Pet Races (CampRace.js) and the Shop Stand (CampStand.js), 2026-11-27.
 import * as THREE from 'three'
 import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { t } from './i18n.js'
@@ -36,6 +37,7 @@ import { CampMuseum, WIDE as MUSEUM_WIDE } from './CampMuseum.js'
 import { Campaign, WIDE as LAB_WIDE } from './Campaign.js'
 import { CampRace } from './CampRace.js'
 import { CampFossils } from './CampFossils.js'
+import { CampStand } from './CampStand.js'
 import { paintStyledName } from './NameChatStyles.js'
 
 export const COIN_PER_KILL = 10
@@ -160,6 +162,8 @@ export class BuildCamp {
     this.race = null
     this.fossils?.dispose()
     this.fossils = null
+    this.stand?.dispose()
+    this.stand = null
     this.lab = null
     this.s?.pizza?.disposeCounter()
     if (this._prompt) this._prompt.style.display = 'none'
@@ -196,6 +200,8 @@ export class BuildCamp {
     if (this.fossils?.use()) return true
     // Pet Races (CampRace.js): the post, or Cheer during a race.
     if (this.race?.use()) return true
+    // The Shop Stand (CampStand.js).
+    if (this.stand?.use()) return true
     // The Lucky Wheel (CampWheel.js).
     if (this.wheel?.use()) return true
     // The Treehouse's ladder (CampTreehouse.js).
@@ -271,6 +277,10 @@ export class BuildCamp {
       // The Pet Races post, on open ground (CampRace.js, 2026-11-27).
       this.race = new CampRace(this)
       this.race.build(taken)
+      if (this.race.spot) taken.push({ ...this.race.spot, wide: 2 })
+      // The Shop Stand, on open ground too (CampStand.js, 2026-11-27).
+      this.stand = new CampStand(this)
+      this.stand.build(taken)
       // The Museum's Fossil Hall, up in the sky when you visit (CampFossils.js).
       this.fossils = new CampFossils(this)
       this.taken = taken
@@ -283,6 +293,7 @@ export class BuildCamp {
     this.wheel?.update(dt)
     this.race?.update(dt)
     this.fossils?.update(dt)
+    this.stand?.update(dt)
     if (this.fossils?.inside) {
       if (this._prompt && this._promptFor !== 'fossils') {
         this._promptFor = 'fossils'
@@ -299,8 +310,9 @@ export class BuildCamp {
     const lab = !npc && !wheel && !tree && !st && !mus && !this.s.shop?.panelOpen && !!this.lab?.near()
     const pz = !npc && !wheel && !tree && !st && !mus && !lab && !this.s.shop?.panelOpen && !!this.s?.pizza?.near()
     const rc = !npc && !wheel && !tree && !st && !mus && !lab && !pz && !this.s.shop?.panelOpen && !!this.race?.near()
+    const sd = !npc && !wheel && !tree && !st && !mus && !lab && !pz && !rc && !this.s.shop?.panelOpen && !!this.stand?.near()
     if (this._prompt) {
-      this._prompt.style.display = npc || wheel || tree || st || mus || lab || pz || rc ? 'block' : 'none'
+      this._prompt.style.display = npc || wheel || tree || st || mus || lab || pz || rc || sd ? 'block' : 'none'
       if (npc && this._promptFor !== npc.id) {
         this._promptFor = npc.id
         this._prompt.textContent = t('campTalk', { name: t(`campNpc_${npc.id}`) })
@@ -325,6 +337,9 @@ export class BuildCamp {
       } else if (rc && this._promptFor !== 'race') {
         this._promptFor = 'race'
         this._prompt.textContent = t('racePrompt')
+      } else if (sd && this._promptFor !== `stand${!!this.stand.haggle}`) {
+        this._promptFor = `stand${!!this.stand.haggle}`
+        this._prompt.textContent = this.stand.prompt()
       }
     }
   }

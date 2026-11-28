@@ -260,7 +260,7 @@ export const ICON_PIXELS = {
 }
 const ICON_COLORS = { v: '#6fc23a', l: '#b8f06a', p: '#e8b49a', f: '#f08a5a', n: '#8aa83a', o: '#e8862a', m: '#b5452e', '#': '#2b2016', w: '#f2f0ea', r: '#d8352a', y: '#e8c14a', g: '#5d6b3a', i: '#c9ccd2', b: '#3a5fa8', c: '#5aa7d8', k: '#8a5a2a', d: '#4a4a4a', a: '#e3cf9a', s: '#e8829a', e: '#efe3c0' }
 const iconCache = new Map()
-function itemIcon(id) {
+export function itemIcon(id) {
   if (iconCache.has(id)) return iconCache.get(id)
   const url = itemIconCanvas(id).toDataURL()
   iconCache.set(id, url)

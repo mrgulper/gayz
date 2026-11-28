@@ -7,7 +7,8 @@ import { buildTexturedCharacter, loadSkinTexture } from './MenuAvatar3D.js'
 import { nameTag, NPC_SKINS } from './BuildCamp.js'
 import { MOB_HEIGHT } from './PlayRules.js'
 
-const SKINS = Object.values(NPC_SKINS)
+// Looked up when needed (BuildCamp loads this file too, via CampStand.js).
+const skins = () => Object.values(NPC_SKINS)
 
 // -> { group, body (null until it loads), x, y, z }. onBody(body) runs once
 // the body is in (for extra bits like a zombie's green hands).
@@ -18,7 +19,7 @@ export function makePerson(s, at, name, onBody = null) {
   if (name) group.add(nameTag(name, B))
   s.bm.scene.add(group)
   const p = { x: at.x, y: at.y, z: at.z, group, body: null }
-  loadSkinTexture(SKINS[Math.floor(Math.random() * SKINS.length)]).then((skin) => {
+  loadSkinTexture(skins()[Math.floor(Math.random() * skins().length)]).then((skin) => {
     if (!group.parent) return
     const body = buildTexturedCharacter(skin)
     const sc = (MOB_HEIGHT * B) / 32
