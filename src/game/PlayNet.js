@@ -485,7 +485,11 @@ export class PlayNet {
       if (res.sky) s.bm.sky?.follow?.(res.sky)
       s.animals?.applySnapshot(res.animals || {})
       if (res.inf) s.infection?.applySnapshot(res.inf)
-      if (res.party) s.party?.applySnapshot(res.party)
+      if (res.party) {
+        // The host's vote picked another mode (PartyVote.js): follow it.
+        if (s.party && res.party.k && res.party.k !== s.party.kind) s.switchPartyMode?.(res.party.k)
+        s.party?.applySnapshot(res.party)
+      }
       if (res.zone) s.zone?.applySnapshot(res.zone)
       if (res.td) s.td?.applySnapshot(res.td)
       s.train?.applySnapshot(res.train || null)

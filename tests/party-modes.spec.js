@@ -286,6 +286,63 @@ test('Party modes: hide and seek, capture the flag, king of the hill, zombie soc
   for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
 })
 
+// Mode voting (PartyVote.js): the end screen shows 3 modes, my vote and
+// the bots' are counted, and the winner becomes the next round's mode -
+// out of a sky arena back onto the ground.
+test('Party modes: vote for the next mode', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    const out = {}
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'floorLava'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._pickWeapon('rifle')
+    const p = s.party
+    for (let i = 0; i < 200 && p.phase === 'wait'; i++) p.update(0.05)
+    out.skyY = s.bodyPos().y > 200
+    p.phase = 'end'
+    p.winner = 'tie'
+    p.left = 3
+    p.update(0.05)
+    const v = p.nextVote
+    out.opts = v.opts.length === 3 && v.opts[0] === 'floorLava' && new Set(v.opts).size === 3
+    out.longer = p.left > 10
+    const el = document.getElementById('party-vote')
+    out.buttons = !!el && el.querySelectorAll('button').length === 3 && /again/i.test(el.textContent)
+    // Everyone (bots too) votes for option 2; the next round is that mode.
+    const want = v.opts[1]
+    v._botAt.clear()
+    for (const id of p.bots.keys()) v.picks.set(id, 1)
+    el.querySelectorAll('button')[1].dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+    out.mine = v.mine === 1 && v.counts[1] === p.bots.size + 1
+    out.snap = JSON.stringify(p.snapshot().nv.slice(3)) === JSON.stringify(v.counts)
+    p.left = 0.01
+    for (let i = 0; i < 5 && s.party === p; i++) {
+      p.update(0.05)
+      if (p.switchTo) s.switchPartyMode(p.switchTo)
+    }
+    out.switched = s.party !== p && s.party.kind === want && s.cfg.mode === want && s.party.phase === 'wait'
+    out.voteGone = !document.getElementById('party-vote')
+    out.grounded = s.party.sky || s.bodyPos().y < 200
+    // A tie: one of the tied modes.
+    const q = s.party
+    q.phase = 'end'
+    q.update(0.05)
+    q.nextVote._botAt.clear()
+    q.nextVote.picks.clear()
+    q.nextVote.picks.set('x1', 0)
+    q.nextVote.picks.set('x2', 2)
+    q.nextVote._count()
+    out.tie = [q.nextVote.opts[0], q.nextVote.opts[2]].includes(q.nextVote.winner())
+    return out
+  })
+  for (const [k, v] of Object.entries(r)) expect(v, k).toBe(true)
+})
+
 test('Tower Defense: its own map, zombies walk the path, towers, lives and the win', async ({ page }) => {
   await gotoAndWaitForGame(page)
   await page.evaluate(() => { const g = window.__game; g.settings.guestMode = false; g.settings.selectedGameMode = 'towerDefense'; g.playBtn.click() })

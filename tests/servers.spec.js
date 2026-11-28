@@ -57,6 +57,29 @@ test('servers: the owner drops in visible or invisible', async () => {
 })
 
 // The Hall of Fame cards (admin.js saveHof ... /api/live 'hof').
+// Mode voting (PartyVote.js): a party server follows its host's round to
+// another mode; guests' votes (n + mode index) reach the host; Deathmatch
+// servers never change.
+test('servers: mode voting moves a party server to the voted mode', async () => {
+  const db = fakeServerDb()
+  const t0 = Date.now()
+  const a = await createServer(db, { nickname: 'Ann', mode: 'hide' }, t0)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 1)
+  await syncServer(db, { ...b, state: { x: 1, y: 1, z: 1 }, hits: [{ id: 'n2', dmg: 0 }, { id: 'n<b>', dmg: 0 }] }, t0 + 2)
+  const ra = await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1 }, party: { k: 'hideSeek', ph: 'end', t: 5, r: 1, nv: [0, 2, 4, 1, 3, 0] } }, t0 + 3)
+  expect(ra.hits.map((h) => h.id)).toEqual(['n2'])
+  expect((await db.get(`servers/${a.serverId}/party`)).nv).toEqual([0, 2, 4, 1, 3, 0])
+  await syncServer(db, { ...a, party: { k: 'kingHill', ph: 'wait', t: 8, r: 1 } }, t0 + 4)
+  expect(await db.get(`servers/${a.serverId}/mode`)).toBe('koth')
+  expect((await db.get(`servers/${a.serverId}/party`)).k).toBe('kingHill')
+  // Not a vote mode: stays as it is.
+  await syncServer(db, { ...a, party: { k: 'deathmatch', ph: 'wait', t: 8, r: 1 } }, t0 + 5)
+  expect(await db.get(`servers/${a.serverId}/mode`)).toBe('koth')
+  const d = await createServer(db, { nickname: 'Dee', mode: 'dm' }, t0)
+  await syncServer(db, { ...d, party: { k: 'kingHill', ph: 'wait', t: 8, r: 1 } }, t0 + 6)
+  expect(await db.get(`servers/${d.serverId}/mode`)).toBe('dm')
+})
+
 test('hall of fame: add, edit, order, remove; players never get Player IDs', async () => {
   const db = fakeServerDb()
   const skin = 'data:image/png;base64,AAAA'

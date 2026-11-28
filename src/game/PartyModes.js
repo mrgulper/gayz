@@ -97,6 +97,7 @@ import { PartyChairs } from './PartyChairs.js'
 import { PartySimon } from './PartySimon.js'
 import { PartyProps, HIDE_S as PROP_HIDE_S, SEEK_S as PROP_SEEK_S } from './PartyProps.js'
 import { PartyTug, ROUND as TUG_ROUND } from './PartyTug.js'
+import { PartyVote, VOTE_S as NEXT_VOTE_S, modeName } from './PartyVote.js'
 
 // The modes that live in their own files (see `this.ext` above).
 const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, deathmatch: PartyDeathmatch, teamDeathmatch: PartyTeamDeathmatch, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon, propHunt: PartyProps, tugOfWar: PartyTug }
@@ -221,6 +222,9 @@ export class PartyMode {
     survival.bm.scene.add(this.arena)
     this._marks = new Map() // id -> team mark mesh over their head
     this.ext = PARTY_EXT[kind] ? new PARTY_EXT[kind](this) : null
+    // Mode voting on the end screen (PartyVote.js).
+    this.nextVote = new PartyVote(this, PARTY_MODES)
+    this.switchTo = '' // the mode the vote picked (BuildSurvival swaps it in)
     // An ext's own wait before a round (Deathmatch: none - straight in).
     if (this.ext?.waitS != null) this.left = this.ext.waitS
   }
@@ -326,6 +330,7 @@ export class PartyMode {
     this._drawArena(dt)
     this._markPlayers()
     this._events()
+    this.nextVote.render()
     const me = this.myId
     if (this.kind === 'buildBattle') {
       if (this.home) this._platform()
@@ -369,8 +374,18 @@ export class PartyMode {
       return
     }
     if (this.phase === 'end') {
+      // A new end screen with a vote: long enough to vote.
+      const fresh = this.nextVote._for !== this.round
+      this.nextVote.run(dt)
+      if (fresh && this.nextVote.on) this.left = Math.max(this.left, NEXT_VOTE_S)
       this.left -= dt
       if (this.left <= 0) {
+        const next = this.nextVote.winner()
+        if (next !== this.kind) {
+          this.switchTo = next
+          this.left = 0
+          return
+        }
         this.phase = 'wait'
         this.left = this.ext?.waitS ?? WAIT_S
         this.round++
@@ -1711,7 +1726,7 @@ export class PartyMode {
   }
 
   _modeName() {
-    return t(`topBarMode${this.kind[0].toUpperCase()}${this.kind.slice(1)}`)
+    return modeName(this.kind)
   }
 
   _startText() {
@@ -1872,6 +1887,7 @@ export class PartyMode {
       if (m) this.splat(Number(m[1]) + 0.5, Number(m[2]) + 0.5, this.teams.get(String(h.by)))
       return
     }
+    if (id[0] === 'n') return this.nextVote.remote(h)
     if (this.kind === 'buildBattle' && id[0] === 'v') {
       const owner = id.slice(1)
       if (this.sub === 'vote' && owner === this._voteOwner() && h.by && h.by !== owner) (this.votes[owner] ||= {})[h.by] = Math.max(1, Math.min(5, Number(h.dmg) || 1))
@@ -1929,6 +1945,7 @@ export class PartyMode {
       vi: this.voteI,
       pl: Object.fromEntries([...this.plots].map(([id, n]) => [this._out(id), n])),
       x: this.ext?.snap?.() ?? null,
+      nv: this.nextVote.snap(),
     }
   }
 
@@ -1968,6 +1985,7 @@ export class PartyMode {
       this.plots = new Map(Object.entries(d.pl || {}).filter(([id, n]) => ok(id) && Number.isInteger(n) && n >= 0 && n < PLOTS))
     }
     if (this.ext?.apply && d.x && typeof d.x === 'object') this.ext.apply(d.x)
+    this.nextVote.apply(d.nv)
     // A guest's first look at the host's sky arena (or a new one): in at once.
     if (this.sky && this.home && this.phase === 'wait' && this._enteredFor !== `${this.home.x},${this.home.z}`) this._enter()
     const pd = Number(d.pd) || 0
@@ -2000,6 +2018,7 @@ export class PartyMode {
 
   dispose() {
     this.ext?.dispose?.()
+    this.nextVote.dispose()
     for (const id of [...this.bots.keys()]) this._removeBot(id)
     for (const m of this._marks.values()) {
       m.removeFromParent()
