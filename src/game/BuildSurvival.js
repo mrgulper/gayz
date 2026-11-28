@@ -16,6 +16,7 @@
 // PATH_REFRESH seconds; each zombie walks to whichever neighboring cell is
 // one step closer to you.
 import { digForBone } from './Fossils.js'
+import { BugNet } from './BugNet.js'
 import * as THREE from 'three'
 import { coinMult as liveCoinMult, hordeMult, tune } from './LiveConfig.js'
 import { shakeScale, bleed } from './GraphicsSettings.js'
@@ -719,6 +720,8 @@ export class BuildSurvival {
     // Fishing, Zombie Radios and spray tags (2026-11-01).
     if (!this.fishing) this.fishing = new Fishing(this)
     this.fishing.clear()
+    // The Bug Net (BugNet.js, 2026-11-27).
+    if (!this.bugNet) this.bugNet = new BugNet(this)
     if (!this.radios) this.radios = new ZombieRadio(this)
     this.radios.clear()
     if (!this.sprays) this.sprays = new Sprays(this)

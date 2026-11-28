@@ -55,6 +55,10 @@ import fossilEn from './i18n/fossil-en.js'
 import fossilZh from './i18n/fossil-zh.js'
 import fossilHi from './i18n/fossil-hi.js'
 import fossilEs from './i18n/fossil-es.js'
+import bugnetEn from './i18n/bugnet-en.js'
+import bugnetZh from './i18n/bugnet-zh.js'
+import bugnetHi from './i18n/bugnet-hi.js'
+import bugnetEs from './i18n/bugnet-es.js'
 import shopSkinsEn from './i18n/shopskins-en.js'
 import shopSkinsZh from './i18n/shopskins-zh.js'
 import shopSkinsHi from './i18n/shopskins-hi.js'
@@ -136,6 +140,10 @@ Object.assign(en, fossilEn)
 Object.assign(zh, fossilZh)
 Object.assign(hi, fossilHi)
 Object.assign(es, fossilEs)
+Object.assign(en, bugnetEn)
+Object.assign(zh, bugnetZh)
+Object.assign(hi, bugnetHi)
+Object.assign(es, bugnetEs)
 Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)

@@ -53,6 +53,8 @@ export const RECIPES = [
   { id: 'potionTiny', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 2 }, { group: 'sand', n: 1 }, { block: 'glass', n: 1 }] },
   { id: 'jetpack', kind: 'item', n: 1, needs: [{ group: 'stone', n: 10 }, { item: 'heliFuel', n: 1 }, { item: 'zombieGoo', n: 3 }] },
   { id: 'jetFuel', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }] },
+  // Bug Net (BugNet.js, 2026-11-27): also sold in the Shop.
+  { id: 'bugNet', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 3 }, { group: 'log', n: 1 }] },
   { id: 'metalDetector', kind: 'item', n: 1, needs: [{ group: 'stone', n: 6 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Treasure Maps and Kites (TreasureMaps.js, Kites.js, 2026-11-02).
   { id: 'treasureMap', kind: 'item', n: 1, needs: [{ item: 'mapPiece', n: 3 }] },

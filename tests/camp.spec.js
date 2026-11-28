@@ -73,8 +73,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 41 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 42 : 41)
+  // 42 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 43 : 42)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -1088,4 +1088,69 @@ test('Fossil digs: bones underground, the Fossil Hall and a finished skeleton', 
   expect(r.floor).toBe(true)
   expect(r.back).toBe(true)
   expect(r.cleared).toBe(true)
+})
+
+// Six ideas batch 4 (2026-11-27): the Bug Net catches a bug into a jar,
+// fills the Bug Book (milestone coins), and jars sell at the Shop.
+test('Bug Net: catch a bug in a jar, fill the Bug Book, sell the jars', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const lib = s.bugNet.lib
+    localStorage.removeItem(lib.KEY)
+    const out = { kinds: lib.BUG_IDS.length }
+    // Bought from the Shop's Items tab.
+    s.coins = 500
+    s.shop._act('buy', 'bugNet')
+    out.bought = s.inv.has('bugNet')
+    // Crafting knows it too.
+    out.recipe = !!s.inv.crafting?.html().includes('data-craft="bugNet"')
+    // Hold it and face a butterfly just ahead.
+    s.inv.hotbar[0] = { kind: 'item', id: 'bugNet', n: 1 }
+    s.inv.active = 0
+    s.inv.apply()
+    const cam = s.bm.camera
+    cam.updateMatrixWorld()
+    const dir = new cam.position.constructor()
+    cam.getWorldDirection(dir)
+    const me = s.bodyPos()
+    const a = s.animals.spawn('butterfly', me.x + dir.x * 1.5, me.y + 1.2, me.z + dir.z * 1.5)
+    const coins = g.coins || 0
+    s.bugNet._nextAt = 0
+    out.used = s.inv.useHeld()
+    out.gone = !s.animals.list.includes(a)
+    out.jar = s.inv.has('jar_butterfly')
+    out.book = lib.loadBugBook().n.butterfly
+    out.keptNet = s.inv.has('bugNet')
+    // A milestone: catching enough kinds pays homepage coins.
+    const need = Math.ceil(lib.BUG_IDS.length * 0.25)
+    for (const k of lib.BUG_IDS.slice(1, need)) lib.recordBug(k, g)
+    out.prize = (g.coins || 0) - coins
+    // Jars sell at the Shop.
+    s.inv.add({ kind: 'item', id: 'jar_bee', n: 2 })
+    const before = s.coins
+    s.shop._act('sellBugs', 'jars')
+    out.sold = s.coins - before
+    out.jarsLeft = s.inv.has('jar_butterfly') || s.inv.has('jar_bee')
+    // The Bug Book tab on the homepage.
+    lib.renderBugBook()
+    out.cards = document.querySelectorAll('#bug-book-grid .bug-book-card').length
+    out.caughtCards = document.querySelectorAll('#bug-book-grid .bug-book-card:not(.unmet)').length
+    return out
+  })
+  expect(r.kinds).toBeGreaterThanOrEqual(25)
+  expect(r.bought).toBe(true)
+  expect(r.recipe).toBe(true)
+  expect(r.used).toBe(true)
+  expect(r.gone).toBe(true)
+  expect(r.jar).toBe(true)
+  expect(r.book).toBe(1)
+  expect(r.keptNet).toBe(true)
+  expect(r.prize).toBe(100)
+  expect(r.sold).toBeGreaterThan(0)
+  expect(r.jarsLeft).toBe(false)
+  expect(r.cards).toBe(r.kinds)
+  expect(r.caughtCards).toBeGreaterThanOrEqual(7)
 })

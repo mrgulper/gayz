@@ -148,7 +148,7 @@ export function addAnimalMeat(id, { key, animalKey, icon, tint }) {
 const RARE_DROP_CONFIRM_MS = 3000
 export function isRareItem(it) {
   const def = it?.kind === 'item' ? ITEMS[it.id] : null
-  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel || def.junk || def.snowball || def.refill))
+  return !!def && (!!def.armor || !(def.heal || def.ammo || def.trap || def.material || def.disguise || def.fuel || def.junk || def.snowball || def.refill || def.bugJar))
 }
 
 // An item's name in the current language.
@@ -159,7 +159,7 @@ export function itemName(id) {
 }
 
 // Little pixel pictures for the items (16 x 16, drawn once).
-const ICON_PIXELS = {
+export const ICON_PIXELS = {
   healthpack: ['................', '..############..', '.#wwwwwwwwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwrrrrrrwww#.', '.#wwwrrrrrrwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwrrwwwww#.', '.#wwwwwwwwwwww#.', '..############..'],
   veggies: ['................', '.......gg.g.....', '......gggg......', '.......gg.......', '......oooo......', '.....oooooo.....', '.....oooooo.....', '......oooo......', '......oooo......', '.......oo.......', '.......oo.......'],
   meat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....mmmmww.....', '....mmmmmm......', '...mmmmmmmm.....', '...mmmmmmmm.....', '...mmmmmmmm.....', '....mmmmmm......', '.....mmmm.......'],
@@ -543,6 +543,13 @@ export class PlayInventory {
     } else if (def?.rod) {
       // Cast or reel in - the rod itself is never used up.
       return !!s.fishing?.use()
+    } else if (def?.bugNet) {
+      // Swish - the net is never used up (BugNet.js).
+      return !!s.bugNet?.use()
+    } else if (def?.bugJar) {
+      // Sold at the Shop (BugNet.sellJars).
+      s._message(t('bugJarHint'), 3)
+      return false
     } else return false
     this._take(this.hotbar, this.active, 1)
     s._renderHud()
@@ -719,6 +726,8 @@ export class PlayInventory {
     if (item.timePass) return t('invTipTimePass')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     if (item.rod) return t('invTipFishingRod')
+    if (item.bugNet) return t('invTipBugNet')
+    if (item.bugJar) return t('invTipBugJar')
     if (item.treasure) return t('invTipTreasureMap')
     if (item.kite) return t('invTipKite')
     if (item.skate) return t('invTipSkateboard')

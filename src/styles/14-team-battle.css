@@ -657,6 +657,37 @@ html.ui-theme-clean :is(#team-page, #shop-pets) .team-card.empty {
 html.ui-theme-clean #zombie-book-page .team-card {
   border-color: rgba(0, 0, 0, 0.18);
 }
+/* Inventory > Bug Book (BugNet.js): the Zombie Book's cards, with the
+   bug's side-on picture (crisp pixels). */
+#bug-book-page {
+  text-align: center;
+}
+#bug-book-page .team-card {
+  position: relative;
+  width: 132px;
+  padding: 12px 8px;
+  gap: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  font: inherit;
+  cursor: default;
+}
+#bug-book-page .team-card img {
+  display: block;
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+#bug-book-page .team-card.unmet img {
+  filter: brightness(0);
+  opacity: 0.55;
+}
+#bug-book-page .team-card.unmet .team-card-name {
+  opacity: 0.6;
+}
+html.ui-theme-clean #bug-book-page .team-card {
+  border-color: rgba(0, 0, 0, 0.18);
+}
 /* The Nemesis card (ZombieBook.renderNemesisCard): picture left, words
    right, a red edge; greyed when there's no Nemesis right now. */
 .zombie-book-nemesis {
