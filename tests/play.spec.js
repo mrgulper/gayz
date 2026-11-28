@@ -2402,3 +2402,60 @@ test('Photo Mode Sky picker: presets, Blood Moon, Custom, real sky back on exit'
     customOpen: true, custom: true, holds: true, back: true, reopen: true,
   })
 })
+
+test('Training Ground: coins per step, skip carries you on, no events or chat', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => {
+    localStorage.removeItem('gayz-training-done')
+    localStorage.removeItem('gayz-training-paid')
+    const g = window.__game
+    g._trainingNext = true
+    g._enterBuildMode({ map: 'map3', play: true })
+  })
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.training, null, { timeout: 60000 })
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const tr = s.training
+    const out = {}
+    const run = (n = 20) => { for (let i = 0; i < n; i++) s.update(0.1) }
+    out.safe = {
+      bodyClass: document.body.classList.contains('training-on'),
+      chatHidden: getComputedStyle(document.getElementById('chat-panel')).display === 'none',
+      disasters: bm.sky.disasters.inGame(),
+      beamOnLook: tr._beam.visible,
+    }
+    // look + walk really done, the rest skipped.
+    tr._next(); run()
+    out.beamOnWalk = tr._beam.visible
+    tr._next(); run()
+    out.beamOnJump = tr._beam.visible
+    tr.skip(); run()
+    out.afterJump = { step: tr.name, room: tr.room, x: Math.round(s.bodyPos().x), hud: document.getElementById('build-play-wave-text')?.textContent || '' }
+    tr.skip(); run(); tr.skip(); run(); tr.skip(); run()
+    out.placeStep = tr.name
+    out.dirt = [...s.inv.hotbar, ...s.inv.grid].filter((it) => it?.kind === 'block' && it.id === 'dirt').reduce((a, it) => a + (it.n || 1), 0)
+    const coins = s.coins
+    tr.skip(); run(); tr.skip(); run(); run(60)
+    out.end = { done: tr.done, earned: tr.coinsEarned, left: tr.coinsLeft, paid: localStorage.getItem('gayz-training-paid'), gotCoins: s.coins - coins, text: document.getElementById('build-play-over-text')?.textContent || '', best: document.getElementById('build-play-over-best')?.textContent || '' }
+    return out
+  })
+  expect(r.safe).toEqual({ bodyClass: true, chatHidden: true, disasters: false, beamOnLook: false })
+  expect(r.beamOnWalk).toBe(true)
+  expect(r.beamOnJump).toBe(true)
+  expect(r.afterJump.step).toBe('shoot')
+  expect(r.afterJump.room).toBe(1)
+  expect(r.afterJump.x).toBeGreaterThan(10)
+  expect(r.afterJump.x).toBeLessThan(15)
+  expect(r.afterJump.hud).toContain('4/8')
+  expect(r.placeStep).toBe('place')
+  expect(r.dirt).toBeGreaterThanOrEqual(3)
+  expect(r.end.done).toBe(true)
+  expect(r.end.earned).toBe(25)
+  expect(r.end.left).toBe(75)
+  expect(r.end.paid).toBe('look,walk')
+  expect(r.end.text).toContain('25')
+  expect(r.end.text).toContain('75')
+  expect(r.end.best).not.toContain('waves')
+})

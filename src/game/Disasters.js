@@ -83,9 +83,10 @@ export class Disasters {
 
   // Not in a Party / Deathmatch arena (2026-11-16): a quake or rock slide
   // there shook the screen and broke the arena's blocks.
+  // Nor the Training Ground (2026-11-27): it's the safe place to learn.
   inGame() {
     const play = this.bm.survival
-    return !!play?.active && !play.party
+    return !!play?.active && !play.party && !play.training
   }
 
   breakAll() {

@@ -100,6 +100,8 @@ export class LagWarning {
     // Not in the middle of a first game's first wave - the popup would
     // cover the player's first fight (2026-11-27 check-up).
     if (bm.survival.onboard?.active && (bm.survival.wave || 0) <= 1) return false
+    // Nor over the Training Ground's tips (2026-11-27 playtest).
+    if (bm.survival.training) return false
     return true
   }
 

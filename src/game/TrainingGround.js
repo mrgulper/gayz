@@ -16,10 +16,15 @@
 //   Room 4 (fight):    fight (3 slow zombies) -> done
 //
 // Totally safe (Gaymi's pick): nothing hurts you (BuildSurvival._hurtPlayer)
-// and falling off puts you back in the room you're in. Finishing gives
-// TRAIN_COINS coins the first time only (so it can't be farmed) and the
-// Trained achievement (ProgressUI). "Skip step" ticks the step you're on,
-// so nobody gets stuck.
+// and falling off puts you back in the room you're in. No disasters, lag
+// popup, "graphics lowered" note or chat box here either (2026-11-27
+// playtest: they read as part of the lesson). Finishing gives the Trained
+// achievement (ProgressUI) and STEP_COINS coins for each step really done
+// (2026-11-27, Gaymi's pick - skipping everything used to pay all 100).
+// Each step pays once ever (PAID_KEY), so it can't be farmed but skipped
+// steps can be earned on a later try. "Skip step" ticks the step you're
+// on, so nobody gets stuck; skipping a room's last step carries you
+// into the next room, and skipping the dirt break hands you the dirt.
 //
 // Meshes only, never a light. The map's blocks can't be broken or built
 // on (protects), except the dirt pile in room 3.
@@ -34,6 +39,9 @@ export const STEPS = ['look', 'walk', 'jump', 'shoot', 'reload', 'break', 'place
 // The step that ends each room (its far wall opens after it).
 const ROOM_END = { jump: 0, reload: 1, place: 2 }
 export const TRAIN_COINS = 100
+// The 8 real steps share TRAIN_COINS (done is the end screen, not a step).
+export const STEP_COUNT = 8
+const STEP_COINS = TRAIN_COINS / STEP_COUNT
 export const TARGETS = 3
 export const DIRT = 3
 export const PLACE = 3
@@ -43,10 +51,15 @@ const LOOK_TURN = 1.2
 // Fighters walk this fast (x a normal zombie).
 const FIGHTER_SPEED = 0.5
 const DONE_KEY = 'gayz-training-done'
+// The steps already paid, as a comma list. Old saves have only DONE_KEY
+// = '1' (they got all 100 back then): every step counts as paid.
+const PAID_KEY = 'gayz-training-paid'
 const W = 10 // a room's step along x (9 inside + a wall)
 const HALF = 4 // inside: z from -4 to 4
 const WALL_H = 3
 const GAP_S = 0.9
+// A skip ticks faster (it felt stuck on slow devices, 2026-11-27).
+const SKIP_GAP_S = 0.25
 const DONE_S = 3
 
 export function trainingDone() {
@@ -55,6 +68,18 @@ export function trainingDone() {
 
 function markDone() {
   try { localStorage.setItem(DONE_KEY, '1') } catch { /* storage blocked: the coins may come again */ }
+}
+
+function paidSteps() {
+  try {
+    const raw = localStorage.getItem(PAID_KEY)
+    if (raw == null) return new Set(trainingDone() ? STEPS.slice(0, STEP_COUNT) : [])
+    return new Set(raw.split(',').filter((k) => STEPS.indexOf(k) >= 0 && STEPS.indexOf(k) < STEP_COUNT))
+  } catch { return new Set() }
+}
+
+function savePaid(set) {
+  try { localStorage.setItem(PAID_KEY, [...set].join(',')) } catch { /* storage blocked */ }
 }
 
 export class TrainingGround {
@@ -72,12 +97,16 @@ export class TrainingGround {
     this._fighters = []
     this._map = new Set()
     this._dirt = new Set()
+    this._done = new Set()
+    this._skipped = new Set()
+    this._skipping = false
     this._gates = []
     this._group = new THREE.Group()
     survival.bm.scene.add(this._group)
     this._build()
     this.placePlayer()
     this._render()
+    document.body.classList.add('training-on')
   }
 
   get name() {
@@ -136,10 +165,11 @@ export class TrainingGround {
     const r2 = this._roomX(2)
     for (let i = 0; i < DIRT + 1; i++) this._put(r2 + 5, Y + 1, -1 + i, 'dirt', true)
     bm._suppressUndoRecording = false
-    // A green beam: where to walk to.
+    // A green beam: where to walk to (and then which wall to jump).
     const B = this.s.B
     this._beam = new THREE.Mesh(new THREE.BoxGeometry(1.4 * B, 12 * B, 1.4 * B), new THREE.MeshBasicMaterial({ color: 0x4aff7a, transparent: true, opacity: 0.22, depthWrite: false }))
     this._beam.position.set((this._walkTo[0] + 0.5) * B, (Y + 6) * B, (this._walkTo[1] + 0.5) * B)
+    this._beam.visible = false
     this._group.add(this._beam)
   }
 
@@ -180,7 +210,7 @@ export class TrainingGround {
   }
 
   _next() {
-    this._gap = GAP_S
+    this._gap = this._skipping ? SKIP_GAP_S : GAP_S
     this._el?.classList.add('ring-tut-ticked')
     try { audioEngine.playSpecial?.('chime') } catch { /* no audio */ }
   }
@@ -188,6 +218,7 @@ export class TrainingGround {
   // Skip step: ticks the one you're on.
   skip() {
     if (this.done || this._gap > 0) return
+    this._skipping = true
     this._next()
   }
 
@@ -246,14 +277,27 @@ export class TrainingGround {
   _advance() {
     const s = this.s
     const was = this.name
+    const skipped = this._skipping
+    this._skipping = false
+    if (skipped) this._skipped.add(was)
+    else this._done.add(was)
     // Skipped while zombies still stood: they go.
     if (was === 'shoot') this._clear(this._targets)
     if (was === 'fight') this._clear(this._fighters)
-    if (ROOM_END[was] !== undefined) this._openGate(ROOM_END[was])
+    if (ROOM_END[was] !== undefined) {
+      this._openGate(ROOM_END[was])
+      // Skipped the room's last step: you'd be left behind - go on in.
+      if (skipped) this.placePlayer()
+    }
     this.step++
     this._count = 0
-    if (this.name === 'walk') this._beam.visible = true
-    else this._beam.visible = false
+    // The beam marks the spot to walk to, then sits on the wall to jump.
+    this._beam.visible = this.name === 'walk' || this.name === 'jump'
+    if (this.name === 'jump') this._beam.position.x = (this._jumpX + 0.5) * this.s.B
+    // No dirt from a skipped break: here's some to place.
+    if (this.name === 'place' && this._skipped.has('break')) {
+      try { s.inv?.add({ kind: 'block', id: 'dirt', n: PLACE }) } catch { /* no inventory */ }
+    }
     if (this.name === 'reload' && Number.isFinite(s.mag) && s.mag >= s.magSize?.()) {
       // A full gun can't reload: leave one bullet in it.
       s.mag = Math.min(s.mag, 1)
@@ -261,6 +305,8 @@ export class TrainingGround {
     }
     if (this.name === 'done') this._left = DONE_S
     this._render()
+    // The corner "Training n/8" moves with the tip, not a beat later.
+    s._renderHud?.()
   }
 
   // Gone for good: killed (or never made).
@@ -326,10 +372,17 @@ export class TrainingGround {
     if (this.done) return
     this.done = true
     const s = this.s
-    const first = !trainingDone()
+    // Coins for each step really done that hasn't paid before.
+    const paid = paidSteps()
+    const fresh = [...this._done].filter((k) => STEPS.indexOf(k) < STEP_COUNT && !paid.has(k))
+    for (const k of fresh) paid.add(k)
+    this.coinsEarned = Math.round(fresh.length * STEP_COINS)
+    // Coins still waiting in steps never done on any try.
+    this.coinsLeft = Math.round((STEP_COUNT - paid.size) * STEP_COINS)
     markDone()
-    if (first) s._earn(TRAIN_COINS, 'minigames')
-    this.firstFinish = first
+    savePaid(paid)
+    if (this.coinsEarned > 0) s._earn(this.coinsEarned, 'minigames')
+    this.firstFinish = this.coinsEarned > 0
     this._el?.remove()
     this._el = null
     try { audioEngine.playSpecial?.('firework') } catch { /* no audio */ }
@@ -397,6 +450,7 @@ export class TrainingGround {
   }
 
   dispose() {
+    document.body.classList.remove('training-on')
     this._el?.remove()
     this._el = null
     this._group.removeFromParent()
