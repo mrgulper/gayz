@@ -53,9 +53,20 @@ questions asked on 2026-11-27 are written into each batch.
    `src/game/BugNet.js` (net, jars, book, `s.bugNet.lib` for tests), text
    `i18n/bugnet-*.js`, test camp "Bug Net: ...". Guessed numbers: all of
    the prices above, reach 3.5.
-5. **Camp shop stand** - sell spare loot (food, materials, extra items) to
-   the NPC survivors walking by. You set a price; too high and they walk
-   away.
+5. **Camp shop stand** - DONE (2026-11-27). Answers: use-up things only
+   (food, materials, potions, fuel, ammo boxes, med kits - not keep-forever
+   gear, guns or armour; `FAIR` lists them, every `meat_<kind>` too); each
+   has a fair price, you pick Cheap x0.7 / Fair / Pricey x1.5 / Custom and
+   how many (1 / 5 / All); too dear = they haggle once (accept / no; no and
+   they leave), way too dear = they walk off; pays camp coins. A Shop Stand
+   stall on open ground in the camp (next to the Race Post), up to 4 kinds
+   on it; while you're within 14 blocks a survivor walks up every ~6 s (2
+   at once). Items stay in your bag until sold; locked slots never sell;
+   the stand's list isn't saved with the game. Solo and servers (each
+   player's own customers), not party/TD/escape. Code:
+   `src/game/CampStand.js` (`camp.stand`, `stand.lib` for tests), text
+   `i18n/stand-*.js`, test camp "Shop Stand: ...". Guessed numbers: all of
+   `FAIR`, want 0.75-1.3 x fair, haggle up to 1.5 x, 15 s to answer.
 6. **Shrink ray** - a rare loot gun (chests / crates) that makes zombies tiny
    and squeaky for a few seconds.
 

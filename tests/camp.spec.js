@@ -1154,3 +1154,79 @@ test('Bug Net: catch a bug in a jar, fill the Bug Book, sell the jars', async ({
   expect(r.cards).toBe(r.kinds)
   expect(r.caughtCards).toBeGreaterThanOrEqual(7)
 })
+
+// Six ideas batch 5 (2026-11-27): the camp Shop Stand - put spare loot on it
+// at a price, survivors walk up and buy, haggle once or walk off.
+test('Shop Stand: prices, a sale, a haggle and walking off', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    for (let i = 0; i < 50 && !s.camp.stand; i++) {
+      s.camp.update(0.05)
+      await new Promise((res) => setTimeout(res, 50))
+    }
+    const S = s.camp.stand
+    const L = S.lib
+    const out = { stand: !!S?.group }
+    // Prices and what a customer does.
+    out.prices = L.priceFor('meat', 'cheap') === 4 && L.priceFor('meat', 'fair') === 6 && L.priceFor('meat', 'pricey') === 9 && L.priceFor('meat', 'custom', '12') === 12 && L.priceFor('meat', 'custom', 'x') === 0
+    out.decide = L.decide(5, 10, 0).act === 'buy' && L.decide(10, 10, 0).act === 'haggle' && L.decide(10, 10, 0).offer === 7 && L.decide(50, 10, 1).act === 'leave'
+    out.gearNot = L.fairOf('fishingRod') === 0 && L.fairOf('meat_cow') === 6
+    // A bag with meat and a locked fish: only the meat is sellable.
+    s.inv.add({ kind: 'item', id: 'meat', n: 3 })
+    s.inv.add({ kind: 'item', id: 'goldenFish', n: 1, lk: 1 })
+    out.sellable = L.sellable(s.inv).some((b) => b.id === 'meat') && !L.sellable(s.inv).some((b) => b.id === 'goldenFish')
+    // The screen: pick meat, Fair, All, put it on.
+    S.open()
+    document.querySelector('#camp-screen .stand-bag .stand-row[data-id="meat"]').click()
+    document.querySelector('#camp-screen .stand-preset[data-p="fair"]').click()
+    document.querySelector('#camp-screen .stand-amount[data-n="all"]').click()
+    document.querySelector('#camp-screen .stand-put').click()
+    out.listed = S.list.length === 1 && S.list[0].price === 6 && !!document.querySelector('#camp-screen .stand-on .stand-row[data-id="meat"]')
+    document.querySelector('#camp-screen .camp-screen-x').click()
+    // Stand right by it so customers come.
+    const m = S._mid()
+    s.bm.tryMode.pos.x = m.x
+    s.bm.tryMode.pos.z = m.z + 3
+    // A customer who buys (cheap price).
+    S.list[0].price = 1
+    const coins = s.coins
+    S.next = 0
+    S.update(0.1)
+    S.next = 1e9 // one customer at a time here
+    out.came = S.customers.length === 1
+    for (let i = 0; i < 200 && S.customers[0]?.phase !== 'leave'; i++) S.update(0.1)
+    out.sold = s.coins > coins && L.countIn(s.inv, 'meat') === 2
+    for (let i = 0; i < 200 && S.customers.length; i++) S.update(0.1)
+    out.gone = S.customers.length === 0
+    // A haggle: a price a bit over what they'd pay, accepted.
+    S.list[0].price = 6
+    const rnd = Math.random
+    Math.random = () => 0 // the least they'd pay: 4
+    S.next = 0
+    S.update(0.1)
+    S.next = 1e9 // one customer at a time here
+    S.customers[0].x = S.customers[0].to.x
+    S.customers[0].z = S.customers[0].to.z
+    for (let i = 0; i < 40 && !S.haggle; i++) S.update(0.1)
+    Math.random = rnd
+    out.haggle = !!S.haggle && S.haggle.offer === 4
+    const before = s.coins
+    S.answer(true)
+    out.accepted = s.coins > before && L.countIn(s.inv, 'meat') === 1
+    for (let i = 0; i < 200 && S.customers.length; i++) S.update(0.1)
+    // Far too pricey: they walk off, nothing sold.
+    S.list[0].price = 500
+    S.next = 0
+    S.update(0.1)
+    S.next = 1e9 // one customer at a time here
+    const c = S.customers[0]
+    c.x = c.to.x
+    c.z = c.to.z
+    for (let i = 0; i < 40 && c.phase !== 'leave'; i++) S.update(0.1)
+    out.walked = c.phase === 'leave' && L.countIn(s.inv, 'meat') === 1 && !S.haggle
+    return out
+  })
+  expect(r).toEqual({ stand: true, prices: true, decide: true, gearNot: true, sellable: true, listed: true, came: true, sold: true, gone: true, haggle: true, accepted: true, walked: true })
+})

@@ -51,6 +51,10 @@ import raceEn from './i18n/race-en.js'
 import raceZh from './i18n/race-zh.js'
 import raceHi from './i18n/race-hi.js'
 import raceEs from './i18n/race-es.js'
+import standEn from './i18n/stand-en.js'
+import standZh from './i18n/stand-zh.js'
+import standHi from './i18n/stand-hi.js'
+import standEs from './i18n/stand-es.js'
 import fossilEn from './i18n/fossil-en.js'
 import fossilZh from './i18n/fossil-zh.js'
 import fossilHi from './i18n/fossil-hi.js'
@@ -136,6 +140,10 @@ Object.assign(en, raceEn)
 Object.assign(zh, raceZh)
 Object.assign(hi, raceHi)
 Object.assign(es, raceEs)
+Object.assign(en, standEn)
+Object.assign(zh, standZh)
+Object.assign(hi, standHi)
+Object.assign(es, standEs)
 Object.assign(en, fossilEn)
 Object.assign(zh, fossilZh)
 Object.assign(hi, fossilHi)
