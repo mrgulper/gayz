@@ -63,6 +63,10 @@ import bugnetEn from './i18n/bugnet-en.js'
 import bugnetZh from './i18n/bugnet-zh.js'
 import bugnetHi from './i18n/bugnet-hi.js'
 import bugnetEs from './i18n/bugnet-es.js'
+import shrinkEn from './i18n/shrink-en.js'
+import shrinkZh from './i18n/shrink-zh.js'
+import shrinkHi from './i18n/shrink-hi.js'
+import shrinkEs from './i18n/shrink-es.js'
 import shopSkinsEn from './i18n/shopskins-en.js'
 import shopSkinsZh from './i18n/shopskins-zh.js'
 import shopSkinsHi from './i18n/shopskins-hi.js'
@@ -152,6 +156,10 @@ Object.assign(en, bugnetEn)
 Object.assign(zh, bugnetZh)
 Object.assign(hi, bugnetHi)
 Object.assign(es, bugnetEs)
+Object.assign(en, shrinkEn)
+Object.assign(zh, shrinkZh)
+Object.assign(hi, shrinkHi)
+Object.assign(es, shrinkEs)
 Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)

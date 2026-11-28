@@ -202,6 +202,11 @@ export class PlayNet {
     this._hits.push({ id, dmg })
   }
 
+  // A guest's Shrink Ray zap on one of the host's zombies (ShrinkRay.js).
+  queueShrink(id) {
+    this._hits.push({ id, dmg: 0, shrink: true })
+  }
+
   // My spin ring hit another player (friendly fire in a custom lobby,
   // SpinRing._touchPlayers).
   queuePvp(to, dmg) {

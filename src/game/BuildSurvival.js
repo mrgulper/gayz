@@ -148,6 +148,7 @@ import { Wingsuit } from './Wingsuit.js'
 import { Hunger } from './Hunger.js'
 import { noteBoss } from './CampMuseum.js'
 import { WaterGun, SOAK_SLOW } from './WaterGun.js'
+import { ShrinkRay, shrunkBite, shrunkHurt, CHEST_CHANCE as SHRINK_CHEST_CHANCE } from './ShrinkRay.js'
 import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
 import { TreeSkills } from './TreeSkills.js'
@@ -660,6 +661,9 @@ export class BuildSurvival {
     this.pet.clear()
     if (!this.water) this.water = new WaterGun(this)
     this.water.clear()
+    // The Shrink Ray (ShrinkRay.js, 2026-11-27).
+    if (!this.shrinkRay) this.shrinkRay = new ShrinkRay(this)
+    this.shrinkRay.clear()
     // The Wingsuit (Wingsuit.js).
     if (!this.wing) this.wing = new Wingsuit(this)
     this.wing.clear()
@@ -933,6 +937,7 @@ export class BuildSurvival {
     this.dance?.clear()
     this.pet?.clear()
     this.water?.clear()
+    this.shrinkRay?.clear()
     this.wing?.clear()
     this.hunger?.clear()
     closeCampScreen(false)
@@ -2038,6 +2043,8 @@ export class BuildSurvival {
     if (amount > 0) amount *= this.bm.specials.zombieHurtMult(z)
     // My hits on a zombie geared against my weapon (ZombieLearning.js).
     if (amount > 0 && !by) amount *= this.learn?.mult(z) ?? 1
+    // Tiny from a Shrink Ray: hurt more (ShrinkRay.js).
+    if (amount > 0) amount *= shrunkHurt(z)
     z.health -= amount
     z.flash = 0.12
     // Hit by something (not just sunburn) - a hiding lurker leaps out.
@@ -2337,6 +2344,8 @@ export class BuildSurvival {
     if (Math.random() < CHEST_POTION_CHANCE) give({ kind: 'item', id: POTION_IDS[Math.floor(Math.random() * POTION_IDS.length)], n: 1 })
     if (Math.random() < CHEST_JETPACK_CHANCE && !bag.has('jetpack')) give({ kind: 'item', id: 'jetpack', n: 1 })
     if (Math.random() < CHEST_JET_FUEL_CHANCE && bag.has('jetpack')) give({ kind: 'item', id: 'jetFuel', n: 1 })
+    // Rarely the Shrink Ray (ShrinkRay.js) - Player 1's only.
+    if (bag === this.inv && this.shrinkRay?.roll(bag, SHRINK_CHEST_CHANCE)) give({ kind: 'item', id: 'shrinkRay', n: 1 })
     if (Math.random() < CHEST_FIND_CHANCE) {
       const id = this.finds?.pick()
       if (id) give({ kind: 'item', id, n: 1 })
@@ -3056,6 +3065,8 @@ export class BuildSurvival {
     facing.add(body)
     tilt.add(facing)
     tilt.position.copy(z.group.position)
+    // As big as it was (a mutant, or tiny from a Shrink Ray).
+    tilt.scale.copy(z.group.scale)
     this.bm.scene.add(tilt)
     // Lying flat, the body's own thickness keeps it on top of the ground.
     const lift = 0.13 * B * (z.size || 1)
@@ -3450,7 +3461,7 @@ export class BuildSurvival {
     const pz = player.z - zb.z
     if (!player.idle && !(zb.frozen > 0) && Math.hypot(px, pz) < (player.reach || ATTACK_RANGE) && Math.abs(player.y - zb.y) < 1.5 && zb.attackCd <= 0) {
       zb.attackCd = ATTACK_COOLDOWN
-      const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1) * (zb.damageMult || 1)
+      const bite = zombieDamage(this.wave) * this.cfg.zombieDamageMult * (zb.boss ? BOSS_DAMAGE_MULT : 1) * (zb.damageMult || 1) * shrunkBite(zb)
       if (zb.skel) zb.attackAnim = zb.skel.play('attack', { once: true, fade: 0.08, timeScale: 1.4 })
       // Another player on the server: the bite travels to them (nothing
       // reaches anyone inside the camp).
@@ -3500,7 +3511,8 @@ export class BuildSurvival {
     if (zb.moan <= 0) {
       zb.moan = 6 + Math.random() * 10
       // Sometimes a burp or a hiccup instead (FunnyZombies.js).
-      if (Math.hypot(px, pz) < 14) {
+      // (A tiny one squeaks instead, ShrinkRay.js.)
+      if (Math.hypot(px, pz) < 14 && !(zb.shrunk > 0)) {
         if (Math.random() < GOOF_CHANCE) audioEngine.playZombieGoof?.(Math.random() < 0.5 ? 'burp' : 'hiccup', this._panTo(zb.x, zb.z))
         else audioEngine.playZombieMoan?.(1, this._panTo(zb.x, zb.z))
       }
@@ -3887,6 +3899,7 @@ export class BuildSurvival {
     this.lighthouse?.update(Math.min(dt, 0.1))
     this.leaders?.update(Math.min(dt, 0.1))
     this.water?.update(Math.min(dt, 0.1))
+    this.shrinkRay?.update(Math.min(dt, 0.1))
     this.wing?.update(Math.min(dt, 0.1))
     this.park?.update(Math.min(dt, 0.1))
     this.time?.update(Math.min(dt, 0.1))
@@ -4382,7 +4395,7 @@ export class BuildSurvival {
   zombieSnapshot() {
     const out = {}
     for (const z of this.zombies) {
-      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}), ...(z.mutant ? { mu: 1 } : {}), ...(z.kfx ? { fx: z.kfx } : {}) }
+      out[`z${z.id}`] = { x: +z.x.toFixed(2), y: +z.y.toFixed(2), z: +z.z.toFixed(2), r: +z.group.rotation.y.toFixed(2), hp: Math.round(z.health), max: Math.round(z.maxHealth || z.health), boss: !!z.boss, ...(z.kind ? { k: z.kind } : {}), rt: z.tier || 'common', nm: z.nameIdx ?? 0, ...(z.shine ? { sh: z.shine } : {}), ...(z.hidden ? { hd: 1 } : {}), ...(z.yell > 0 ? { ys: 1 } : {}), ...(z.mutant ? { mu: 1 } : {}), ...(z.shrunk > 0 ? { sk: 1 } : {}), ...(z.kfx ? { fx: z.kfx } : {}) }
     }
     return out
   }
@@ -4414,6 +4427,8 @@ export class BuildSurvival {
       z.yell = d.ys ? 1 : 0
       // A meteor's mutant (WorldEvents.js): just its size here.
       if (d.mu) this.events?.mutate(z, true)
+      // Tiny from someone's Shrink Ray (ShrinkRay.js).
+      this.shrinkRay?.fromSnapshot(z, !!d.sk)
       z.kfx = cleanKillEffect(d.fx)
     }
     for (const z of [...this.zombies]) {
@@ -4522,6 +4537,11 @@ export class BuildSurvival {
       // A ghost's boo (Ghosts.js): slowed, no damage.
       if (z && h.boo) {
         this.ghosts?.scare(z)
+        continue
+      }
+      // A guest's Shrink Ray zap (ShrinkRay.js): tiny, no damage.
+      if (z && h.shrink) {
+        this.shrinkRay?.shrink(z)
         continue
       }
       // A guest's snowball (Snowballs.js) freezes it as well.

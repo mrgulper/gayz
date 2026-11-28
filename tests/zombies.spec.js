@@ -846,3 +846,115 @@ test('Nemesis: the zombie that kills you comes back stronger, beat it for coins'
   const m = cm.mergeSaves({ 'gayz-nemesis-log': '{"beaten":1,"best":2}' }, { 'gayz-nemesis-log': '{"beaten":2,"best":2}' }, { 'gayz-nemesis-log': '{"beaten":3,"best":4}' }, true)
   expect(JSON.parse(m['gayz-nemesis-log'])).toEqual({ beaten: 4, best: 4 })
 })
+
+// Shrink Ray (ShrinkRay.js, 2026-11-27): a rare chest / crate find that
+// zaps a zombie tiny and squeaky for a few seconds - it bites softer,
+// takes double damage, walls stop the beam, bosses shrink less and for
+// less time, and on a server the host's snapshot carries it (`sk`).
+test('Shrink Ray: zaps zombies tiny, walls block it, bosses shrink less, synced', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    await g._enterBuildMode()
+    const bm = g.buildMode
+    const s = bm.survival
+    bm.placeBlock(0, 0, 0, 'playerstart', false, { facing: 0 })
+    bm.placeBlock(0, 0, 60, 'zombiespawner')
+    for (let x = -20; x <= 20; x++) for (let z = -20; z <= 20; z++) if (x || z) bm.placeBlock(x, 0, z, 'grass', true)
+    s.start()
+    for (let i = 0; i < 50 && s._skin === undefined; i++) await new Promise((res) => setTimeout(res, 100))
+    if (s._picking) s._pickWeapon('rifle')
+    const clear = () => {
+      for (const z of [...s.zombies]) s._removeZombie(z)
+      s.zombies = []
+    }
+    clear()
+    s._toSpawn = 0
+    s._breakTimer = 1e9
+    s.health = 1e9
+    const ray = s.shrinkRay
+    const L = ray.lib
+    const B = s.B
+    const out = {}
+    // Found in chests / crates only when you don't have one yet.
+    out.rollsWhenMissing = ray.roll(s.inv, 1)
+    s.inv.add({ kind: 'item', id: 'shrinkRay', n: 1 })
+    out.notTwice = !ray.roll(s.inv, 1)
+    // Aim straight at a zombie 8 blocks ahead and zap.
+    const aim = (x, z) => {
+      bm.camera.position.set(0.5 * B, 2.6 * B, 0.5 * B)
+      bm.camera.lookAt(x * B, 1.9 * B, z * B)
+      bm.camera.updateMatrixWorld()
+      ray._nextAt = 0
+    }
+    const z1 = s._extraZombie(0.5, 1, 8.5, null)
+    z1.x = 0.5
+    z1.z = 8.5
+    aim(0.5, 8.5)
+    out.zapped = ray.zap()
+    out.shrunkTime = z1.shrunk
+    out.size = z1.size
+    out.battery = ray.battery
+    out.snap = s.zombieSnapshot()[`z${z1.id}`].sk === 1
+    for (let i = 0; i < 10; i++) ray.update(0.05)
+    out.lookTiny = z1.group.scale.x < 0.5
+    // Takes double damage while tiny.
+    const hp = z1.health
+    s.damageZombie(z1, 10)
+    out.hurt = Math.round(hp - z1.health)
+    // Wears off, back to full size.
+    for (let i = 0; i < 160; i++) ray.update(0.05)
+    out.grewBack = !(z1.shrunk > 0) && z1.size === 1 && Math.abs(z1.group.scale.x - 1) < 0.01 && z1.shrinkBase === undefined
+    // A wall in the way stops the beam.
+    for (let y = 1; y <= 4; y++) for (let x = -2; x <= 2; x++) bm.placeBlock(x, y, 4, 'cobblestone')
+    z1.x = 0.5
+    z1.z = 8.5
+    aim(0.5, 8.5)
+    ray.zap()
+    out.wallBlocks = !(z1.shrunk > 0)
+    // A boss: only BOSS_SIZE, for BOSS_S.
+    clear()
+    const z2 = s._extraZombie(5.5, 1, -6.5, null)
+    z2.boss = true
+    ray.shrink(z2)
+    out.boss = z2.shrunk === L.BOSS_S && z2.shrinkK === L.BOSS_SIZE
+    // A guest's zap reaches the host as a hit.
+    const z3 = s._extraZombie(-5.5, 1, -6.5, null)
+    s._applyRemoteHits([{ id: `z${z3.id}`, dmg: 0, shrink: true }])
+    out.remote = z3.shrunk === L.SHRINK_S
+    // Another player's copy follows the host's snapshot.
+    const z4 = s._extraZombie(-8.5, 1, -8.5, null)
+    ray.fromSnapshot(z4, true)
+    const lookOn = z4.shrunk > 0 && z4.shrinkLook
+    for (let i = 0; i < 200; i++) ray.update(0.05)
+    const stays = z4.shrunk > 0
+    ray.fromSnapshot(z4, false)
+    out.look = lookOn && stays && !(z4.shrunk > 0)
+    // An empty battery: no zap until it recharges.
+    ray.battery = 0.5
+    ray._nextAt = 0
+    out.empty = !ray.zap()
+    ray.update(L.RECHARGE_S)
+    out.recharged = ray.battery >= 1
+    s.stop()
+    g._exitBuildMode()
+    return { out, L }
+  })
+  const { out, L } = r
+  expect(out.rollsWhenMissing).toBe(true)
+  expect(out.notTwice).toBe(true)
+  expect(out.zapped).toBe(true)
+  expect(out.shrunkTime).toBe(L.SHRINK_S)
+  expect(out.size).toBeCloseTo(L.SHRINK_SIZE, 3)
+  expect(out.battery).toBeCloseTo(L.BATTERY - 1, 3)
+  expect(out.snap).toBe(true)
+  expect(out.lookTiny).toBe(true)
+  expect(out.hurt).toBe(10 * L.SHRUNK_HURT)
+  expect(out.grewBack).toBe(true)
+  expect(out.wallBlocks).toBe(true)
+  expect(out.boss).toBe(true)
+  expect(out.remote).toBe(true)
+  expect(out.look).toBe(true)
+  expect(out.empty).toBe(true)
+  expect(out.recharged).toBe(true)
+})

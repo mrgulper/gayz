@@ -120,6 +120,9 @@ const SPECIAL_SOUNDS = {
   // A zombie's goofs (FunnyZombies.js): a long low burp, a little hiccup.
   burp: { notes: [[120, 0, 0.5, 'sawtooth', 0.14, 70], [180, 0, 0.45, 'square', 0.04, 95]], noise: [0.45, 350, 140, 0.1] },
   hiccup: { notes: [[330, 0, 0.09, 'triangle', 0.22, 780], [360, 0.5, 0.08, 'triangle', 0.18, 820]] },
+  // Shrink Ray (ShrinkRay.js): a falling sci-fi zap, and a tiny zombie's squeak.
+  shrinkZap: { notes: [[1800, 0, 0.22, 'sawtooth', 0.07, 300], [2400, 0, 0.18, 'sine', 0.08, 600]] },
+  squeak: { notes: [[1500, 0, 0.07, 'sine', 0.16, 2300], [1900, 0.09, 0.09, 'sine', 0.13, 2800]] },
   clank: { noise: [0.15, 2500, 900, 0.3], notes: [[180, 0, 0.12, 'square', 0.12, 90]] },
   crumble: { noise: [0.5, 500, 120, 0.3] },
   thud: { noise: [0.2, 300, 80, 0.35], notes: [[90, 0, 0.25, 'sine', 0.3, 45]] },
@@ -1534,6 +1537,13 @@ class AudioEngine {
     this._caption(kind === 'burp' ? 'burp' : 'hiccup', pan)
     if (!this.ctx) return
     this.playSpecial(kind, this.zombieGain, pan)
+  }
+
+  // A tiny zombie's squeak (ShrinkRay.js), on the zombie sound slider.
+  playZombieSqueak(pan = 0) {
+    this._caption('squeak', pan)
+    if (!this.ctx) return
+    this.playSpecial('squeak', this.zombieGain, pan)
   }
 
   // An emote's sound (Emotes.emoteSound): gain 0..1 (quieter when it's
