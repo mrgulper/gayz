@@ -114,6 +114,8 @@ export default {
   hudClockOpt_game: "游戏时间",
   showCoordsLabel: "显示坐标",
   showCoordsInfoText: "在角落地图下方显示你的位置：X（东）、Y（高度）、Z（南）。方便告诉朋友在哪里见面。",
+  topBarTechLabel: "顶部栏技术信息",
+  topBarTechInfoText: "在游戏顶部的栏里显示 FPS、毫秒、你的坐标和你的显卡芯片。",
   compassBarLabel: "指南针条",
   compassBarInfoText: "屏幕顶部的指南针，显示你面对的方向。",
   chatOpacityLabel: "聊天不透明度",

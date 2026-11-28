@@ -97,6 +97,9 @@ export class LagWarning {
     if (typeof navigator !== 'undefined' && navigator.onLine === false) return false
     const bm = this.game.buildMode
     if (!bm?.survival?.active) return false
+    // Not in the middle of a first game's first wave - the popup would
+    // cover the player's first fight (2026-11-27 check-up).
+    if (bm.survival.onboard?.active && (bm.survival.wave || 0) <= 1) return false
     return true
   }
 

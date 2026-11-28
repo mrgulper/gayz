@@ -152,6 +152,11 @@ test('Camp Farm: a Crop Plot in the camp is kept between games and grows in real
     const s = window.__game.buildMode.survival
     const sp = s.bm.specials
     const out = { saved: JSON.parse(localStorage.getItem('gayz-camp-farm')).plots.length }
+    // (A first game's big messages wait while the controls hint is up -
+    // close it so this test reads its own message.)
+    s.onboard._hintShown = true
+    s.onboard._hideHint(true)
+    s._msgQueue.length = 0
     sp.use(x, y, z)
     out.msg = document.getElementById('build-play-msg')?.textContent || ''
     out.at = JSON.parse(localStorage.getItem('gayz-camp-farm')).plots[0].at > 0
@@ -568,6 +573,11 @@ test('Golden Runner, fishing, zombie radios and spray tags', async ({ page }) =>
     const s = bm.survival
     for (let i = 0; i < 60 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
     s._pickWeapon('rifle')
+    // (A first game's big messages wait while the controls hint is up -
+    // close it so this test reads its own message.)
+    s.onboard._hintShown = true
+    s.onboard._hideHint(true)
+    s._msgQueue.length = 0
     const out = {}
     const me = bm.tryMode.pos
     const home = { x: me.x, y: me.y, z: me.z }

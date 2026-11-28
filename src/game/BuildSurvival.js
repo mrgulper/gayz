@@ -137,6 +137,7 @@ import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './Speech
 import { SHOOT_THROUGH } from './SpecialBlocks.js'
 import { openLobby } from './ServerBrowser.js'
 import { PlayOnboarding, isFirstGame } from './PlayOnboarding.js'
+import { FirstSteps } from './FirstSteps.js'
 import { GooDisguise } from './GooDisguise.js'
 import { CampFarm } from './CampFarm.js'
 import { CampSiege } from './CampSiege.js'
@@ -158,6 +159,8 @@ import { nextUnlock, nextUnlockText, newlyUnlocked, cosmeticName, COSMETICS, mak
 export const CHEST_LOOT = { ammo: 60, health: 35 }
 // How often a Loot Chest has a Catch Trap or two (PlayCatch.js).
 const CATCH_TRAP_CHANCE = 0.35
+// Big messages waiting their turn in a first game (_message); more are dropped.
+const MSG_QUEUE_MAX = 4
 const CHEST_ROD_CHANCE = 0.1
 const CHEST_DETECTOR_CHANCE = 0.06
 const CHEST_JETPACK_CHANCE = 0.04
@@ -450,9 +453,15 @@ export class BuildSurvival {
     // A new player's first game (PlayOnboarding.js): no weapon picker,
     // start at the camp gate, a zombie close by straight away.
     if (!this.onboard) this.onboard = new PlayOnboarding(this)
-    if (fromMenu && !net && isFirstGame(bm.game) && !BuildSurvival.savedRun() && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && this.cfg.mode !== 'escapeRace' && !this.trainingRun && !PARTY_MODES.includes(this.cfg.mode)) {
+    this._msgQueue = []
+    const soloCamp = fromMenu && !net && this.cfg.mode !== 'worldMap' && this.cfg.mode !== 'infection' && this.cfg.mode !== 'towerDefense' && this.cfg.mode !== 'escapeRoom' && this.cfg.mode !== 'escapeRace' && !this.trainingRun && !PARTY_MODES.includes(this.cfg.mode)
+    if (soloCamp && isFirstGame(bm.game) && !BuildSurvival.savedRun()) {
       this.onboard.begin(bm.activeSlot === 'map3' ? bm._map3Base().map.safeZone : null)
     } else this.onboard.end()
+    // "Next up" camp / chest / Shop / crafting steps for the first few
+    // games (FirstSteps.js).
+    if (!this.firstSteps) this.firstSteps = new FirstSteps(this)
+    this.firstSteps.begin(soloCamp, Number(bm.game?.careerStats?.totalRuns) || 0)
     this.active = true
     // My sound packs (SoundPacks.js) load now, so the first kill uses them.
     preloadMySoundPacks(this.bm.game)
@@ -871,6 +880,7 @@ export class BuildSurvival {
     this.lobby = null
     this.damageNumbers?.clear()
     this.onboard?.end()
+    this.firstSteps?.end()
     if (this._ownBubble) disposeBubble(this._ownBubble.sprite)
     this._ownBubble = null
     this.bm.tryMode.speedMult = 1
@@ -1118,7 +1128,7 @@ export class BuildSurvival {
     // Then a silly tip (SillyTips.js) once you've had a look round.
     // (Settings > Gameplay > Game Tips picks which, or none.)
     setTimeout(() => {
-      const tip = gameTip(this.bm.game?.settings)
+      const tip = gameTip(this.bm.game?.settings, this.onboard?.active)
       if (tip && this.active && !this.dead) this._message(tip, 5)
     }, 9000)
     return true
@@ -1512,12 +1522,34 @@ export class BuildSurvival {
     this._msgLeft = 0
   }
 
+  // In a first game the big messages wait while the controls hint is up,
+  // then the ones that waited take turns (2026-11-27 check-up: the hint,
+  // the Zombie Train news and four Zombie Book lines all landed at once -
+  // on phones on top of each other). Otherwise a new message replaces the
+  // old one, as before.
   _message(text, seconds = 2.5) {
+    if (this.onboard?.hintBusy() || this._msgQueue?.length) {
+      const q = (this._msgQueue ||= [])
+      if (q.length < MSG_QUEUE_MAX && !q.some((m) => m[0] === text)) q.push([text, seconds])
+      return
+    }
+    this._showMessage(text, seconds)
+  }
+
+  _showMessage(text, seconds) {
     const el = document.getElementById('build-play-msg')
     if (!el) return
     el.textContent = text
     el.style.opacity = '1'
     this._msgLeft = seconds
+  }
+
+  // Each frame: the next waiting message once the screen is clear.
+  _nextMessage() {
+    const q = this._msgQueue
+    if (!q?.length || this._msgLeft > 0 || this.onboard?.hintBusy()) return
+    const [text, seconds] = q.shift()
+    this._showMessage(text, seconds)
   }
 
   _renderHud() {
@@ -2279,6 +2311,7 @@ export class BuildSurvival {
     this.heist?.onChest(key)
     this.stats.chests++
     this.bingo?.note('chest')
+    this.firstSteps?.done('chest')
     // World Map: a chest on the map's travel journal.
     if (this.bm.world?.active && isEarthWorld()) journal.loot(x, z)
     // Ammo in this gun's own amounts (PlayWeapons.ammoFor).
@@ -2694,10 +2727,13 @@ export class BuildSurvival {
     if (boss) this._bossPending--
     let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
       ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
-    if (!kind && !boss && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
-    if (realm && !boss) kind = REALM_KINDS[realm][Math.floor(Math.random() * REALM_KINDS[realm].length)]
+    // A first game's first wave is plain zombies only - no Brutes, Blobs
+    // or tough rare ones yet (2026-11-27 first-5-minutes check-up).
+    const gentle = !boss && this.onboard?.active && this.wave <= 1
+    if (!kind && !boss && !gentle && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
+    if (realm && !boss && !gentle) kind = REALM_KINDS[realm][Math.floor(Math.random() * REALM_KINDS[realm].length)]
     // Its rarity and silly name (ZombieNames.js): rarer = tougher.
-    const tier = rollZombieTier(boss)
+    const tier = gentle ? 'common' : rollZombieTier(boss)
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp * (cave ? CAVE_HP_MULT : 1)
     if (boss) this._message(t('buildPlayBossComing'))
     // Now and then a Golden or Diamond one: worth far more coins.
@@ -4000,6 +4036,7 @@ export class BuildSurvival {
         if (el) el.style.opacity = '0'
       }
     }
+    this._nextMessage()
     if (this._reloadLeft > 0) {
       this._reloadLeft -= dt
       if (this._reloadLeft <= 0) {
@@ -4156,6 +4193,7 @@ export class BuildSurvival {
     this.disguise?.update(dt)
     this.farm?.update()
     this.onboard?.update(dt)
+    this.firstSteps?.update()
     const speed = zombieSpeed(this.wave, this.cfg.escalation)
     for (const zb of [...this.zombies]) {
       // Each zombie goes for the nearest player.

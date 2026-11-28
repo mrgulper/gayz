@@ -1731,6 +1731,12 @@ html.ui-theme-old #play-shop-tabs .play-shop-tab.active { color: #f6e7c4; backgr
   #touch-play .tp-pause, #touch-play .tp-bag, #touch-play .tp-drop, #touch-play .tp-spray, #touch-play .tp-shop { top: 156px; }
   /* ...and the wave line stops before the ammo count on the right. */
   body.touch-play-on #build-play-wave { max-width: calc(100% - 118px); }
+  /* The big message starts under that row of buttons, and the pills
+     (Bingo, Next up...) wrap between the Emote and Reload buttons
+     (2026-11-27 phone check-up: both overlapped). */
+  body.touch-play-on #build-play-msg { top: max(22%, 212px); }
+  body.touch-play-on #play-pills { max-width: min(176px, calc(100vw - 190px)); }
+  body.touch-play-on .play-pill { white-space: normal; text-align: center; }
 }
 /* Emote (Emotes.js): left edge, above the health bar in portrait. */
 #touch-play .tp-emote { left: max(16px, env(safe-area-inset-left)); bottom: 176px; width: 48px; height: 48px; }

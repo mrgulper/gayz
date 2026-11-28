@@ -582,9 +582,14 @@ function loadSettings() {
     // above), so every reload for an old-format account rolled a brand
     // new id that never saved, forever, until some unrelated setting
     // change happened to catch it.
-    if (!raw || !isValidPlayerId(parsed.playerId)) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
-    // Settings from the 2026-11-11 list (MoreSettingsList.js).
+    // A brand-new device starts with a plain top bar (no FPS, ms,
+    // coordinates or chip name - 2026-11-27 first-5-minutes check-up);
+    // older devices never saved this key, so they keep the tech info.
+    if (!raw) parsed.topBarTech = false
+    // Settings from the 2026-11-11 list (MoreSettingsList.js). (Before the
+    // first save, so a new device saves its own topBarTech.)
     Object.assign(settings, parseMoreSettings(parsed))
+    if (!raw || !isValidPlayerId(parsed.playerId)) localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
     return settings
   } catch {
     return defaultSettings()

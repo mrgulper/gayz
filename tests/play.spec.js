@@ -1435,6 +1435,85 @@ test('first game, hit feedback, sun kills, next unlock, auto graphics', async ({
   expect(await page.evaluate(() => document.getElementById('home-daily'))).toBeNull()
 })
 
+// First-5-minutes check-up (2026-11-27): a new device gets a plain top
+// bar; a first game's big messages wait for the controls hint and take
+// turns; wave 1 is plain zombies; the tip is a helpful one; the lag popup
+// waits; the "Next up" pill waits for wave 2, then steps count in any
+// order and are saved.
+test('first game: calm start, gentle wave 1, plain top bar, Next up steps', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const fresh = await page.evaluate(() => ({ tech: window.__game.settings.topBarTech, saved: JSON.parse(localStorage.getItem('gayz-settings')).topBarTech }))
+  expect(fresh).toEqual({ tech: false, saved: false })
+  await page.evaluate(() => window.__game.playBtn.click())
+  await page.waitForFunction(() => window.__game.buildMode?.survival?.active, null, { timeout: 60000 })
+  await page.waitForFunction(() => window.__game.buildMode.survival._skin !== undefined, null, { timeout: 30000 })
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    const bm = g.buildMode
+    const s = bm.survival
+    const out = { first: s.onboard.active }
+    g._topBar.update(performance.now() + 1e6)
+    const shown = (id) => getComputedStyle(document.getElementById(id)).display !== 'none'
+    out.topBar = { xyz: shown('top-bar-xyz'), fps: shown('top-bar-fps'), time: shown('top-bar-time') }
+    // Helpful starter tips only, even with the Silly setting.
+    out.tip = document.querySelector('#play-fade .play-fade-tip')?.textContent || ''
+    s.health = 1e9
+    // Run until the hint is up.
+    for (let i = 0; i < 40 && !s.onboard.hintBusy(); i++) { bm.tryMode.update(0.05, new Set()); s.update(0.05) }
+    for (let i = 0; i < 5 && s.onboard._hintShown === false; i++) { bm.tryMode.update(0.05, new Set()); s.update(0.05) }
+    const msg = document.getElementById('build-play-msg')
+    msg.textContent = ''
+    s._msgLeft = 0
+    out.gameQueued = s._msgQueue.length
+    s._msgQueue.length = 0
+    s._message('one', 2)
+    s._message('two', 2)
+    s._message('two', 2)
+    out.queued = { busy: s.onboard.hintBusy(), shownNow: msg.textContent, waiting: s._msgQueue.map((m) => m[0]) }
+    // The hint goes; then one at a time.
+    s.onboard._hintLeft = 0.01
+    for (let i = 0; i < 3; i++) s.update(0.05)
+    out.afterHint = msg.textContent
+    for (let i = 0; i < 45; i++) s.update(0.05)
+    out.second = msg.textContent
+    // Wave 1: plain, common zombies only.
+    for (let i = 0; i < 30; i++) s._spawnZombie(s._spawnSpots())
+    out.gentle = s.zombies.filter((z) => !z.boss).every((z) => !z.monster && (z.tier === undefined || z.tier === 'common'))
+    // The lag popup waits during wave 1.
+    out.lagWaits = g.lagWarning._shouldMeasure(performance.now() + 1e7) === false
+    // Next up: hidden in wave 1, steps still count.
+    const pill = () => { const p = document.getElementById('pill-steps'); return p && p.classList.contains('on') ? p.textContent : '' }
+    s.firstSteps.update()
+    out.pillWave1 = pill()
+    s.firstSteps.done('chest')
+    s.wave = 2
+    s.firstSteps.update()
+    out.pillWave2 = pill()
+    s.firstSteps.done('shop')
+    out.saved = JSON.parse(localStorage.getItem('gayz-first-steps'))
+    out.pillAfter = pill()
+    s.stop()
+    out.pillStopped = pill()
+    g._exitBuildMode()
+    return out
+  })
+  expect(r).toMatchObject({
+    first: true,
+    topBar: { xyz: false, fps: false, time: true },
+    queued: { busy: true, shownNow: '', waiting: ['one', 'two'] },
+    afterHint: 'one',
+    second: 'two',
+    gentle: true,
+    lagWaits: true,
+    pillWave1: '',
+    saved: ['chest', 'shop'],
+    pillStopped: '',
+  })
+  expect(r.tip).toMatch(/^Tip: (Press|Every|About|Dr)/)
+  expect(r.pillWave2).toMatch(/^Next up \(2\/4\): Walk into the camp/)
+  expect(r.pillAfter).toMatch(/^Next up \(3\/4\): Walk into the camp/)
+})
+
 // 2026-11-15: an animal's body-part drop shows as a little 3D model in your
 // hands, and eating one lifts it to your mouth for 3 bites that chew
 // pieces out of it (HeldFood.js).

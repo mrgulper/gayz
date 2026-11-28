@@ -114,6 +114,8 @@ export default {
   hudClockOpt_game: "Game Time",
   showCoordsLabel: "Show Coordinates",
   showCoordsInfoText: "Shows where you are as X (east), Y (height) and Z (south) under the corner map. Handy for telling friends where to meet.",
+  topBarTechLabel: "Top Bar Tech Info",
+  topBarTechInfoText: "Shows FPS, ms, your coordinates and your graphics chip in the bar along the top of a game.",
   compassBarLabel: "Compass Bar",
   compassBarInfoText: "A compass along the top of the screen that shows which way you are facing.",
   chatOpacityLabel: "Chat Opacity",

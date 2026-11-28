@@ -52,6 +52,10 @@ export const MORE_SETTINGS = [
   { key: 'showPing', type: 'toggle', def: true, page: 'gameplay', before: 'settings-section-gameplay' },
   { key: 'hudClock', type: 'select', def: 'off', opts: ['off', 'real', 'game'], page: 'gameplay', before: 'settings-section-gameplay' },
   { key: 'showCoords', type: 'toggle', def: false, page: 'gameplay', before: 'settings-section-gameplay' },
+  // FPS, ms, coordinates and graphics chip in the in-game top bar
+  // (TopBar.js). On for devices from before 2026-11-27; a new device
+  // starts with it off (Game.js loadSettings).
+  { key: 'topBarTech', type: 'toggle', def: true, page: 'gameplay', before: 'settings-section-gameplay' },
   { key: 'compassBar', type: 'toggle', def: false, page: 'gameplay', before: 'settings-section-gameplay' },
   { key: 'chatOpacity', type: 'range', def: 100, min: 20, max: 100, step: 5, unit: '%', page: 'gameplay', before: 'settings-section-gameplay' },
   { key: 'chatFade', type: 'select', def: 'off', opts: ['off', '5', '10', '20', '30'], page: 'gameplay', before: 'settings-section-gameplay' },
