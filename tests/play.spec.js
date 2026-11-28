@@ -1949,17 +1949,70 @@ test('the pause screen uses two columns on PC and one on a phone', async ({ page
     g.buildMode.toggleMenu()
   })
   const measure = () => page.evaluate(() => {
-    const shown = [...document.querySelectorAll('#play-pause-buttons > button')].filter((b) => b.offsetParent)
+    const shown = [...document.querySelectorAll('#play-pause-main > button')].filter((b) => b.offsetParent)
     const lefts = new Set(shown.map((b) => Math.round(b.getBoundingClientRect().left)))
     const width = (id) => Math.round(document.getElementById(id).getBoundingClientRect().width)
     const menu = document.getElementById('play-pause-menu')
     return { columns: lefts.size, backFull: width('play-pause-back-btn') === width('play-pause-leave-btn'), cardWide: width('play-pause-card') >= 700, scrolls: menu.scrollHeight > menu.clientHeight + 1 }
   })
   expect(await measure()).toEqual({ columns: 2, backFull: true, cardWide: true, scrolls: false })
+  // Shorter pause menu (2026-11-27): the extras sit behind More, and the
+  // card keeps its size when you open it; every pause starts short again.
+  const more = await page.evaluate(() => {
+    const card = () => Math.round(document.getElementById('play-pause-card').getBoundingClientRect().height)
+    const seen = (id) => !!document.getElementById(id).offsetParent
+    const before = { h: card(), spectate: seen('play-pause-spectate-btn'), more: seen('play-pause-more-btn') }
+    document.getElementById('play-pause-more-btn').click()
+    const open = { h: card(), spectate: seen('play-pause-spectate-btn'), invite: seen('play-pause-invite-btn'), back: seen('play-pause-back-btn') }
+    document.getElementById('play-pause-less-btn').click()
+    const shut = { spectate: seen('play-pause-spectate-btn'), back: seen('play-pause-back-btn') }
+    document.getElementById('play-pause-more-btn').click()
+    const bm = window.__game.buildMode
+    bm.toggleMenu()
+    bm.toggleMenu()
+    return { before, open, shut, reopened: seen('play-pause-back-btn') && !seen('play-pause-spectate-btn') }
+  })
+  expect(more.before).toEqual({ h: more.before.h, spectate: false, more: true })
+  expect(more.open).toEqual({ h: more.before.h, spectate: true, invite: true, back: false })
+  expect(more.shut).toEqual({ spectate: false, back: true })
+  expect(more.reopened).toBe(true)
   await page.setViewportSize({ width: 390, height: 844 })
   const phone = await measure()
   expect(phone.columns).toBe(1)
   expect(phone.cardWide).toBe(false)
+})
+
+// 2026-11-27 playtest: Havoc says "Good for beginners" in Choose Your
+// Weapon, the end card's next-unlock line says the Propeller Cap is a hat,
+// and the login bonus shows in the homepage coin count straight away.
+test('playtest fixes: beginner gun tag, hat explained, login coins shown', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    // Login bonus: yesterday was the last visit, so today pays out.
+    const d = new Date(); d.setDate(d.getDate() - 1)
+    g.loginStreak.lastDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const coinsBefore = g.coins
+    g._checkLoginStreak()
+    const coins = { gained: g.coins > coinsBefore, shown: document.getElementById('currency-coins-amount').textContent === String(g.coins) }
+    g.__serversBackendForTests = { create: async () => { throw new Error('offline') }, leave: async () => ({}) }
+    localStorage.removeItem('gayz-play-saved-run')
+    g.settings.selectedGameMode = 'classic'
+    await g._enterBuildMode({ map: 'map3', play: true })
+    const s = g.buildMode.survival
+    for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
+    s._openWeaponPicker()
+    const tagged = [...document.querySelectorAll('#play-weapon-pick .pwp-beginner-tag')].map((el) => el.closest('[data-play-weapon]')?.dataset.playWeapon)
+    const tagText = document.querySelector('#play-weapon-pick .pwp-beginner-tag')?.textContent
+    // Next unlock for a brand-new player is the Propeller Cap (3 games).
+    s._showUnlock({ totalRuns: 0, totalKills: 0, totalDeaths: 0, level: 1 }, { totalRuns: 1, totalKills: 0, totalDeaths: 0, level: 1 })
+    const unlock = document.getElementById('build-play-over-unlock')?.textContent || ''
+    return { coins, tagged, tagText, unlock }
+  })
+  expect(r.coins).toEqual({ gained: true, shown: true })
+  expect(r.tagged).toEqual(['rifle'])
+  expect(r.tagText).toBe('Good for beginners')
+  expect(r.unlock).toContain('a hat for your player')
 })
 
 // Walk trails (WalkTrails.js, 2026-11-25): walking leaves footprints (flat

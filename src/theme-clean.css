@@ -762,6 +762,12 @@ html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active {
   border-color: var(--clean-fg);
   box-shadow: none;
 }
+html.ui-theme-clean #play-weapon-pick .pwp-beginner-tag {
+  background: var(--clean-fg);
+  color: var(--clean-bg);
+  box-shadow: none;
+  border-radius: 999px;
+}
 html.ui-theme-clean :is(#play-weapon-pick, #play-perk-pick) .pwp-soon:hover {
   border-color: transparent;
 }

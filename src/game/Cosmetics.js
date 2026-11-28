@@ -127,7 +127,10 @@ export function nextUnlock(career) {
 export function nextUnlockText(u) {
   if (!u) return ''
   const key = `unlockSoon${u.kind.charAt(0).toUpperCase()}${u.kind.slice(1)}${u.left === 1 && u.kind !== 'level' ? 'One' : ''}`
-  return t(key, { n: u.kind === 'level' ? u.need : u.left, name: cosmeticName(u.id) })
+  // A hat's name alone ("Propeller Cap") left new players guessing what it
+  // was (2026-11-27 playtest), so hats say so; capes already do.
+  const name = COSMETICS[u.id]?.slot === 'hat' ? t('unlockHatName', { name: cosmeticName(u.id) }) : cosmeticName(u.id)
+  return t(key, { n: u.kind === 'level' ? u.need : u.left, name })
 }
 
 // The ones `after` has unlocked that `before` hadn't (by playing - a

@@ -63,6 +63,9 @@ export class PlayPauseMenu {
       if (bm.menuOpen) bm.toggleMenu()
       bm.survival?.ringEditor?.open()
     })
+    // More / Back: the rest of the buttons (2026-11-27 playtest).
+    on('play-pause-more-btn', () => this.showMore(true))
+    on('play-pause-less-btn', () => this.showMore(false))
     on('play-pause-spectate-btn', () => this.bm.spectate?.enter())
     on('play-pause-photo-btn', () => this.bm.spectate?.enter({ photo: true }))
     // Save Clip: the last ~30 s as a video file (ClipMaker.js).
@@ -101,9 +104,24 @@ export class PlayPauseMenu {
     if (!on && this._spray) this.closeSpray()
     if (!on && this._clipOpts) this.closeClipOptions()
     this.el.style.display = on ? 'flex' : 'none'
+    // Every pause starts on the short list.
+    if (on) this.showMore(false)
     // No pause screen in the clip (ClipMaker.js).
     this.bm.survival?.clips?.setPaused(on)
     if (on) this._refresh()
+  }
+
+  // The More page swaps the short list for the rest of the buttons. The
+  // box keeps the short list's height, so the card doesn't jump.
+  showMore(on) {
+    const main = document.getElementById('play-pause-main')
+    const more = document.getElementById('play-pause-more')
+    const box = document.getElementById('play-pause-buttons')
+    if (!main || !more || !box) return
+    if (on && !main.hidden) box.style.minHeight = `${box.offsetHeight}px`
+    if (!on) box.style.minHeight = ''
+    main.hidden = !!on
+    more.hidden = !on
   }
 
   _refresh() {
@@ -147,6 +165,8 @@ export class PlayPauseMenu {
     set('play-invite-hint', t('playInviteHint'))
     set('play-pause-save-label', t('playPauseSave'))
     set('play-pause-leave-label', t('playPauseLeave'))
+    set('play-pause-more-label', t('playPauseMore'))
+    set('play-pause-less-label', t('playPauseLess'))
     set('play-pause-hint', t('playPauseHint'))
     // A tip each time (Settings > Gameplay > Game Tips; GameplayAssist.js).
     set('play-pause-tip', gameTip(this.bm.game?.settings))
