@@ -203,6 +203,8 @@ export function setupBuildInput(bm) {
   bm._onKeyUp = (e) => {
     bm._keys.delete(e.code)
     if (e.code === getKeyFor('use')) endUse(bm)
+    // Ping (Pings.js): letting go decides tap or hold.
+    if (e.code === getKeyFor('ping')) bm.survival?.pings?.keyUp()
   }
   bm._onMouseMove = (e) => {
     if (document.pointerLockElement !== bm.renderer.domElement) return
@@ -277,6 +279,8 @@ export function setupBuildInput(bm) {
     if (digitIndex === undefined) return
     // With the emote bar open, 1-3 pick an emote instead (Emotes.js).
     if (bm.survival?.active && bm.survival.emotes?.pick(e.code)) return
+    // ...and with the ping wheel open, 1-6 pick a ping (Pings.js).
+    if (bm.survival?.active && bm.survival.pings?.pick(e.code)) return
     if (bm.survival?.active && bm.survival.inv) bm.survival.inv.select(digitIndex)
     else bm._selectHotbarSlot(digitIndex)
   }
@@ -311,6 +315,10 @@ export function setupBuildInput(bm) {
     // The emote wheel is up (Emotes.js): Escape closes it.
     if (e.code === 'Escape' && bm.survival?.emotes?.open) {
       bm.survival.emotes.close()
+      return
+    }
+    if (e.code === 'Escape' && bm.survival?.pings?.open) {
+      bm.survival.pings.close()
       return
     }
     // An NPC's shop is open: Escape closes it, nothing else happens.

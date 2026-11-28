@@ -54,6 +54,7 @@ import { worldSeed, isEarthWorld } from './OpenWorld.js'
 import { speechBubble, disposeBubble, fadeBubble, bubbleSeconds } from './SpeechBubble.js'
 import { drawRemote, disposeRemote, cleanRemote } from './Vehicles.js'
 import { cleanPins } from './MapPins.js'
+import { cleanPing } from './Pings.js'
 import { explored, unpackKeys } from './ExploredMap.js'
 import { ownerTag, ownerCrown, startOwnerMode } from './OwnerDropIn.js'
 import { OwnerPanel, applyOwnerDeliveries } from './OwnerPowers.js'
@@ -295,7 +296,7 @@ export class PlayNet {
     const holding = s.holding
     const body = {
       ...this.auth,
-      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), back: myWorn(this.game, 'back'), kfx: myKillEffect(this.game), trail: myTrail(this.game), jfx: myJumpEffect(this.game), dfx: myDeathEffect(this.game), jn: s.jumps || 0, nst: myNameStyle(this.game), cbub: myChatBubble(this.game), gskin: myGunSkin(this.game), phat: myPetHat(this.game), ppaint: myPetPaint(this.game), rpaint: myRidePaint(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
+      state: { x: pos.x, y: pos.y, z: pos.z, yaw: bm._yaw, weapon: holding || s.ring ? '' : s.weaponId, held: holding?.kind === 'block' ? holding.id : '', firing: !!bm._fireHeld && !holding, dead: !!s.dead, away: document.hidden, emote: s.emotes?.current || '', sit: +(bm.tryMode._seatEye || 0).toFixed(2), hat: myWorn(this.game, 'hat'), cape: myWorn(this.game, 'cape'), back: myWorn(this.game, 'back'), kfx: myKillEffect(this.game), trail: myTrail(this.game), jfx: myJumpEffect(this.game), dfx: myDeathEffect(this.game), jn: s.jumps || 0, nst: myNameStyle(this.game), cbub: myChatBubble(this.game), gskin: myGunSkin(this.game), phat: myPetHat(this.game), ppaint: myPetPaint(this.game), rpaint: myRidePaint(this.game), veh: [...(s.vehicles?.snapshot() || []), ...(s.kart?.snapshot() || [])], pins: s.pins?.snapshot() || [], spray: s.sprays?.snapshot() || null, ping: s.pings?.snapshot() || null, kills: s.kills || 0, lane: s.escape?.lane || 0, esc: s.escape?.race && s.escape.done ? 1 : 0, gh: s.ghosts?.snapshot() || null, fog: bm.world?.active && isEarthWorld() ? explored.shareState() : null, ring: s.ring?.netState() || null },
       editsAfter: this._editSeq,
     }
     // Who Can Join My Server (Settings > Social): the host's choice.
@@ -436,7 +437,7 @@ export class PlayNet {
       }
       mine.nst = nst
       mine.cbub = cleanChatBubble(p.cbub)
-      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), back: cleanWorn(p.back, 'back'), kfx: cleanKillEffect(p.kfx), trail: cleanTrail(p.trail), gskin: cleanGunSkin(p.gskin), phat: cleanPetHat(p.phat), ppaint: cleanPetPaint(p.ppaint), rpaint: cleanRidePaint(p.rpaint), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
+      Object.assign(mine, { tyaw: p.yaw, dead: !!p.dead, weapon: p.weapon, held: p.held || '', firing: !!p.firing, emote: EMOTES.includes(p.emote) ? p.emote : '', sit: Math.max(0, Math.min(4, Number(p.sit) || 0)), hat: cleanWorn(p.hat, 'hat'), cape: cleanWorn(p.cape, 'cape'), back: cleanWorn(p.back, 'back'), kfx: cleanKillEffect(p.kfx), trail: cleanTrail(p.trail), gskin: cleanGunSkin(p.gskin), phat: cleanPetHat(p.phat), ppaint: cleanPetPaint(p.ppaint), rpaint: cleanRidePaint(p.rpaint), veh: cleanRemote(p.veh), pins: cleanPins(p.pins), spray: p.spray || null, ping: cleanPing(p.ping), lane: Math.max(0, Math.min(15, Math.floor(Number(p.lane) || 0))), esc: !!p.esc, gh: cleanGhost(p.gh), kills: Number.isFinite(Number(p.kills)) ? Math.max(0, Math.floor(Number(p.kills))) : undefined, ring: cleanRemoteRing(p.ring) })
       if (sharedFog) {
         if (p.fog && typeof p.fog.c === 'string' && p.fog.n !== mine.fogN) {
           mine.fogN = p.fog.n
@@ -476,6 +477,8 @@ export class PlayNet {
     if (sharedFog && newcomer) explored.startShare()
     // Their spray tags (Sprays.js).
     s.sprays?.syncRemote(this.players)
+    // Their pings (Pings.js).
+    s.pings?.syncRemote(this.players)
     if (seen.size !== this._lastCount) {
       this._lastCount = seen.size
       s._renderHud()
@@ -630,6 +633,7 @@ export class PlayNet {
     disposeRemote(player)
     disposeRemoteRing(this.survival, player)
     this.survival?.sprays?.dropRemote(pid)
+    this.survival?.pings?.dropRemote(pid)
     // The held weapon and block share the game's own geometry - never disposed.
     if (player.gun) player.gun.parent?.remove(player.gun)
     if (player.block) player.block.parent?.remove(player.block)

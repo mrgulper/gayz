@@ -52,6 +52,7 @@ const ICONS = {
   drop: '<svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5"/><path d="M5 20h14"/></svg>',
   pause: '<svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg>',
   shop: '<svg viewBox="0 0 24 24"><path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg>',
+  ping: '<svg viewBox="0 0 24 24"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></svg>',
   spray: '<svg viewBox="0 0 24 24"><rect x="7" y="9" width="8" height="12" rx="1.5"/><path d="M9 9V6h4v3"/><path d="M16 5h.01M19 4h.01M18 7h.01M21 6h.01"/></svg>',
 }
 
@@ -98,6 +99,7 @@ export class BuildTouch {
       <div class="tp-stick"><div class="tp-stick-knob"></div></div>
       <button type="button" class="tp-btn tp-pause" data-tp="pause" aria-label="Pause">${ICONS.pause}</button>
       <button type="button" class="tp-btn tp-emote" data-tp="emote" aria-label="Emote">${ICONS.emote}</button>
+      <button type="button" class="tp-btn tp-ping" data-tp="ping" aria-label="Ping">${ICONS.ping}</button>
       <button type="button" class="tp-btn tp-spray" data-tp="spray" aria-label="Spray">${ICONS.spray}</button>
       <button type="button" class="tp-btn tp-shop" data-tp="shop" aria-label="Shop">${ICONS.shop}</button>
       <button type="button" class="tp-btn tp-fire" data-tp="fire" aria-label="Fire">${ICONS.fire}</button>
@@ -247,6 +249,9 @@ export class BuildTouch {
     } else if (action === 'emote') {
       // The Emote key (Z) for phones: the emote wheel, tap one (Emotes.js).
       if (bm.survival.active) bm.survival.emotes?.toggleBar()
+    } else if (action === 'ping') {
+      // The Ping key (H) for phones: the ping wheel, tap one (Pings.js).
+      if (bm.survival.active) bm.survival.pings?.toggleWheel()
     } else if (action === 'shop') {
       // The Shop key (B) for phones (PlayShop.js).
       if (bm.survival.active) bm.survival.shop?.toggle()

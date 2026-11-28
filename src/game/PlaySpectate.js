@@ -406,7 +406,7 @@ export class PlaySpectate {
   _onPinch(e) {
     if (!this.active || !this.photo || e.touches.length < 2) return
     const touch = this.bm.touch
-    const free = [...e.touches].filter((tch) => tch.identifier !== touch?._stick?.id && !tch.target?.closest?.('[data-tp], #play-photo-ui button, #play-photo-ui input, #emote-wheel'))
+    const free = [...e.touches].filter((tch) => tch.identifier !== touch?._stick?.id && !tch.target?.closest?.('[data-tp], #play-photo-ui button, #play-photo-ui input, #emote-wheel, #ping-wheel'))
     if (free.length < 2) return
     const [a, b] = free
     const d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY)

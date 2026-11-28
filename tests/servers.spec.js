@@ -100,6 +100,21 @@ test('hall of fame: add, edit, order, remove; players never get Player IDs', asy
   await expect(ADMIN_ACTIONS.hofSave(db, { name: '' })).rejects.toMatchObject({ status: 400 })
 })
 
+// Pings (src/game/Pings.js) pass through the server cleaned: a known
+// kind, numbers kept in range, anything else dropped.
+test('servers: a ping reaches the other players, cleaned', async () => {
+  const db = fakeServerDb()
+  const t0 = 2_000_000
+  const a = await createServer(db, { name: 'Pings', nickname: 'Ann' }, t0)
+  const b = await joinServer(db, { serverId: a.serverId, nickname: 'Bo' }, t0 + 10)
+  await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1, ping: { k: 'zombie', x: 4, y: 2, z: 9e9, n: 3, extra: '<b>' } } }, t0 + 100)
+  let rb = await syncServer(db, { ...b, state: { x: 2, y: 1, z: 2 } }, t0 + 200)
+  expect(rb.players[a.playerId].ping).toEqual({ k: 'zombie', x: 4, y: 2, z: 1e5, n: 3 })
+  await syncServer(db, { ...a, state: { x: 1, y: 1, z: 1, ping: { k: '<img>', x: 1, y: 1, z: 1, n: 4 } } }, t0 + 300)
+  rb = await syncServer(db, { ...b, state: { x: 2, y: 1, z: 2 } }, t0 + 400)
+  expect(rb.players[a.playerId].ping).toBe(null)
+})
+
 // The servers' own rules (api/_lib/servers.js), on an in-memory database.
 test('servers: create, join, sync, host hand-over, leave', async () => {
   const db = fakeServerDb()
