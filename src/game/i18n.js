@@ -51,6 +51,10 @@ import raceEn from './i18n/race-en.js'
 import raceZh from './i18n/race-zh.js'
 import raceHi from './i18n/race-hi.js'
 import raceEs from './i18n/race-es.js'
+import fossilEn from './i18n/fossil-en.js'
+import fossilZh from './i18n/fossil-zh.js'
+import fossilHi from './i18n/fossil-hi.js'
+import fossilEs from './i18n/fossil-es.js'
 import shopSkinsEn from './i18n/shopskins-en.js'
 import shopSkinsZh from './i18n/shopskins-zh.js'
 import shopSkinsHi from './i18n/shopskins-hi.js'
@@ -128,6 +132,10 @@ Object.assign(en, raceEn)
 Object.assign(zh, raceZh)
 Object.assign(hi, raceHi)
 Object.assign(es, raceEs)
+Object.assign(en, fossilEn)
+Object.assign(zh, fossilZh)
+Object.assign(hi, fossilHi)
+Object.assign(es, fossilEs)
 Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)

@@ -15,6 +15,7 @@
 // zombie can stand in, started from your feet and redone every
 // PATH_REFRESH seconds; each zombie walks to whichever neighboring cell is
 // one step closer to you.
+import { digForBone } from './Fossils.js'
 import * as THREE from 'three'
 import { coinMult as liveCoinMult, hordeMult, tune } from './LiveConfig.js'
 import { shakeScale, bleed } from './GraphicsSettings.js'
@@ -1248,9 +1249,9 @@ export class BuildSurvival {
       seconds: (performance.now() - this._startedAt) / 1000,
       claimed: (this.shop?.quests || []).filter((q) => q.claimed).map((q) => q.id),
       perks: this.perks?.serialize() || {},
-      // (Mid pet race: where you'll be back at, not the sky track.)
-      pos: this.camp?.race?.home() || { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
-      yaw: this.camp?.race?.home()?.yaw ?? this.bm._yaw,
+      // (Mid pet race or Fossil Hall visit: where you'll be back at, not the sky.)
+      pos: this.camp?.race?.home() || this.camp?.fossils?.home() || { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
+      yaw: this.camp?.race?.home()?.yaw ?? this.camp?.fossils?.home()?.yaw ?? this.bm._yaw,
       seed: this.bm.world?.active ? worldSeed() : null,
     }
     try {
@@ -2358,6 +2359,8 @@ export class BuildSurvival {
     const bm = this.bm
     // One you placed yourself: it's simply gone (not put back at the end).
     const key = bm._key(x, y, z)
+    // Fossil digs (Fossils.js): the world's own underground blocks may hold a bone.
+    if (!this._placed?.has(key)) digForBone(this, type, y, !!bm.tryMode._broken?.get(key)?.terrain)
     if (this._placed?.delete(key)) bm.tryMode._broken?.delete(key)
     this.farm?.onMined(x, y, z)
     if (bm._isWindowType(type) || /door|lootchest|zombiespawner|playerstart|invisible/.test(type)) return

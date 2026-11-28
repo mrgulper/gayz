@@ -1582,6 +1582,8 @@ html.ui-theme-clean #time-pick { color: var(--clean-bg); background: var(--clean
 #camp-screen .museum-list { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px; }
 #camp-screen .museum-list div { padding: 6px 8px; border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; font-size: 13px; }
 #camp-screen .museum-list div.off { opacity: 0.45; }
+#camp-screen .museum-fossil-note { margin: 4px 0 0; font-size: 13px; opacity: 0.8; }
+#camp-screen .museum-fossil-go { margin-top: 6px; }
 #camp-screen .story-line { width: 100%; margin: 0; padding: 8px 10px; background: rgba(255, 255, 255, 0.06); border-radius: 8px; }
 #camp-screen .story-line b { display: block; font-size: 12px; opacity: 0.8; }
 body.play-photo #camp-screen { display: none; }

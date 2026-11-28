@@ -1023,3 +1023,69 @@ test('Pet Races: odds, a bet, the sky track, cheering and the payout', async ({ 
   })
   expect(r).toEqual({ post: true, noPets: true, bots: true, odds: true, bets: true, rows: 6, sum: true, started: true, sky: true, cheerBtn: true, saveHome: true, cheer: true, won: true, back: true })
 })
+
+// Six ideas batch 3 (2026-11-27): Fossil digs - underground blocks may hold a
+// dinosaur bone (Bone Block pockets always), skeletons fill the Museum's
+// Fossil Hall up in the sky, a finished one pays coins.
+test('Fossil digs: bones underground, the Fossil Hall and a finished skeleton', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(async () => {
+    const s = window.__game.buildMode.survival
+    const bm = s.bm
+    const tm = bm.tryMode
+    for (let i = 0; i < 50 && !s.camp.fossils; i++) {
+      s.camp.update(0.05)
+      await new Promise((res) => setTimeout(res, 50))
+    }
+    localStorage.removeItem('gayz-fossils')
+    const bones = () => Object.values(JSON.parse(localStorage.getItem('gayz-fossils') || '{}')).flat().length
+    const out = {}
+    // A Bone Block of the world's own rock, underground: a bone.
+    const dig = (type, y, terrain) => {
+      const key = bm._key(3, y, 3)
+      tm._broken.set(key, { x: 3, y, z: 3, type, terrain })
+      s.onBlockMined(type, 3, y, 3)
+    }
+    dig('boneblock', -20, true)
+    out.dug = bones()
+    // Above ground, or one somebody placed: nothing.
+    dig('boneblock', 5, true)
+    dig('boneblock', -20, false)
+    out.noExtra = bones()
+    // Four T. rex bones, then the fifth finishes it: coins.
+    localStorage.setItem('gayz-fossils', JSON.stringify({ tRex: ['skull', 'ribs', 'spine', 'legs'] }))
+    const coins = s.coins
+    s.camp.fossils.lib.digForBone(s, 'boneblock', -20, true, () => 0)
+    out.tRex = JSON.parse(localStorage.getItem('gayz-fossils')).tRex?.length
+    out.paid = s.coins - coins
+    // The Museum's screen: the Fossil Hall section and the Visit button.
+    const m = s.camp.museum
+    tm.pos.set(m.door.x, 1, m.door.z)
+    m.use()
+    const go = document.querySelector('#camp-screen .museum-fossil-go')
+    out.button = !!go
+    const home = { x: tm.pos.x, z: tm.pos.z }
+    go?.click()
+    const F = s.camp.fossils
+    out.inside = F.inside && tm.pos.y > 120
+    out.skeletons = F.layout().spots.length
+    out.floor = !!bm.getBlockAt(Math.floor(tm.pos.x), Math.floor(tm.pos.y) - 1, Math.floor(tm.pos.z))
+    // Use: back down, the sky blocks gone.
+    const hall = F.hall
+    s.camp.use()
+    out.back = !F.inside && Math.abs(tm.pos.x - home.x) < 0.01 && Math.abs(tm.pos.z - home.z) < 0.01
+    out.cleared = !bm.getBlockAt(hall.ox + 3, 130, hall.oz + 3)
+    return out
+  })
+  expect(r.dug).toBe(1)
+  expect(r.noExtra).toBe(1)
+  expect(r.tRex).toBe(5)
+  expect(r.paid).toBe(150)
+  expect(r.button).toBe(true)
+  expect(r.inside).toBe(true)
+  expect(r.skeletons).toBeGreaterThanOrEqual(20)
+  expect(r.floor).toBe(true)
+  expect(r.back).toBe(true)
+  expect(r.cleared).toBe(true)
+})
