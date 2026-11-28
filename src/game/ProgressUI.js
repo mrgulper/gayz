@@ -91,6 +91,10 @@ export function _checkLoginStreak(game) {
   const coinBonus = bonusDays * LOGIN_STREAK_COIN_PER_DAY
   game.coins += coinBonus
   game._playStats?.countCoins?.('bankIn', 'login', coinBonus)
+  // The homepage coin count was drawn before this, so it said 0 while the
+  // "+15 coins" message showed (2026-11-27 playtest): save, then redraw it.
+  saveShopProgress(game)
+  game._renderCurrencyBar?.()
   if (usedFreeze) {
     game._showLoreToast(t('loginStreakFreezeUsedToast', { n: game.loginStreak.streak, coins: coinBonus }))
   } else if (!wasConsecutive && previousLastDate) {

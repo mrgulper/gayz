@@ -79,6 +79,8 @@ html.ui-theme-biome .build-play-xp-track { background: rgba(var(--biome-ink-rgb)
 html.ui-theme-biome #build-play-xp-fill { background: var(--biome-accent); }
 html.ui-theme-biome :is(#play-pause-close, #play-pause-info, #play-pause-hint, #play-pause-tip, #play-invite-hint, #play-pause-status, :is(#play-weapon-pick, #play-perk-pick) .pwp-hint) { color: var(--biome-ink); }
 
+html.ui-theme-biome #play-weapon-pick .pwp-beginner-tag { color: rgb(var(--biome-bg-rgb)); background: var(--biome-ink); box-shadow: none; }
+
 /* Buttons and picks on those boxes. */
 html.ui-theme-biome :is(#play-pause-buttons button, .build-play-over-btns button, :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon, #spawn-map button) {
   color: var(--biome-ink);

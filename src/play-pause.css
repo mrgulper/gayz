@@ -96,6 +96,15 @@
 #play-pause-leave-btn:hover { border-color: #e8483a !important; background: rgba(232, 72, 58, 0.18) !important; }
 /* Spray Paint's drawing pad (PlayPauseMenu.openSpray, Sprays.js). */
 #play-pause-buttons[hidden] { display: none; }
+/* Everyday buttons, and the rest behind More (PlayPauseMenu.showMore).
+   The More page is two columns so the card keeps its height. */
+#play-pause-main,
+#play-pause-more { display: flex; flex-direction: column; gap: 10px; }
+#play-pause-more { display: grid; grid-template-columns: 1fr 1fr; align-content: start; }
+:is(#play-pause-main, #play-pause-more)[hidden] { display: none; }
+#play-pause-more button { padding: 10px 12px; font-size: 15px; line-height: 1.15; }
+#play-pause-more button span { min-width: 0; overflow-wrap: anywhere; }
+#play-pause-less-btn { grid-column: 1 / -1; }
 #play-spray { text-align: center; }
 #play-spray[hidden] { display: none; }
 #play-spray-hint { margin: 0 0 10px; font-size: 13px; opacity: 0.85; }
@@ -231,10 +240,13 @@ html.ui-theme-old #play-pause-hint { opacity: 0.85; }
   html.ui-theme-old #play-pause-card { width: min(820px, 100%); padding: clamp(46px, 7vh, 64px) 92px clamp(48px, 7.2vh, 66px); }
   #play-pause-title { font-size: clamp(44px, 6.2vh, 56px); }
   #play-pause-info { margin-bottom: clamp(14px, 2.6vh, 24px); font-size: 17px; }
-  #play-pause-buttons { flex-flow: row wrap; gap: clamp(8px, 1.3vh, 12px); }
-  #play-pause-buttons > button { flex: 1 1 calc(50% - 6px); min-width: 0; padding: clamp(10px, 1.55vh, 14px) 20px; font-size: 20px; }
-  html.ui-theme-old #play-pause-buttons > button { font-size: 19px; }
-  #play-pause-buttons > :is(#play-pause-back-btn, #play-pause-leave-btn) { flex-basis: 100%; }
+  #play-pause-main { flex-flow: row wrap; gap: clamp(8px, 1.3vh, 12px); }
+  #play-pause-main > button { flex: 1 1 calc(50% - 6px); min-width: 0; padding: clamp(10px, 1.55vh, 14px) 20px; font-size: 20px; }
+  html.ui-theme-old #play-pause-main > button { font-size: 19px; }
+  #play-pause-main > :is(#play-pause-back-btn, #play-pause-leave-btn) { flex-basis: 100%; }
+  /* More: three columns, so it's never taller than the short list. */
+  #play-pause-more { grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1.3vh, 12px); }
+  #play-pause-more > button { padding: clamp(10px, 1.55vh, 14px) 12px; font-size: 17px; }
   #play-pause-buttons button svg { width: 22px; height: 22px; }
 }
 

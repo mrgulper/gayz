@@ -890,6 +890,9 @@ test('Invite Friends makes a solo game joinable and the link joins it', async ({
   expect(await a.evaluate(() => !window.__game.buildMode.survival.net)).toBe(true)
   await a.keyboard.press('Escape')
   await a.waitForFunction(() => document.getElementById('play-pause-menu')?.style.display === 'flex', null, { timeout: 10000 })
+  // Invite Friends lives behind More (shorter pause menu, 2026-11-27).
+  await expect(a.locator('#play-pause-invite-btn')).toBeHidden()
+  await a.click('#play-pause-more-btn')
   await expect(a.locator('#play-pause-invite-btn')).toBeVisible()
   // Still the link with the pause menu open.
   expect(await a.evaluate(() => location.search)).toBe(lobbySearch)

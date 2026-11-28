@@ -218,6 +218,15 @@
 :is(#play-weapon-pick, #play-perk-pick) .pwp-weapon.active { border-color: #e8c25a; box-shadow: 0 0 0 1px #e8c25a inset, 0 0 14px rgba(232, 194, 90, 0.25); }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-name { font-weight: 700; font-size: 14px; }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-soon { position: relative; cursor: not-allowed; }
+/* "Good for beginners" (BEGINNER_WEAPON): a small pill on the picture's
+   top corner, so the card stays the same size as the others. */
+#play-weapon-pick .pwp-beginner { position: relative; }
+#play-weapon-pick .pwp-beginner-tag {
+  position: absolute; top: 30px; right: 8px; padding: 2px 6px; white-space: nowrap;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+  color: #0c0a10; background: #7dd87a; border-radius: 4px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
 :is(#play-weapon-pick, #play-perk-pick) .pwp-soon .weapon-soon-tag { left: 50%; bottom: 18px; transform: translateX(-50%); }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-soon:hover { border-color: rgba(232, 194, 90, 0.25); transform: none; }
 :is(#play-weapon-pick, #play-perk-pick) .pwp-soon img, :is(#play-weapon-pick, #play-perk-pick) .pwp-soon .pwp-name { filter: grayscale(1); opacity: 0.45; }

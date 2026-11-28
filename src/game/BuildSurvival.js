@@ -179,6 +179,9 @@ const HEAD_MULT = 2.4
 const ZOMBIE_HEIGHT = MOB_HEIGHT
 const ZOMBIE_FIT_HEIGHT = 1.85
 const ZOMBIE_HALF = 0.3
+// The gun the weapon picker tags "Good for beginners": hold to fire, a
+// big magazine and lots of spare ammo (Havoc).
+const BEGINNER_WEAPON = 'rifle'
 // A bite this recent counts as what got you (the You Died joke).
 const DEATH_JOKE_BITE_MS = 4000
 // Special guns (PlayWeapons.js): Flamethrower burn damage per second,
@@ -1172,8 +1175,10 @@ export class BuildSurvival {
           <span class="weapon-soon-tag">${t('crateComingSoonTag')}</span>
         </button>`
         }
-        return `<button type="button" class="pwp-weapon${w.id === this.weaponId ? ' active' : ''}" data-play-weapon="${w.id}">
-          <span class="pwp-name">${t(w.nameKey)}</span>
+        // One easy gun gets a "Good for beginners" tag (2026-11-27 playtest).
+        const easy = w.id === BEGINNER_WEAPON ? `<span class="pwp-beginner-tag">${t('playBeginnerTag')}</span>` : ''
+        return `<button type="button" class="pwp-weapon${w.id === this.weaponId ? ' active' : ''}${easy ? ' pwp-beginner' : ''}" data-play-weapon="${w.id}">
+          <span class="pwp-name">${t(w.nameKey)}</span>${easy}
           ${thumbs[w.id] ? `<img alt="" draggable="false" src="${thumbs[w.id]}" />` : '<span class="pwp-noimg"></span>'}
           ${bar(t('playStatDamage'), b.damage)}${bar(t('playStatFireRate'), b.rate)}${bar(t('playStatAmmo'), b.ammo)}
         </button>`
