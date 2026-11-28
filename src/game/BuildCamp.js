@@ -196,6 +196,9 @@ export class BuildCamp {
     const shop = this.s.shop
     if (!shop) return false
     if (shop.panelOpen) return true
+    // Up in a party mode's sky arena the camp is far below: nothing here
+    // to use (2026-11-28, the Quest Board's prompt showed in Quiz Show).
+    if (this.s?.party?.sky) return false
     // In the Museum's Fossil Hall (CampFossils.js): back down.
     if (this.fossils?.use()) return true
     // Pet Races (CampRace.js): the post, or Cheer during a race.
@@ -300,6 +303,13 @@ export class BuildCamp {
         this._prompt.textContent = t('fossilLeavePrompt')
       }
       if (this._prompt) this._prompt.style.display = 'block'
+      return
+    }
+    // Up in a party mode's sky arena: the camp's below, so no prompts.
+    // Only sideways distance was checked, so "Press E to talk to the
+    // Quest Board" showed over the arena (2026-11-28).
+    if (this.s?.party?.sky) {
+      if (this._prompt) this._prompt.style.display = 'none'
       return
     }
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
