@@ -39,6 +39,8 @@ export const ACTIONS = [
   { id: 'shop', defaultKey: 'KeyB', labelKey: 'actionShop' },
   // Sprays your own picture on the block you look at (Sprays.js, 2026-11-01).
   { id: 'spray', defaultKey: 'KeyY', labelKey: 'actionSpray' },
+  // Tap: a quick "Look here" ping; hold: the ping wheel (Pings.js, 2026-11-28).
+  { id: 'ping', defaultKey: 'KeyH', labelKey: 'actionPing' },
   // Shows this run's Zombie Bingo card (ZombieBingo.js, 2026-11-09).
   { id: 'bingo', defaultKey: 'KeyJ', labelKey: 'actionBingo' },
   // Opens the spin ring's editor and item bag (RingEditor.js, 2026-11-15).

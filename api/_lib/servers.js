@@ -646,6 +646,14 @@ function cleanSpray(v) {
   return s.length ? { p: v.p, s } : null
 }
 
+// A player's ping (src/game/Pings.js): which one, the spot in blocks and
+// its number (n counts up, so a new ping on the same spot still shows).
+const PING_KINDS = ['look', 'zombie', 'loot', 'help', 'follow', 'thanks']
+function cleanPing(v) {
+  if (!v || typeof v !== 'object' || !PING_KINDS.includes(v.k) || !Number.isInteger(v.n) || v.n < 0 || v.n >= 1e9) return null
+  return { k: v.k, x: num(v.x, -1e5, 1e5), y: num(v.y, -520, 520), z: num(v.z, -1e5, 1e5), n: v.n }
+}
+
 // A ghost (src/game/Ghosts.js): the grave [x, y, z] and up to 4 marked zombie ids.
 function cleanGhost(v) {
   if (!v || typeof v !== 'object' || !Array.isArray(v.g) || v.g.length !== 3) return null
@@ -723,6 +731,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     // Map pins shared with the others (src/game/MapPins.js).
     [`${base}/players/${playerId}/pins`]: cleanPins(s.pins),
     [`${base}/players/${playerId}/spray`]: cleanSpray(s.spray),
+    // Their ping marker (src/game/Pings.js).
+    [`${base}/players/${playerId}/ping`]: cleanPing(s.ping),
     // Escape Race: which copy of the rooms is theirs (src/game/EscapeRooms.js).
     [`${base}/players/${playerId}/lane`]: Math.round(num(s.lane, 0, 15)),
     // ...and whether they're already out (the "escaped first" news).
@@ -931,7 +941,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
   }
   for (const [pid, p] of Object.entries(server.players || {})) {
     if (pid === playerId || !live.has(pid) || !p || p.ghost) continue
-    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', back: p.back || '', kfx: p.kfx || '', trail: p.trail || '', jfx: p.jfx || '', dfx: p.dfx || '', jn: Number(p.jn) || 0, nst: p.nst || '', cbub: p.cbub || '', gskin: p.gskin || '', phat: p.phat || '', ppaint: p.ppaint || '', rpaint: p.rpaint || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
+    out.players[pid] = { own: p.own ? 1 : 0, nick: p.nick, x: p.x, y: p.y, z: p.z, yaw: p.yaw, weapon: p.weapon, held: p.held || '', firing: !!p.firing, dead: !!p.dead, emote: p.emote || '', hat: p.hat || '', cape: p.cape || '', back: p.back || '', kfx: p.kfx || '', trail: p.trail || '', jfx: p.jfx || '', dfx: p.dfx || '', jn: Number(p.jn) || 0, nst: p.nst || '', cbub: p.cbub || '', gskin: p.gskin || '', phat: p.phat || '', ppaint: p.ppaint || '', rpaint: p.rpaint || '', veh: Array.isArray(p.veh) ? p.veh : [], pins: pinsFor(p.pins, me.nick), sit: Number(p.sit) || 0, spray: p.spray || null, ping: p.ping || null, lane: Number(p.lane) || 0, esc: p.esc ? 1 : 0, gh: p.gh || null, fog: p.fog || null, kills: Number(p.kills) || 0, ring: p.ring || null }
     // A chat bubble: its number (new one = new bubble) and how long ago.
     if (p.say?.text) out.players[pid].say = { n: p.say.n, text: p.say.text, age: Math.max(0, now - (p.say.at || 0)) }
   }

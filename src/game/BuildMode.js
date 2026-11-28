@@ -2277,7 +2277,7 @@ export class BuildMode {
     if (this.menuOpen || this.pickerOpen || this.share?.isOpen || this.together?.isOpen) return true
     if (this.survival?.leaders?.battling) return true
     if (this.survival?.ownerPanel?.open) return true
-    if (this.survival?.shop?.panelOpen || this.survival?.ringEditor?.isOpen || this.survival?.emotes?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
+    if (this.survival?.shop?.panelOpen || this.survival?.ringEditor?.isOpen || this.survival?.emotes?.open || this.survival?.pings?.open || this.survival?.time?.pickOpen || campScreenOpen() || this.tryMode?._mapInteractive?.()) return true
     if (['play-weapon-pick', 'play-perk-pick', 'build-play-over', 'spawn-map'].some((id) => {
       const el = document.getElementById(id)
       return !!el && el.style.display !== 'none' && el.style.display !== ''

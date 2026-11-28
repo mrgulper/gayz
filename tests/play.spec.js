@@ -559,7 +559,7 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
       g.controlsGrid.querySelector(`[data-action="${action}"]`).click()
       window.dispatchEvent(new KeyboardEvent('keydown', { code, bubbles: true }))
     }
-    rebind('moveForward', 'KeyH')
+    rebind('moveForward', 'KeyL')
     await g._enterBuildMode()
     const bm = g.buildMode
     bm.toggleTryMode()
@@ -572,14 +572,14 @@ test('Settings > Controls keys drive walking in Map 1', async ({ page }) => {
       return Math.hypot(bm.tryMode.vel.x, bm.tryMode.vel.z)
     }
     const withW = speedWith('KeyW')
-    const withI = speedWith('KeyH')
+    const withI = speedWith('KeyL')
     const withArrow = speedWith('ArrowUp')
     bm.toggleTryMode()
     g._exitBuildMode()
     rebind('moveForward', 'KeyW')
     return { ids, withW, withI, withArrow }
   })
-  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray', 'bingo', 'ringBag', 'autoRun', 'hideHud', 'saveClip'])
+  expect(result.ids).toEqual(['moveForward', 'moveBack', 'moveLeft', 'moveRight', 'jump', 'sprint', 'crouch', 'reload', 'use', 'inspectWeapon', 'cycleMap', 'cameraView', 'dropItem', 'emote', 'shop', 'spray', 'ping', 'bingo', 'ringBag', 'autoRun', 'hideHud', 'saveClip'])
   // W no longer walks (a tiny slide on uneven ground is fine; walking is ~4).
   expect(result.withW).toBeLessThan(0.5)
   expect(result.withI).toBeGreaterThan(2)
@@ -2329,6 +2329,75 @@ test('Photo Mode Selfie Cam faces you, circles you and keeps the emote going', a
     btn: true, emoteHidden: true, on: true, pressed: 'true', emoteShown: true, backHome: true, bodyShown: true,
     near: true, looksAtMe: true, circled: true, farther: true, stillDancing: 'dance',
     off: true, emoteStopped: '', backToFlown: true,
+  })
+})
+
+// The ping wheel (Pings.js, 2026-11-28): tap H = a quick "Look here",
+// hold H = the wheel (let go over one, or press 1-6), the phone button
+// opens it too; others' pings show with a chat line, only your team's in
+// team modes, none shared in a party mode without teams; they fade out.
+test('Ping wheel: tap, hold, number keys, phone button, team-only, fades out', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await page.evaluate(() => window.__game._enterBuildMode({ play: true }))
+  const r = await page.evaluate(async () => {
+    const g = window.__game
+    g.__testNoDraw = true
+    const s = g.buildMode.survival
+    for (let i = 0; i < 40 && !s.active; i++) await new Promise((res) => setTimeout(res, 250))
+    const P = s.pings
+    const key = (type) => window.dispatchEvent(new KeyboardEvent(type, { code: 'KeyH', bubbles: true }))
+    const wait = (ms) => new Promise((res) => setTimeout(res, ms))
+    const out = {}
+    key('keydown')
+    await wait(40)
+    key('keyup')
+    out.tap = P.mine?.k
+    out.tapInScene = !!P.mine?.sprite?.parent
+    out.wheelAfterTap = P.open
+    P._coolUntil = 0
+    key('keydown')
+    await wait(400)
+    out.holdOpens = P.open
+    document.querySelector('#ping-wheel [data-ping="zombie"] .ping-hit').dispatchEvent(new PointerEvent('pointerover', { bubbles: true }))
+    key('keyup')
+    out.holdPick = P.mine?.k
+    out.closed = !P.open
+    P._coolUntil = 0
+    P.openWheel()
+    out.digit = P.pick('Digit6') && P.mine?.k
+    const me = s.bodyPos()
+    out.onMe = Math.abs(P.mine.x - me.x) < 0.01 && Math.abs(P.mine.z - me.z) < 0.01
+    // The phone button.
+    P._coolUntil = 0
+    g.buildMode.touch._press('ping', 1, document.querySelector('.tp-ping') || document.createElement('i'))
+    out.phoneOpens = P.open
+    P.close(false)
+    // Another player's ping.
+    const players = new Map([['p2', { nick: 'Sam', ping: { k: 'loot', x: 3, y: 1, z: 4, n: 1 } }]])
+    P.syncRemote(players)
+    out.remote = !!P.remote.get('p2')?.sprite
+    out.chat = (g._chatSystemLines || []).some((l) => l.text === 'Sam: Loot here')
+    // Team modes: only my team's.
+    const party = s.party
+    s.party = { myTeam: 'r', teams: new Map([['p3', 'b'], ['p4', 'r']]) }
+    P.syncRemote(new Map([['p3', { nick: 'Blue', ping: { k: 'zombie', x: 1, y: 1, z: 1, n: 1 } }], ['p4', { nick: 'Red', ping: { k: 'help', x: 1, y: 1, z: 1, n: 1 } }]]))
+    out.enemy = !!P.remote.get('p3')?.sprite
+    out.teammate = !!P.remote.get('p4')?.sprite
+    out.teamShares = !!P.snapshot()
+    s.party = { myTeam: '', teams: new Map() }
+    out.ffaShares = !!P.snapshot()
+    s.party = party
+    out.snapKeys = Object.keys(P.snapshot() || {}).sort().join(',')
+    for (let i = 0; i < 100; i++) P.update(0.1)
+    out.fadedMine = !P.mine
+    out.fadedTheirs = !P.remote.get('p4')?.sprite
+    return out
+  })
+  expect(r).toEqual({
+    tap: 'look', tapInScene: true, wheelAfterTap: false, holdOpens: true, holdPick: 'zombie', closed: true,
+    digit: 'thanks', onMe: true, phoneOpens: true, remote: true, chat: true,
+    enemy: false, teammate: true, teamShares: true, ffaShares: false, snapKeys: 'k,n,x,y,z',
+    fadedMine: true, fadedTheirs: true,
   })
 })
 

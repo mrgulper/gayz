@@ -105,6 +105,7 @@ import { Jetpack } from './Jetpack.js'
 import { MapPins } from './MapPins.js'
 import { ZombieRadio } from './ZombieRadio.js'
 import { Sprays } from './Sprays.js'
+import { Pings } from './Pings.js'
 import { DeathReplay } from './DeathReplay.js'
 import { ClipMaker } from './ClipMaker.js'
 import { gameTip, afkTick, hintOk } from './GameplayAssist.js'
@@ -742,6 +743,9 @@ export class BuildSurvival {
     this.radios.clear()
     if (!this.sprays) this.sprays = new Sprays(this)
     this.sprays.clear()
+    // The ping wheel (Pings.js, 2026-11-28).
+    if (!this.pings) this.pings = new Pings(this)
+    this.pings.clear()
     this._fires = new Map()
     this._groundFires = []
     this.mag = this.magSize()
@@ -962,6 +966,7 @@ export class BuildSurvival {
     this.potions?.clear()
     this.jetpack?.clear()
     this.sprays?.clear()
+    this.pings?.clear()
     this._fires?.clear()
     this.bm.spectate?.exit()
     // Blocks placed this game go again (the saved map never changes).
@@ -2509,6 +2514,7 @@ export class BuildSurvival {
     else if (code === getKeyFor('emote')) this.emotes?.toggleBar()
     else if (code === getKeyFor('shop')) this.shop?.toggle()
     else if (code === getKeyFor('spray')) this.sprays?.spray()
+    else if (code === getKeyFor('ping')) this.pings?.keyDown()
     else if (code === getKeyFor('bingo')) this.bingo?.toggle()
     else if (code === getKeyFor('saveClip')) this.clips?.save()
     else if (code === getKeyFor('ringBag') && this.ring) this.ringEditor?.toggle()
@@ -4006,6 +4012,7 @@ export class BuildSurvival {
     this.hunger?.update(dt)
     if (playing && this.fromMenu) this.radios?.update(dt)
     this.sprays?.update(dt)
+    this.pings?.update(dt)
     this.emotes?.update(dt)
     this.bloodMoon?.syncLook()
     if (!this.bm.menuOpen) this._updateFires(dt)
