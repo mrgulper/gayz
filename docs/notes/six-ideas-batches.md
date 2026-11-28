@@ -4,7 +4,7 @@ Gaymi asked "what could we do more to the game" and then said "do all but
 do them 1 by 1". One batch per session, in this order. Answers to the
 questions asked on 2026-11-27 are written into each batch.
 
-1. **Mode voting** - DONE when shipped. At the end of every party round
+1. **Mode voting** - DONE (PR #514, 2026-11-27). At the end of every party round
    (servers and solo with bots), 3 modes show up: the one you just played
    plus 2 random others. Everyone taps one (keys 1-3 too). Bots vote at
    random. Most votes wins (a tie = random pick among the tied). Not on
