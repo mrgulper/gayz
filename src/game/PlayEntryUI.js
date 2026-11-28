@@ -438,7 +438,8 @@ export function _autoLowerGraphics(game, msPerFrame, now) {
   game._applyGraphicsLevel(level)
   s.graphicsLevelAuto = true
   saveSettings(s)
-  game.buildMode.survival._message?.(t('gfxAutoLowered', { level: t(`gfxLevel${level.charAt(0).toUpperCase()}${level.slice(1)}`) }), 5)
+  // Quietly in the Training Ground: the note covered its tips (2026-11-27).
+  if (!game.buildMode.survival.training) game.buildMode.survival._message?.(t('gfxAutoLowered', { level: t(`gfxLevel${level.charAt(0).toUpperCase()}${level.slice(1)}`) }), 5)
   return true
 }
 

@@ -3780,14 +3780,17 @@ export class BuildSurvival {
     const td = this.td ? (won ? 'tdWin' : 'tdLost') : this.escape && won ? 'escapeWin' : this.training && won ? (this.training.firstFinish ? 'trainingWin' : 'trainingAgain') : ''
     this._showSpeedrunResult()
     set('build-play-over-title', t(extracted ? 'extractionWinTitle' : zoned ? 'zoneWinTitle' : td ? `${td}Title` : won ? 'buildPlayOverWinTitle' : 'buildPlayOverTitle'))
-    set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills }))
+    // Training: the coins its steps paid, plus what skipped ones still hold.
+    const trainLeft = this.training && won && this.training.coinsLeft > 0 ? ` ${t('trainingCoinsLeft', { n: this.training.coinsLeft })}` : ''
+    set('build-play-over-text', t(extracted ? 'extractionWinText' : zoned ? 'zoneWinText' : td ? `${td}Text` : won ? 'buildPlayOverWinText' : 'buildPlayOverText', { waves: td === 'tdLost' ? Math.max(1, this.wave) : waves, kills: this.kills, n: this.training?.coinsEarned || 0 }) + trainLeft)
     // Couch Co-op's equal Player 2 (a guest): their game, shown not saved.
     const p2Line = document.getElementById('build-play-over-p2')
     if (p2Line) {
       p2Line.hidden = !this.couch?.gear
       p2Line.textContent = this.couch?.gear?.resultsLine() || ''
     }
-    set('build-play-over-best', `${t('buildPlayOverBest', { n: best })}${reward?.legacy ? ` · ${t('buildPlayOverLegacy', { n: reward.legacy })}` : ''}${reward?.xp ? ` · ${t('buildPlayOverXp', { n: reward.xp })}` : ''}`)
+    // Training has no waves: "Most waves on this map: 0" only confused (2026-11-27).
+    set('build-play-over-best', [this.training ? '' : t('buildPlayOverBest', { n: best }), reward?.legacy ? t('buildPlayOverLegacy', { n: reward.legacy }) : '', reward?.xp ? t('buildPlayOverXp', { n: reward.xp }) : ''].filter(Boolean).join(' · '))
     // Dying: the run goes on from a fresh spawn or you leave, so say that
     // A silly line about who got you (DeathJokes.js) - a zombie that bit
     // you in the last few seconds, or a "nobody did it" one.

@@ -2100,6 +2100,8 @@ body.touch-play-on #play-ring-bar { z-index: 18; }
 #play-ring-bar .ring-slot-empty { border-style: dashed; opacity: 0.7; }
 /* The ring tutorial (RingTutorial.js): one tip at a time at the top, above
    the Ring Bag so the "pick an item" step still reads while it's open. */
+/* No chat box in the Training Ground: it read as part of the lesson (2026-11-27). */
+body.training-on #chat-panel { display: none !important; }
 #play-ring-tutorial, #play-training-tip {
   position: fixed; left: 50%; top: 86px; transform: translateX(-50%);
   z-index: 22; pointer-events: none; display: flex; align-items: center; gap: 12px;
