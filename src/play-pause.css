@@ -1419,6 +1419,42 @@ html.ui-theme-biome #bb-vote button { background: var(--biome-surface); border-c
 html.ui-theme-biome #bb-vote button.on { color: var(--biome-accent); }
 html.ui-theme-clean #bb-vote { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
 
+/* Mode voting on a party round's end screen (PartyVote.js): three buttons,
+   each the same size whatever the mode's name. */
+#party-vote {
+  position: fixed; left: 50%; bottom: 150px; z-index: 18; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 14px;
+  width: min(560px, calc(100vw - 32px)); box-sizing: border-box;
+  font: 600 14px/1.3 system-ui, sans-serif; color: #f4ead2;
+  background: rgba(8, 8, 7, 0.85); border: 1px solid rgba(var(--ui-gold-accent-rgb), 0.55); border-radius: 10px;
+}
+#party-vote .party-vote-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; width: 100%; }
+#party-vote button {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 72px; padding: 6px; font: 700 13px/1.2 system-ui, sans-serif; color: inherit;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px;
+  cursor: pointer; touch-action: none; overflow-wrap: anywhere;
+}
+#party-vote .party-vote-key { font-size: 11px; opacity: 0.6; }
+#party-vote .party-vote-count { font-weight: 500; font-size: 12px; opacity: 0.8; }
+#party-vote button.on { border-color: #ffd23f; box-shadow: inset 0 0 0 1px #ffd23f; }
+body.play-photo #party-vote { display: none; }
+html.ui-theme-biome #party-vote { color: var(--biome-ink); background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #party-vote button { background: var(--biome-surface); border-color: var(--biome-edge); }
+html.ui-theme-biome #party-vote button.on { border-color: var(--biome-accent); box-shadow: inset 0 0 0 1px var(--biome-accent); }
+html.ui-theme-clean #party-vote { color: var(--clean-bg); background: var(--clean-fg); border-color: var(--clean-fg); }
+html.ui-theme-clean #party-vote button { border-color: var(--clean-bg); }
+html.ui-theme-clean #party-vote button.on { box-shadow: inset 0 0 0 2px var(--clean-bg); }
+/* Touch screens: higher up, clear of the touch buttons at the bottom. */
+@media (pointer: coarse) {
+  #party-vote { bottom: auto; top: clamp(110px, 32vh, 260px); }
+  #party-vote .party-vote-key { display: none; }
+}
+/* A phone on its side: narrower, so the touch buttons on both sides stay clear. */
+@media (pointer: coarse) and (max-height: 500px) {
+  #party-vote { width: min(400px, calc(100vw - 32px)); top: 76px; }
+}
+
 /* The Haunted House's jump scare (HauntedHouse.js): a ghost face rushes at
    the screen and fades. Pointer events pass through. */
 #haunt-scare {

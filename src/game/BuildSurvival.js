@@ -123,6 +123,7 @@ import { Vehicles } from './Vehicles.js'
 import { ShrinkZone } from './ShrinkZone.js'
 import { Speedrun, SPEEDRUN_WAVES } from './Speedrun.js'
 import { PartyMode, PARTY_MODES, PARTY_SERVER_MODES } from './PartyModes.js'
+import { voteModes } from './PartyVote.js'
 import { dungeonAt, inBossRoom } from './Dungeons.js'
 import { HEAVEN_FLOOR, HEAVEN_TOP } from './HeavenRealm.js'
 import { passport } from './Passport.js'
@@ -3164,6 +3165,33 @@ export class BuildSurvival {
   }
 
   // Top of the first solid block at or below (x, y, z), in blocks.
+  // Mode voting (PartyVote.js): the next round is another party mode. The
+  // host's own vote picks it; a guest follows the host's sync (PlayNet).
+  // Out of a sky arena into a ground mode: back down onto the ground.
+  switchPartyMode(kind) {
+    const old = this.party
+    const pool = voteModes(PARTY_MODES)
+    if (!old || old.kind === kind || !pool.includes(kind) || !pool.includes(old.kind)) return
+    const wasSky = old.sky
+    old.dispose()
+    this.cfg.mode = kind
+    this.party = new PartyMode(this, kind)
+    const tm = this.bm.tryMode
+    if (wasSky && !this.party.sky) {
+      const x = tm.pos.x
+      const z = tm.pos.z
+      let y = null
+      for (let cy = 160; cy > -100 && y === null; cy--) {
+        const top = this.bm._cellSolidTop(Math.floor(x), cy, Math.floor(z))
+        if (top > 0) y = cy + top
+      }
+      tm.pos.set(x, (y ?? 80) + 0.05, z)
+      tm.vel?.set(0, 0, 0)
+      this.bm.camera.position.set(x * this.B, (tm.pos.y + 1.62) * this.B, z * this.B)
+    }
+    this.party.stage()
+  }
+
   _groundUnder(x, y, z) {
     const cx = Math.floor(x)
     const cz = Math.floor(z)
@@ -3878,6 +3906,7 @@ export class BuildSurvival {
     this.infection?.update(dt)
     this.speedrun?.update(dt)
     this.party?.update(dt)
+    if (this.party?.switchTo) this.switchPartyMode(this.party.switchTo)
     this.zone?.update(dt)
     this.td?.update(dt)
     this.escape?.update(dt)
@@ -4471,7 +4500,7 @@ export class BuildSurvival {
       }
       // Paint Wars' splats, Build Battle's stars, Prop Hunt's disguises,
       // Tug of War's pulls and Duel Arena / Deathmatch hits (PartyModes.js).
-      if (/^[pvqud]/.test(String(h.id))) {
+      if (/^[pvqudn]/.test(String(h.id))) {
         this.party?.remoteHit(h)
         continue
       }

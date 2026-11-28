@@ -72,6 +72,11 @@ export const JOIN_GRACE_MS = 90000
 export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'dm', 'tdm', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug', 'td']
 const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', dm: 'deathmatch', tdm: 'teamDeathmatch', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt', tug: 'tugOfWar' }
 const ESCAPE_MODES = ['escape', 'escapeSolo']
+// Mode voting (src/game/PartyVote.js): a party server whose host's round
+// moved on to another of these modes takes that mode. Not Deathmatch, Team
+// Deathmatch, Duel or the Obstacle Course (own maps, own server tabs).
+const VOTE_CODES = new Set(Object.keys(PARTY_KINDS).filter((c) => !['dm', 'tdm', 'duel', 'parkour'].includes(c)))
+const PARTY_CODES = Object.fromEntries(Object.entries(PARTY_KINDS).map(([c, k]) => [k, c]))
 const NAME_MAX = 24
 const NICK_MAX = 20
 const MAX_ZOMBIES = 40
@@ -526,6 +531,8 @@ function cleanParty(v, kind) {
     vi: Math.round(num(v.vi, 0, 40)),
     pl: Object.fromEntries(obj(v.pl).filter(([k]) => id(k)).map(([k, n]) => [k, Math.round(num(n, 0, 7))])),
     x: cleanPartyExt(v.x),
+    // Mode voting: three PARTY_MODES indexes, then three vote counts.
+    nv: Array.isArray(v.nv) && v.nv.length === 6 ? v.nv.map((n) => Math.round(num(n, 0, 99))) : [],
   }
 }
 
@@ -831,7 +838,10 @@ export async function syncServer(db, body = {}, now = Date.now()) {
     if (body.ufo !== undefined) updates[`${base}/ufo`] = cleanUfo(body.ufo)
     const esc = ESCAPE_MODES.includes(server.mode) ? cleanEsc(body.esc) : null
     if (esc) updates[`${base}/esc`] = esc
-    const party = PARTY_KINDS[server.mode] ? cleanParty(body.party, PARTY_KINDS[server.mode]) : null
+    const voted = VOTE_CODES.has(server.mode) && body.party && typeof body.party === 'object' ? PARTY_CODES[body.party.k] : null
+    const partyMode = voted && VOTE_CODES.has(voted) ? voted : server.mode
+    if (partyMode !== server.mode) updates[`${base}/mode`] = partyMode
+    const party = PARTY_KINDS[partyMode] ? cleanParty(body.party, PARTY_KINDS[partyMode]) : null
     if (party) updates[`${base}/party`] = party
     if (body.animals && typeof body.animals === 'object') {
       const as = {}
@@ -887,7 +897,8 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // knock-out / day vote (w + who, dmg 1 = knock out, 2 = vote).
       // s / q (Prop Hunt): a find (s + who) or a new disguise (q + prop).
       // u (Tug of War): how many times they pulled (u + count).
-      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (['duel', 'dm', 'tdm'].includes(server.mode) && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'tug' && /^u\d{1,2}$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
+      // n: a vote for the next party mode (n + PARTY_MODES index, PartyVote.js).
+      if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (['duel', 'dm', 'tdm'].includes(server.mode) && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'tug' && /^u\d{1,2}$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (VOTE_CODES.has(server.mode) && /^n\d{1,2}$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
       updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}) }
     }
   }
