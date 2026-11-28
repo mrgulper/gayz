@@ -1248,8 +1248,9 @@ export class BuildSurvival {
       seconds: (performance.now() - this._startedAt) / 1000,
       claimed: (this.shop?.quests || []).filter((q) => q.claimed).map((q) => q.id),
       perks: this.perks?.serialize() || {},
-      pos: { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
-      yaw: this.bm._yaw,
+      // (Mid pet race: where you'll be back at, not the sky track.)
+      pos: this.camp?.race?.home() || { x: tm.pos.x, y: tm.pos.y, z: tm.pos.z },
+      yaw: this.camp?.race?.home()?.yaw ?? this.bm._yaw,
       seed: this.bm.world?.active ? worldSeed() : null,
     }
     try {

@@ -1606,6 +1606,30 @@ html.ui-theme-clean #camp-screen .camp-screen-btn { color: var(--clean-fg); back
 #camp-screen .diner-dishes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; }
 #camp-screen .diner-dish { min-height: 44px; padding: 6px 10px; font: inherit; font-weight: 700; color: inherit; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 40%, transparent); border-radius: 999px; cursor: pointer; }
 #camp-screen .diner-dish:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+/* Pet Races (CampRace.js): pick a racer, then the six racers with their odds and the bet. */
+#camp-screen .race-pets { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 8px; width: 100%; max-height: 52vh; overflow-y: auto; }
+#camp-screen :is(.race-pet, .race-row, .race-amount) { font: inherit; color: inherit; background: color-mix(in srgb, currentColor 10%, transparent); border: 1px solid color-mix(in srgb, currentColor 40%, transparent); cursor: pointer; }
+#camp-screen :is(.race-pet, .race-row, .race-amount):hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+#camp-screen .race-pet { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; border-radius: 10px; }
+#camp-screen :is(.race-pet, .race-row) img { width: 40px; height: 40px; image-rendering: pixelated; flex: none; }
+#camp-screen .race-pet-name { font-weight: 700; text-align: center; overflow-wrap: anywhere; }
+#camp-screen :is(.race-pet-lv, .race-row-lv) { font-size: 12px; opacity: 0.8; }
+#camp-screen .race-rows { display: flex; flex-direction: column; gap: 6px; width: 100%; }
+#camp-screen .race-row { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 4px 14px 4px 8px; border-radius: 999px; text-align: left; }
+#camp-screen .race-row-name { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#camp-screen .race-row-name em { font-style: normal; font-weight: 400; opacity: 0.8; }
+#camp-screen .race-row-odds { min-width: 48px; text-align: right; color: #ffd23f; }
+#camp-screen :is(.race-row, .race-amount).pick { background: rgba(255, 210, 63, 0.28); border-color: #ffd23f; box-shadow: 0 0 0 1px #ffd23f; }
+#camp-screen .race-amounts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; width: 100%; }
+#camp-screen .race-amount { min-width: 64px; min-height: 40px; padding: 4px 14px; font-weight: 700; border-radius: 999px; }
+#camp-screen .race-custom { width: 110px; min-height: 40px; box-sizing: border-box; text-align: center; border-radius: 999px; }
+#camp-screen .race-btns { display: flex; gap: 8px; justify-content: center; }
+#pet-race-cheer {
+  position: fixed; left: 50%; top: calc(50% + 84px); transform: translateX(-50%); z-index: 18;
+  min-width: 140px; min-height: 48px; padding: 8px 26px; font: 800 18px/1 system-ui, sans-serif;
+  color: #16110a; background: #ffd23f; border: 2px solid rgba(0, 0, 0, 0.35); border-radius: 999px; cursor: pointer; touch-action: manipulation;
+}
+#pet-race-cheer:active { transform: translateX(-50%) scale(0.95); }
 @media (max-width: 480px) {
   #camp-screen .bingo-cell { min-height: 54px; font-size: 10px; padding: 3px 2px; }
   #camp-screen .bingo-prog { font-size: 10px; }
