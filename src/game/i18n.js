@@ -67,6 +67,10 @@ import bugnetEn from './i18n/bugnet-en.js'
 import bugnetZh from './i18n/bugnet-zh.js'
 import bugnetHi from './i18n/bugnet-hi.js'
 import bugnetEs from './i18n/bugnet-es.js'
+import grappleEn from './i18n/grapple-en.js'
+import grappleZh from './i18n/grapple-zh.js'
+import grappleHi from './i18n/grapple-hi.js'
+import grappleEs from './i18n/grapple-es.js'
 import shrinkEn from './i18n/shrink-en.js'
 import shrinkZh from './i18n/shrink-zh.js'
 import shrinkHi from './i18n/shrink-hi.js'
@@ -160,6 +164,10 @@ Object.assign(en, bugnetEn)
 Object.assign(zh, bugnetZh)
 Object.assign(hi, bugnetHi)
 Object.assign(es, bugnetEs)
+Object.assign(en, grappleEn)
+Object.assign(zh, grappleZh)
+Object.assign(hi, grappleHi)
+Object.assign(es, grappleEs)
 Object.assign(en, shrinkEn)
 Object.assign(zh, shrinkZh)
 Object.assign(hi, shrinkHi)

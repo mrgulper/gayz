@@ -30,6 +30,7 @@ import { ammoFor } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
 import { NET_COST, jarsIn, sellJars } from './BugNet.js'
+import { HOOK_COST } from './Grapple.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { tune } from './LiveConfig.js'
 import { audioEngine } from './Audio.js'
@@ -54,6 +55,8 @@ export const SHOP_ITEMS = [
   { id: 'fishingRod', cost: ROD_COST, item: 'fishingRod' },
   // The Bug Net (BugNet.js) - Player 1's only (not Couch Co-op's shop).
   { id: 'bugNet', cost: NET_COST, item: 'bugNet', p1Only: true },
+  // The Grappling Hook (Grapple.js).
+  { id: 'grappleHook', cost: HOOK_COST, item: 'grappleHook' },
 ]
 // Trap packs (SpecialBlocks.js blocks): [block, how many, coins].
 export const SHOP_TRAPS = [

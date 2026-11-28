@@ -55,6 +55,8 @@ export const RECIPES = [
   { id: 'jetFuel', kind: 'item', n: 1, needs: [{ item: 'zombieGoo', n: 2 }] },
   // Bug Net (BugNet.js, 2026-11-27): also sold in the Shop.
   { id: 'bugNet', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 3 }, { group: 'log', n: 1 }] },
+  // Grappling Hook (Grapple.js, 2026-11-28): rope + a stone hook. Also sold in the Shop.
+  { id: 'grappleHook', kind: 'item', n: 1, needs: [{ item: 'plantFiber', n: 4 }, { group: 'stone', n: 3 }] },
   { id: 'metalDetector', kind: 'item', n: 1, needs: [{ group: 'stone', n: 6 }, { block: 'glass', n: 1 }, { item: 'zombieGoo', n: 1 }] },
   // Treasure Maps and Kites (TreasureMaps.js, Kites.js, 2026-11-02).
   { id: 'treasureMap', kind: 'item', n: 1, needs: [{ item: 'mapPiece', n: 3 }] },

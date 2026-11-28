@@ -149,6 +149,7 @@ import { Wingsuit } from './Wingsuit.js'
 import { Hunger } from './Hunger.js'
 import { noteBoss } from './CampMuseum.js'
 import { WaterGun, SOAK_SLOW } from './WaterGun.js'
+import { Grapple } from './Grapple.js'
 import { ShrinkRay, shrunkBite, shrunkHurt, CHEST_CHANCE as SHRINK_CHEST_CHANCE } from './ShrinkRay.js'
 import { closeScreen as closeCampScreen } from './CampScreen.js'
 import { RunPerks, perksFor } from './RunPerks.js'
@@ -676,6 +677,9 @@ export class BuildSurvival {
     // The Shrink Ray (ShrinkRay.js, 2026-11-27).
     if (!this.shrinkRay) this.shrinkRay = new ShrinkRay(this)
     this.shrinkRay.clear()
+    // The Grappling Hook (Grapple.js, 2026-11-28).
+    if (!this.grapple) this.grapple = new Grapple(this)
+    this.grapple.clear()
     // The Wingsuit (Wingsuit.js).
     if (!this.wing) this.wing = new Wingsuit(this)
     this.wing.clear()
@@ -951,6 +955,7 @@ export class BuildSurvival {
     this.pet?.clear()
     this.water?.clear()
     this.shrinkRay?.clear()
+    this.grapple?.clear()
     this.wing?.clear()
     this.hunger?.clear()
     closeCampScreen(false)
@@ -3945,6 +3950,7 @@ export class BuildSurvival {
     this.leaders?.update(Math.min(dt, 0.1))
     this.water?.update(Math.min(dt, 0.1))
     this.shrinkRay?.update(Math.min(dt, 0.1))
+    this.grapple?.update(Math.min(dt, 0.1))
     this.wing?.update(Math.min(dt, 0.1))
     this.park?.update(Math.min(dt, 0.1))
     this.time?.update(Math.min(dt, 0.1))
