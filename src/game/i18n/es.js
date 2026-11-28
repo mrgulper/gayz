@@ -818,6 +818,7 @@ export default {
   shopGroupLooks: 'Estilo',
   shopGroupFx: 'Efectos y sonidos',
   shopGroupProfile: 'Mascotas y perfil',
+  shopGroupGems: 'Gemas',
   metaCoinDamage: 'Balas Forjadas en Monedas (+10% daño)',
   metaCoinHealth: 'Reserva de Vitalidad (+25 salud máxima)',
   actionInspectWeapon: 'Inspeccionar arma',

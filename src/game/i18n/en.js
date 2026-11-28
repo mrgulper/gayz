@@ -844,6 +844,7 @@ export default {
   shopGroupLooks: 'Looks',
   shopGroupFx: 'Effects & Sounds',
   shopGroupProfile: 'Pets & Profile',
+  shopGroupGems: 'Gems',
   metaCoinDamage: 'Coin-Forged Rounds (+10% damage)',
   metaCoinHealth: 'Vitality Cache (+25 max health)',
   tabControls: 'Controls',

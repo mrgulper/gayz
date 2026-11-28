@@ -1291,6 +1291,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'shop-group-looks': 'shopGroupLooks',
   'shop-group-fx': 'shopGroupFx',
   'shop-group-profile': 'shopGroupProfile',
+  'shop-group-gems': 'shopGroupGems',
   'skip-to-play-link': 'skipToPlayLink',
   'build-menu-hint': 'buildMenuHint',
   'build-menu-title-main': 'buildMenuTitle',

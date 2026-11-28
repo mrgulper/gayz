@@ -665,3 +665,18 @@ html.ui-theme-clean .shop-identity-card { border-style: solid !important; }
 @media (prefers-reduced-motion: reduce) {
   .nstyle, .pframe-fireFrame, .pframe-rainbowFrame, .pframe-rainbowFrame > * { animation: none !important; }
 }
+
+/* Shop > Gems (2026-11-28, ShopGems.js): gem packs share the Name & ID
+   card look; only the width differs so 5 fit in a row on a big screen. */
+.shop-gem-card { width: 150px; }
+.shop-gem-price { font-size: 16px; }
+#shop-gems-note {
+  margin: 4px 0 0;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.8;
+}
+@media (max-width: 700px) {
+  .shop-gem-card { width: calc(50% - 7px); }
+}
