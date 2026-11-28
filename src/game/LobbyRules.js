@@ -26,7 +26,7 @@ export const LOBBY_PICKS = {
 // The modes a custom lobby can be (the server's own mode ids). Zombie
 // modes first, then the party games.
 export const LOBBY_ZOMBIE_MODES = ['main', 'zone', 'td', 'infection']
-export const LOBBY_PARTY_MODES = ['hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'dm', 'tdm', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug']
+export const LOBBY_PARTY_MODES = ['hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'dm', 'tdm', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug', 'quiz']
 // Modes where the ring (instead of guns) is a choice: the ones with waves.
 export const LOBBY_RING_MODES = ['main', 'zone', 'td']
 

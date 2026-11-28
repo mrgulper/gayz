@@ -67,10 +67,10 @@ export const JOIN_GRACE_MS = 90000
 // main: Zombie Survival; infection: Infection mode (src/game/Infection.js);
 // zone: Shrinking Zone (src/game/ShrinkZone.js).
 // td: Tower Defense (src/game/TowerDefense.js).
-// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / dm / golf / freeze / bomb / werewolf / dodge / chairs / simon / prop / tug: the party modes (src/game/PartyModes.js).
+// hide / ctf / koth / soccer / potato / bowling / paint / build / lava / laser / kart / parkour / duel / dm / golf / freeze / bomb / werewolf / dodge / chairs / simon / prop / tug / quiz: the party modes (src/game/PartyModes.js).
 // escape / escapeSolo: Escape Rooms as a team, and Escape Race (src/game/EscapeRooms.js).
-export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'dm', 'tdm', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug', 'td']
-const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', dm: 'deathmatch', tdm: 'teamDeathmatch', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt', tug: 'tugOfWar' }
+export const MODES = ['main', 'infection', 'zone', 'escape', 'escapeSolo', 'hide', 'ctf', 'koth', 'soccer', 'potato', 'bowling', 'paint', 'build', 'lava', 'laser', 'kart', 'parkour', 'duel', 'dm', 'tdm', 'golf', 'freeze', 'bomb', 'werewolf', 'dodge', 'chairs', 'simon', 'prop', 'tug', 'quiz', 'td']
+const PARTY_KINDS = { hide: 'hideSeek', ctf: 'captureFlag', koth: 'kingHill', soccer: 'zombieSoccer', potato: 'hotPotato', bowling: 'zombieBowling', paint: 'paintWars', build: 'buildBattle', lava: 'floorLava', laser: 'laserTag', kart: 'kartRace', parkour: 'obstacleCourse', duel: 'duelArena', dm: 'deathmatch', tdm: 'teamDeathmatch', golf: 'miniGolf', freeze: 'freezeTag', bomb: 'bombDefuse', werewolf: 'werewolfNight', dodge: 'dodgeball', chairs: 'musicalChairs', simon: 'simonSays', prop: 'propHunt', tug: 'tugOfWar', quiz: 'quizShow' }
 const ESCAPE_MODES = ['escape', 'escapeSolo']
 // Mode voting (src/game/PartyVote.js): a party server whose host's round
 // moved on to another of these modes takes that mode. Not Deathmatch, Team

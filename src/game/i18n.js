@@ -75,6 +75,10 @@ import shopSkinsEn from './i18n/shopskins-en.js'
 import shopSkinsZh from './i18n/shopskins-zh.js'
 import shopSkinsHi from './i18n/shopskins-hi.js'
 import shopSkinsEs from './i18n/shopskins-es.js'
+import quizEn from './i18n/quiz-en.js'
+import quizZh from './i18n/quiz-zh.js'
+import quizHi from './i18n/quiz-hi.js'
+import quizEs from './i18n/quiz-es.js'
 
 // nameKey points at a languageName* string (see each language's own
 // STRINGS block below) - the Settings > Language grid's bold label reads
@@ -168,6 +172,10 @@ Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)
 Object.assign(es, shopSkinsEs)
+Object.assign(en, quizEn)
+Object.assign(zh, quizZh)
+Object.assign(hi, quizHi)
+Object.assign(es, quizEs)
 Object.assign(en, stepsEn)
 Object.assign(zh, stepsZh)
 Object.assign(hi, stepsHi)
