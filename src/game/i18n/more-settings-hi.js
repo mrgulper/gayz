@@ -114,6 +114,8 @@ export default {
   hudClockOpt_game: "गेम का समय",
   showCoordsLabel: "निर्देशांक दिखाएँ",
   showCoordsInfoText: "कोने के नक्शे के नीचे दिखाता है कि आप कहाँ हैं: X (पूर्व), Y (ऊँचाई), Z (दक्षिण)। दोस्तों को मिलने की जगह बताने में काम आता है।",
+  topBarTechLabel: "ऊपर की पट्टी में तकनीकी जानकारी",
+  topBarTechInfoText: "खेल के दौरान ऊपर की पट्टी में FPS, ms, आपके निर्देशांक और आपकी ग्राफ़िक्स चिप दिखाता है।",
   compassBarLabel: "कम्पास बार",
   compassBarInfoText: "स्क्रीन के ऊपर एक कम्पास जो दिखाता है कि आप किस तरफ़ देख रहे हैं।",
   chatOpacityLabel: "चैट की पारदर्शिता",

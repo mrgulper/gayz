@@ -148,10 +148,14 @@ export class TopBar {
     if (!show || now - this._at < REFRESH_MS) return
     this._at = now
     const s = game.settings || {}
-    const perf = s.hudFpsCounter === false || s.streamSafeMode ? 'none' : ''
+    // Settings > Gameplay > Top Bar Tech Info (off on new devices) hides
+    // FPS, ms, coordinates and the chip all together.
+    const tech = s.topBarTech !== false
+    const perf = !tech || s.hudFpsCounter === false || s.streamSafeMode ? 'none' : ''
     this._fpsPart.style.display = perf
     this._ms.parentElement.style.display = perf
     if (this._chip.textContent) this._chip.style.display = perf
+    this._xyz.style.display = tech ? '' : 'none'
     const play = bm.survival?.active
     const mode = play ? t(MODE_KEYS[bm.survival.cfg?.mode] || 'topBarModeClassic') : bm.tryMode?.active ? t('topBarModeTry') : t('topBarModeEditor')
     if (mode !== this._text.mode) this._mode.textContent = this._text.mode = mode

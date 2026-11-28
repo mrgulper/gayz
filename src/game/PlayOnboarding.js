@@ -159,6 +159,12 @@ export class PlayOnboarding {
     this._hintLeft = HINT_S
   }
 
+  // The controls hint is still to come or still up: big messages wait
+  // (BuildSurvival._message).
+  hintBusy() {
+    return this.active && (!this._hintShown || this._hintLeft > 0)
+  }
+
   // You died: the hint goes with the HUD (the update stops while dead).
   onDeath() {
     this._hideHint(true)

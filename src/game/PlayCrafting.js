@@ -148,6 +148,7 @@ export class PlayCrafting {
     }
     inv.s._message(t('craftMade', { n: r.n, item: this.name(r) }))
     inv.s.bingo?.note('craft')
+    inv.s.firstSteps?.done('craft')
     inv.apply()
     return true
   }

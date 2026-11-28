@@ -480,7 +480,10 @@ export class PlayShop {
         // No room: the coins back.
         s.coins += this._price(item)
         s._message(t('invFull'))
-      } else s._coinStat?.('campOut', 'items', this._price(item))
+      } else {
+        s._coinStat?.('campOut', 'items', this._price(item))
+        s.firstSteps?.done('shop')
+      }
     } else if (act === 'trap') {
       const trap = [...SHOP_TRAPS, ...(s.td ? SHOP_TOWERS : [])].find((x) => x.id === id)
       if (!trap || s.coins < this._price(trap)) return
@@ -490,6 +493,7 @@ export class PlayShop {
       else {
         s.coins -= this._price(trap)
         s._coinStat?.('campOut', 'traps', this._price(trap))
+        s.firstSteps?.done('shop')
         try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       }
     } else if (act === 'upgrade') {
@@ -498,6 +502,7 @@ export class PlayShop {
       if (!up || level >= up.costs.length || s.coins < this._upCost(up, level)) return
       s.coins -= this._upCost(up, level)
       s._coinStat?.('campOut', 'upgrades', this._upCost(up, level))
+      s.firstSteps?.done('shop')
       try { audioEngine.playUi?.('buy') } catch { /* no audio */ }
       s.upgrades[id] = level + 1
       if (id === 'mag') s.mag = Math.min(s.mag, s.magSize())

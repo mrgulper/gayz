@@ -36,25 +36,37 @@ export function needsBuyConfirm(settings, price) {
 
 export const HELP_TIP_COUNT = 12
 
-function helpTip() {
+// The tips a brand-new player needs first (Shop, Loot Chests, reload, Goo).
+// Phones have no keys, so there only the tips that name none (Goo, Dr. Goo).
+const STARTER_TIPS = [1, 2, 3, 5]
+const STARTER_TIPS_TOUCH = [5, 6]
+// (Same check as BuildTouch.isTouchDevice - not imported, this file stays light.)
+const touch = () => typeof window !== 'undefined' && !!window.matchMedia?.('(hover: none) and (pointer: coarse)').matches
+
+function helpTip(starter = false) {
   const k = (a) => keyLabel(getKeyFor(a))
-  return t(`helpTip${1 + Math.floor(Math.random() * HELP_TIP_COUNT)}`, {
+  const list = starter ? (touch() ? STARTER_TIPS_TOUCH : STARTER_TIPS) : null
+  const n = list ? list[Math.floor(Math.random() * list.length)] : 1 + Math.floor(Math.random() * HELP_TIP_COUNT)
+  return t(`helpTip${n}`, {
     shop: k('shop'), use: k('use'), reload: k('reload'), drop: k('dropItem'), camera: k('cameraView'),
     run: k('autoRun'), bingo: k('bingo'), emote: k('emote'),
   })
 }
 
-// A tip for the settings' choice, or '' with tips off.
-export function gameTip(settings) {
+// A tip for the settings' choice, or '' with tips off. first: a new
+// player's first game - always a helpful starter tip (2026-11-27
+// check-up: "Tip: the cow has seen things" taught a new player nothing).
+export function gameTip(settings, first = false) {
   const mode = settings?.gameTips || 'silly'
   if (mode === 'off') return ''
+  if (first) return helpTip(true)
   if (mode === 'silly' || (mode === 'both' && Math.random() < 0.5)) return sillyTip()
   return helpTip()
 }
 
 // The fade into a game (PlayEntryUI._fadeScreen): a tip in the middle of
 // the black, gone with it.
-export function fadeTip(el, settings) {
+export function fadeTip(el, settings, first = false) {
   if (!el) return
   let line = el.querySelector('.play-fade-tip')
   if (!line) {
@@ -62,7 +74,7 @@ export function fadeTip(el, settings) {
     line.className = 'play-fade-tip'
     el.appendChild(line)
   }
-  line.textContent = gameTip(settings)
+  line.textContent = gameTip(settings, first)
 }
 
 // ---------- Hints (58, 62) ----------

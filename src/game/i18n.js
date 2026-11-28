@@ -51,6 +51,10 @@ import raceEn from './i18n/race-en.js'
 import raceZh from './i18n/race-zh.js'
 import raceHi from './i18n/race-hi.js'
 import raceEs from './i18n/race-es.js'
+import stepsEn from './i18n/steps-en.js'
+import stepsZh from './i18n/steps-zh.js'
+import stepsHi from './i18n/steps-hi.js'
+import stepsEs from './i18n/steps-es.js'
 import standEn from './i18n/stand-en.js'
 import standZh from './i18n/stand-zh.js'
 import standHi from './i18n/stand-hi.js'
@@ -164,6 +168,10 @@ Object.assign(en, shopSkinsEn)
 Object.assign(zh, shopSkinsZh)
 Object.assign(hi, shopSkinsHi)
 Object.assign(es, shopSkinsEs)
+Object.assign(en, stepsEn)
+Object.assign(zh, stepsZh)
+Object.assign(hi, stepsHi)
+Object.assign(es, stepsEs)
 const STRINGS = { en, zh, hi, es, fr, ru, id, de, ja, vi }
 
 // Read by scripts/check-docs.mjs (typed key letters) - not used at runtime.

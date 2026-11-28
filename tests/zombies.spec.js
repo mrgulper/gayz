@@ -724,6 +724,11 @@ test('Zombie Book: meeting a new kind of zombie pays once and fills its page', a
     const s = g.buildMode.survival
     for (let i = 0; i < 100 && !s.active; i++) await new Promise((res) => setTimeout(res, 100))
     s._pickWeapon('rifle')
+    // (A first game's big messages wait while the controls hint is up -
+    // close it so this test reads its own message.)
+    s.onboard._hintShown = true
+    s.onboard._hideHint(true)
+    s._msgQueue.length = 0
     const coins = g.coins
     const p = s.bodyPos()
     s._makeZombie(9001, p.x + 5, p.y, p.z, 50, false, 'brute')
