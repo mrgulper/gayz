@@ -2069,7 +2069,7 @@ test('Prop Hunt, bikes and hoverboards, finds and ghost teammates', async ({ pag
 
 // Names of big real places, pyramids and castles only where real ones are,
 // and towns sized to their country (World Map mode).
-test('the Zombie Blimp, Zombie Bingo, Pizza Delivery and Tug of War', async ({ page }) => {
+test('the Zombie Blimp, Zombie Bingo, Pizza Delivery, Tug of War and Quiz Show', async ({ page }) => {
   await gotoAndWaitForGame(page)
   const r = await page.evaluate(async () => {
     const g = window.__game
@@ -2163,6 +2163,43 @@ test('the Zombie Blimp, Zombie Bingo, Pizza Delivery and Tug of War', async ({ p
     out.tugRedWins = pm.phase === 'end' && pm.winner === 'r' && T.rope <= -5
     out.tugSnap = JSON.parse(JSON.stringify(pm.snapshot())).x.ur <= -5
     await stop()
+    // --- Quiz Show: pads, a question, points for the right pad, 10 and done ---
+    s = await start('quizShow')
+    const qm = s.party
+    for (let i = 0; i < 200 && qm.phase === 'wait'; i++) qm.update(0.05)
+    const Q = qm.ext
+    out.quizPlay = qm.phase === 'play' && Q.sub === 'ready' && Q.picks.length === 10
+    const qh = qm.home
+    out.quizPads = Q.padAt(qh.x - 6, qh.z - 6) === 'red' && Q.padAt(qh.x + 6, qh.z + 6) === 'yellow' && Q.padAt(qh.x, qh.z) === '' && s.bm.getBlockAt(qh.x - 6, 205, qh.z - 6) === 'redwool'
+    Q.subLeft = 0
+    qm.update(0.05)
+    out.quizAsk = Q.sub === 'ask' && Q.n === 1 && Q.answerOn(Q.rightPad) === Q.current.answers[0]
+    const card = document.getElementById('quiz-card')
+    out.quizCard = !!card && card.style.display !== 'none' && card.querySelectorAll('.quiz-a').length === 4 && card.querySelector('.quiz-q').textContent.length > 3
+    out.quizSigns = Q._signs.length === 4 && Q._signs.every((sp) => sp.visible)
+    // Me on the right pad from the start: full points plus the speed bonus.
+    const rp = Q.padMiddle(Q.rightPad)
+    s.bm.tryMode.pos.set(rp.x, 206, rp.z)
+    Q.track.set(qm.myId, { pad: Q.rightPad, at: 14 })
+    Q.subLeft = 0.01
+    qm.update(0.05)
+    out.quizScored = Q.sub === 'reveal' && qm.score[qm.myId] === 150 && Q.gain[qm.myId] === 150
+    out.quizResult = card.querySelector('.quiz-result').classList.contains('good') && card.querySelectorAll('.quiz-a.dim').length === 3
+    // A guest gets the same question and order from the sync.
+    const qsnap = JSON.parse(JSON.stringify(qm.snapshot())).x
+    const order0 = Q.order.join('')
+    Q.apply({ ...qsnap, qo: '0123' })
+    out.quizApplyOrder = Q.order.join('') === '0123'
+    Q.apply(qsnap)
+    out.quizApply = Q.order.join('') === order0 && Q.n === 1 && Q.sub === 'reveal'
+    // Run through the rest: 10 questions, then the round ends.
+    for (let i = 0; i < 2000 && qm.phase === 'play'; i++) {
+      Q.subLeft = Math.min(Q.subLeft, 0.01)
+      qm.update(0.05)
+    }
+    out.quizDone = qm.phase === 'end' && Q.n === 10
+    await stop()
+    out.quizCardGone = !document.getElementById('quiz-card')
     return out
   })
   expect(Object.keys(r).filter((k) => r[k] !== true)).toEqual([])

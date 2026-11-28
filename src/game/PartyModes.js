@@ -58,7 +58,8 @@
 // Defuse (PartyBomb.js), Werewolf Night (PartyWerewolf.js); idea list 9
 // (2026-11-09): Prop Hunt (PartyProps.js); idea list 10 (2026-11-09):
 // Tug of War (PartyTug.js); Deathmatch (PartyDeathmatch.js, 2026-11-16)
-// and Team Deathmatch (PartyTeamDeathmatch.js, same day).
+// and Team Deathmatch (PartyTeamDeathmatch.js, same day); Quiz Show
+// (PartyQuiz.js, 2026-11-28).
 // An ext can give: home(me), begin(people, shuffled), run(people, dt),
 // timeUp(), botGoal(b, people), moveBot(b, dt), botsStun, markColor(id),
 // build(), draw(dt), events(was), startText(), hud(), shoot(ray, reach,
@@ -97,17 +98,18 @@ import { PartyChairs } from './PartyChairs.js'
 import { PartySimon } from './PartySimon.js'
 import { PartyProps, HIDE_S as PROP_HIDE_S, SEEK_S as PROP_SEEK_S } from './PartyProps.js'
 import { PartyTug, ROUND as TUG_ROUND } from './PartyTug.js'
+import { PartyQuiz, ROUND as QUIZ_ROUND } from './PartyQuiz.js'
 import { PartyVote, VOTE_S as NEXT_VOTE_S, modeName } from './PartyVote.js'
 
 // The modes that live in their own files (see `this.ext` above).
-const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, deathmatch: PartyDeathmatch, teamDeathmatch: PartyTeamDeathmatch, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon, propHunt: PartyProps, tugOfWar: PartyTug }
-export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'deathmatch', 'teamDeathmatch', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays', 'propHunt', 'tugOfWar']
+const PARTY_EXT = { floorLava: PartyLava, laserTag: PartyLaser, kartRace: PartyKart, obstacleCourse: PartyParkour, duelArena: PartyDuel, deathmatch: PartyDeathmatch, teamDeathmatch: PartyTeamDeathmatch, miniGolf: PartyGolf, freezeTag: PartyFreeze, bombDefuse: PartyBomb, werewolfNight: PartyWerewolf, dodgeball: PartyDodge, musicalChairs: PartyChairs, simonSays: PartySimon, propHunt: PartyProps, tugOfWar: PartyTug, quizShow: PartyQuiz }
+export const PARTY_MODES = ['hideSeek', 'captureFlag', 'kingHill', 'zombieSoccer', 'hotPotato', 'zombieBowling', 'paintWars', 'buildBattle', 'floorLava', 'laserTag', 'kartRace', 'obstacleCourse', 'duelArena', 'deathmatch', 'teamDeathmatch', 'miniGolf', 'freezeTag', 'bombDefuse', 'werewolfNight', 'dodgeball', 'musicalChairs', 'simonSays', 'propHunt', 'tugOfWar', 'quizShow']
 // Each mode's server mode (api/_lib/servers.js MODES).
-export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', deathmatch: 'dm', teamDeathmatch: 'tdm', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf', dodgeball: 'dodge', musicalChairs: 'chairs', simonSays: 'simon', propHunt: 'prop', tugOfWar: 'tug' }
+export const PARTY_SERVER_MODES = { hideSeek: 'hide', captureFlag: 'ctf', kingHill: 'koth', zombieSoccer: 'soccer', hotPotato: 'potato', zombieBowling: 'bowling', paintWars: 'paint', buildBattle: 'build', floorLava: 'lava', laserTag: 'laser', kartRace: 'kart', obstacleCourse: 'parkour', duelArena: 'duel', deathmatch: 'dm', teamDeathmatch: 'tdm', miniGolf: 'golf', freezeTag: 'freeze', bombDefuse: 'bomb', werewolfNight: 'werewolf', dodgeball: 'dodge', musicalChairs: 'chairs', simonSays: 'simon', propHunt: 'prop', tugOfWar: 'tug', quizShow: 'quiz' }
 export const TOTAL = 6
 export const WAIT_S = 8
 export const END_S = 7
-export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, deathmatch: 300, teamDeathmatch: 300, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330, dodgeball: 180, musicalChairs: 300, simonSays: 300, propHunt: PROP_HIDE_S + PROP_SEEK_S, tugOfWar: TUG_ROUND }
+export const ROUND_S = { hideSeek: 150, captureFlag: 300, kingHill: 240, zombieSoccer: 240, hotPotato: 300, zombieBowling: 300, paintWars: 150, buildBattle: 300, floorLava: 240, laserTag: 180, kartRace: 300, obstacleCourse: 420, duelArena: 120, deathmatch: 300, teamDeathmatch: 300, miniGolf: 240, freezeTag: 150, bombDefuse: 150, werewolfNight: 330, dodgeball: 180, musicalChairs: 300, simonSays: 300, propHunt: PROP_HIDE_S + PROP_SEEK_S, tugOfWar: TUG_ROUND, quizShow: QUIZ_ROUND }
 export const HIDE_S = 20
 export const STUN_S = 2.5
 export const FLAG_GAP = 32
