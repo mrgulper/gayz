@@ -29,6 +29,7 @@ import { money } from './SocialSettings.js'
 import { ammoFor } from './PlayWeapons.js'
 import { t } from './i18n.js'
 import { ROD_COST } from './Fishing.js'
+import { NET_COST, jarsIn, sellJars } from './BugNet.js'
 import { needsBuyConfirm } from './GameplayAssist.js'
 import { tune } from './LiveConfig.js'
 import { audioEngine } from './Audio.js'
@@ -51,6 +52,8 @@ export const SHOP_ITEMS = [
   { id: 'ammobox', cost: 25, ammo: 60 },
   // Goes in the inventory (PlayInventory ITEMS).
   { id: 'fishingRod', cost: ROD_COST, item: 'fishingRod' },
+  // The Bug Net (BugNet.js) - Player 1's only (not Couch Co-op's shop).
+  { id: 'bugNet', cost: NET_COST, item: 'bugNet', p1Only: true },
 ]
 // Trap packs (SpecialBlocks.js blocks): [block, how many, coins].
 export const SHOP_TRAPS = [
@@ -257,6 +260,9 @@ export class PlayShop {
         const cost = this._price(item)
         rows.push(row(t(`campItem_${item.id}`), t(`campItem_${item.id}_about`, { n: item.health || item.armor || ammoFor(s.weaponId, item.ammo) }), t('campBuy', { n: cost }), 'buy', item.id, iron || s.coins < cost))
       }
+      // Bug Jars from the Bug Net (BugNet.js) are sold here (Iron Mode too).
+      const jars = jarsIn(s.inv)
+      rows.push(row(t('bugSellTitle'), jars.count ? t('bugSellAbout', { n: jars.count }) : t('bugSellNone'), t('bugSellBtn', { n: Math.round(jars.coins * s._coinMult()) }), 'sellBugs', 'jars', !jars.count))
     } else if (id === 'traps' || id === 'towers') {
       for (const trap of id === 'traps' ? SHOP_TRAPS : SHOP_TOWERS) {
         const cost = this._price(trap)
@@ -501,6 +507,9 @@ export class PlayShop {
       this._ammoReadyAt = now + AMMO_FILL_COOLDOWN
       s.mag = s.magSize()
       s.reserve = Math.max(s.reserve, s.magSize() * 5)
+    } else if (act === 'sellBugs') {
+      const got = sellJars(s)
+      if (got) s._message(t('bugSold', { n: got }), 3)
     } else if (act === 'claim') {
       const q = this.quests.find((x) => x.id === id)
       if (!q || q.claimed || this._statValue(q.stat) < q.goal) return

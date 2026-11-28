@@ -54,7 +54,8 @@ const RIGHT = 15
 
 // What Player 2's shop sells: the Shop's own items (the Fishing Rod too,
 // 2026-11-14 Batch 4c-2c). They go in the Backpack.
-const P2_ITEMS = SHOP_ITEMS
+// (Not the Bug Net: it's Player 1's only, BugNet.js.)
+const P2_ITEMS = SHOP_ITEMS.filter((i) => !i.p1Only)
 // The ones that are used up (A / RT): medkit, armor, ammo box.
 const P2_USE = SHOP_ITEMS.filter((i) => !i.item)
 // Player 2's quests (chests too, now they open their own).

@@ -3901,6 +3901,7 @@
             <button class="inventory-tab" data-inventory-page="weapons" id="inventory-tab-weapons">Weapons</button>
             <button class="inventory-tab" data-inventory-page="cosmetics" id="inventory-tab-cosmetics">Cosmetics</button>
             <button class="inventory-tab" data-inventory-page="zombiebook" id="inventory-tab-zombiebook">Zombie Book</button>
+            <button class="inventory-tab" data-inventory-page="bugbook" id="inventory-tab-bugbook">Bug Book</button>
           </div>
           <!-- Character tab (2026-09-30): big 3D preview of the
                equipped (or inspected) skin on the left, a searchable grid
@@ -4081,6 +4082,15 @@
               <div id="zombie-book-nemesis" class="zombie-book-nemesis"></div>
               <h3 class="team-section-title"><span id="zombie-book-count"></span> <span id="zombie-book-badge" class="zombie-book-badge" style="display: none">&#9733; <span id="zombie-book-done">Complete!</span></span></h3>
               <div id="zombie-book-grid" class="team-cards"></div>
+            </div>
+          </div>
+          <div class="inventory-tab-page" id="inventory-page-bugbook" style="display: none">
+            <!-- Bug Book (BugNet.js): every bug the Bug Net catches, the
+                 ones not caught yet as dark shadows. -->
+            <div id="bug-book-page">
+              <p id="bug-book-how" class="menu-best-stats"></p>
+              <div id="bug-book-count" class="pet-book-count"></div>
+              <div id="bug-book-grid" class="team-cards"></div>
             </div>
           </div>
         </div>

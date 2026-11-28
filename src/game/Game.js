@@ -143,6 +143,7 @@ import * as ProfileUI from './ProfileUI.js'
 import * as TeamUI from './TeamUI.js'
 import * as CosmeticsUI from './CosmeticsUI.js'
 import * as ZombieBook from './ZombieBook.js'
+import { bindBugBookUI } from './BugNet.js'
 import * as InventoryUI from './InventoryUI.js'
 import * as ClanUI from './ClanUI.js'
 import { levelFromXp, starterXp } from './Xp.js'
@@ -1433,6 +1434,7 @@ const SIMPLE_TEXT_I18N_KEYS = {
   'shop-pets-heading': 'inventoryPetsTitle',
   'inventory-tab-cosmetics': 'inventoryCosmeticsTitle',
   'inventory-tab-zombiebook': 'inventoryBookTitle',
+  'inventory-tab-bugbook': 'bugBookTitle',
   'game-mode-infection-label': 'topBarModeInfection',
   'game-mode-shrinking-zone-label': 'topBarModeShrinkingZone',
   'game-mode-speedrun-label': 'topBarModeSpeedrun',
@@ -2920,6 +2922,7 @@ export class Game {
     TeamUI.bindTeamUI(this)
     CosmeticsUI.bindCosmeticsUI(this)
     ZombieBook.bindBookUI()
+    bindBugBookUI()
     this._bindPanelRouting()
     this._bindControlsTab()
     this._applyLanguage()
@@ -3469,7 +3472,7 @@ export class Game {
       },
       {
         slug: 'inventory', panel: this.menuInventoryPanel, open: () => this._openMenuInventoryPanel(),
-        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook']),
+        subTabs: this._subTabsFor('inventory-tab-', ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook', 'bugbook']),
       },
       { slug: 'global', panel: this.serverPanel, open: () => this._openServerPanel() },
       {

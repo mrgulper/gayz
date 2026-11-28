@@ -40,8 +40,19 @@ questions asked on 2026-11-27 are written into each batch.
    `src/game/CampFossils.js` (`camp.fossils`, skeletons from DinoKinds
    boxes), text `i18n/fossil-*.js`, test camp "Fossil digs: ...". Guessed
    numbers: 1% chance, Bone Block 0.003, 150 coins.
-4. **Bug net** - catch the flying insects (creatures already exist) and fill
-   a Bug Book, like the Zombie Book / Pet Book.
+4. **Bug net** - DONE (2026-11-27). Answers: the Bug Net is both bought
+   (Shop > Items, 45) and crafted (3 Plant Fiber + 1 log); it catches every
+   bug (BUG_IDS, 31 kinds - flying and ground ones, not the big friendly
+   spider or sea life); a caught bug becomes a Bug Jar of its kind
+   (`jar_<kind>`) in your bag, sold at Shop > Items > Sell Bug Jars (in-game
+   coins by rarity, JAR_PRICE); the Bug Book (Inventory > Bug Book) pays
+   homepage coins at 25/50/75/100% (100/250/500/1200). Hold the net and
+   click near a bug (REACH 3.5 blocks, in front of you) - no roll. Pets are
+   never caught. Servers: only the host's net catches (a guest gets a
+   message). Couch Co-op Player 2's shop doesn't sell it (`p1Only`). Code:
+   `src/game/BugNet.js` (net, jars, book, `s.bugNet.lib` for tests), text
+   `i18n/bugnet-*.js`, test camp "Bug Net: ...". Guessed numbers: all of
+   the prices above, reach 3.5.
 5. **Camp shop stand** - sell spare loot (food, materials, extra items) to
    the NPC survivors walking by. You set a price; too high and they walk
    away.

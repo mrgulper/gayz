@@ -189,7 +189,7 @@ test('Theme is a Settings tab, Inventory has Pets, and the menus follow Simple',
     return out
   })
   expect(r).toEqual({
-    inventoryTabs: ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook'],
+    inventoryTabs: ['character', 'crates', 'weapons', 'cosmetics', 'zombiebook', 'bugbook'],
     themeInSettings: true,
     settingsTabs: ['general', 'language', 'audio', 'controls', 'gameplay', 'graphics', 'theme'],
     generalOpensOn: ['general-page-general'],
