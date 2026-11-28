@@ -851,6 +851,7 @@ export default {
   shopGroupLooks: '外观',
   shopGroupFx: '特效与音效',
   shopGroupProfile: '宠物与资料',
+  shopGroupGems: '宝石',
   metaCoinDamage: '金币锻造弹药(伤害 +10%)',
   metaCoinHealth: '生命活力储备(+25 最大生命值)',
   actionInspectWeapon: '检视武器',

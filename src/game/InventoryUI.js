@@ -23,6 +23,7 @@ import { renderBundles } from './ShopBundles.js'
 import { renderShopEffects } from './ShopEffects.js'
 import { renderShopCosmetics } from './ShopCosmetics.js'
 import { renderDailyDeals } from './ShopDeals.js'
+import { renderGemPacks } from './ShopGems.js'
 import { buyAndSpin } from './CrateSpin.js'
 import { myGunSkin, paintGun } from './GunSkins.js'
 import { fitCommerceTabs } from './CommerceTabs.js'
@@ -1161,6 +1162,7 @@ function _shopConfetti() {
 export function _renderShopSkinState(game) {
   renderShopIdentity(game)
   renderDailyDeals(game)
+  renderGemPacks(game)
   renderMoreSkins(game)
   renderBundles(game)
   renderShopEffects(game)

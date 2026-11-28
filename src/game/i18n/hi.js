@@ -848,6 +848,7 @@ export default {
   shopGroupLooks: 'लुक्स',
   shopGroupFx: 'इफ़ेक्ट और आवाज़ें',
   shopGroupProfile: 'पेट्स और प्रोफ़ाइल',
+  shopGroupGems: 'जेम्स',
   metaCoinDamage: 'कॉइन-फोर्ज्ड राउंड्स (+10% क्षति)',
   metaCoinHealth: 'विटैलिटी कैश (+25 अधिकतम स्वास्थ्य)',
   actionInspectWeapon: 'हथियार देखें',

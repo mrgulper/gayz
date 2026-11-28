@@ -2,7 +2,7 @@
 // name it as Commerce"). One nav button (#store-btn, now labelled
 // Commerce) opens the Shop; a Shop / Market tab row at the top of both
 // panels switches between them. The Shop's ~30 sections are grouped into
-// 4 tabs; each section's heading decides its group, and everything after
+// 5 tabs (Gems added 2026-11-28); each section's heading decides its group, and everything after
 // a heading (up to the next one) goes with it.
 // No internet: Offline.js's click guard stops the Market tab first.
 
@@ -31,6 +31,7 @@ const GROUP_BY_HEADING = {
   'shop-chatbubbles-heading': 'profile',
   'shop-frames-heading': 'profile',
   'shop-identity-heading': 'profile',
+  'shop-gems-heading': 'gems',
 }
 
 // Which group each section belongs to (the Daily Deals head sits before
