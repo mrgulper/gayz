@@ -190,6 +190,9 @@ test('cloud pre-boot pull skips another account\'s save', async ({ page }) => {
     localStorage.setItem('gayz-cloud-base', JSON.stringify({ 'gayz-shop-progress': JSON.stringify({ coins: 5 }) }))
     localStorage.setItem('gayz-cloud-base-uid', 'alice')
     localStorage.setItem('gayz-shop-progress', JSON.stringify({ coins: 7 }))
+    // Already logged in today: no login coins to change the count (they're saved straight away).
+    const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    localStorage.setItem('gayz-login-streak', JSON.stringify({ streak: 1, lastDate: today, freezesAvailable: 0 }))
     window.__cloudPreBootBackendForTests = {
       getUid: async () => 'bob',
       fetchCloudSave: async () => { window.__preBootFetches++; return { data: { 'gayz-shop-progress': JSON.stringify({ coins: 999 }) }, modifiedTime: 1 } },
@@ -213,8 +216,11 @@ test('import save keeps this device\'s cloud sync state', async ({ page }) => {
   })
   const reloaded = page.waitForEvent('framenavigated')
   await page.evaluate(() => {
+    // Already logged in today: no login coins to change the count.
+    const d = new Date(); const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     window.__game._applyImportedSaveData({
       'gayz-shop-progress': JSON.stringify({ coins: 50 }),
+      'gayz-login-streak': JSON.stringify({ streak: 1, lastDate: today, freezesAvailable: 0 }),
       'gayz-cloud-base': '{"from":"another device"}',
       'gayz-cloud-base-uid': 'bob',
       'gayz-cloud-last-sync': '999',

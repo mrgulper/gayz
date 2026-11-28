@@ -73,8 +73,8 @@ test('Crafting: the Crafting tab makes gear and blocks from what you carry', asy
     out.gooDrops = drops
     return out
   })
-  // 42 out of winter (the Snowball recipe only shows December to February).
-  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 43 : 42)
+  // 43 out of winter (the Snowball recipe only shows December to February).
+  expect(r.rows).toBe(new Date().getMonth() % 11 < 2 ? 44 : 43)
   expect(r.ammoReady).toBe(true)
   expect(r.helmetReady).toBe(false)
   expect(r.ammo).toBe(1)
@@ -1163,6 +1163,89 @@ test('Bug Net: catch a bug in a jar, fill the Bug Book, sell the jars', async ({
   expect(r.jarsLeft).toBe(false)
   expect(r.cards).toBe(r.kinds)
   expect(r.caughtCards).toBeGreaterThanOrEqual(7)
+})
+
+// Grappling Hook (2026-11-28): bought or crafted, zip to a wall, land on
+// top of a low one, no grappling in party games.
+test('Grappling Hook: zip to a wall, onto a ledge, not in party games', async ({ page }) => {
+  await gotoAndWaitForGame(page)
+  await startCampGame(page)
+  const r = await page.evaluate(() => {
+    const g = window.__game
+    const s = g.buildMode.survival
+    const bm = s.bm
+    const B = s.B
+    const tm = bm.tryMode
+    const out = {}
+    s.coins = 500
+    s.shop._act('buy', 'grappleHook')
+    out.bought = s.inv.has('grappleHook')
+    out.recipe = !!s.inv.crafting?.html().includes('data-craft="grappleHook"')
+    s.inv.hotbar[0] = { kind: 'item', id: 'grappleHook', n: 1 }
+    s.inv.active = 0
+    s.inv.apply()
+    // Up in the open sky, a wall 8 blocks straight ahead (-Z).
+    const fx = Math.floor(tm.pos.x)
+    const fz = Math.floor(tm.pos.z)
+    const fy = 120
+    const aimAt = () => {
+      tm.pos.set(fx + 0.5, fy, fz + 0.5)
+      bm.camera.position.set((fx + 0.5) * B, (fy + 1.6) * B, (fz + 0.5) * B)
+      bm.camera.quaternion.identity()
+      bm.camera.updateMatrixWorld()
+    }
+    const run = () => {
+      for (let i = 0; i < 200 && s.grapple.zipping; i++) s.grapple.update(0.05)
+    }
+    for (let y = fy; y <= fy + 3; y++) bm.placeBlock(fx, y, fz - 8, 'stone', true)
+    aimAt()
+    s.grapple._readyAt = 0
+    out.used = s.inv.useHeld()
+    run()
+    out.wallZ = tm.pos.z
+    out.wallY = tm.pos.y
+    out.kept = s.inv.has('grappleHook')
+    // Straight away again: still cooling down.
+    aimAt()
+    out.cool = s.grapple.use()
+    // A low wall (2 tall): land on top of it.
+    for (const y of [fy + 2, fy + 3]) bm.removeBlock(fx, y, fz - 8)
+    aimAt()
+    s.grapple._readyAt = 0
+    out.ledge = s.grapple.use()
+    run()
+    out.ledgeY = tm.pos.y
+    out.ledgeZ = tm.pos.z
+    // Nothing in range.
+    aimAt()
+    bm.camera.quaternion.setFromAxisAngle(new bm.camera.up.constructor(0, 1, 0), Math.PI)
+    bm.camera.updateMatrixWorld()
+    s.grapple._readyAt = 0
+    out.miss = s.grapple.use()
+    // Party games say no.
+    aimAt()
+    s.grapple._readyAt = 0
+    const party = s.party
+    s.party = { hudText: () => '' }
+    out.party = s.grapple.use()
+    s.party = party
+    out.rope = !!s.grapple.rope
+    return { ...out, fy, fz, lib: s.grapple.lib }
+  })
+  expect(r.bought).toBe(true)
+  expect(r.recipe).toBe(true)
+  expect(r.used).toBe(true)
+  expect(r.kept).toBe(true)
+  // Stopped just short of the wall (its face is at fz - 7).
+  expect(r.wallZ).toBeGreaterThan(r.fz - 7)
+  expect(r.wallZ).toBeLessThan(r.fz - 5.5)
+  expect(r.cool).toBe(false)
+  expect(r.ledge).toBe(true)
+  expect(r.ledgeY).toBeGreaterThan(r.fy + 1.9)
+  expect(r.ledgeZ).toBeLessThan(r.fz - 7)
+  expect(r.miss).toBe(false)
+  expect(r.party).toBe(false)
+  expect(r.rope).toBe(false)
 })
 
 // Six ideas batch 5 (2026-11-27): the camp Shop Stand - put spare loot on it

@@ -32,6 +32,7 @@ import { PlayCrafting } from './PlayCrafting.js'
 import { HELI_FUEL_S } from './Vehicles.js'
 import { TANK as WATER_TANK } from './WaterGun.js'
 import { SHRINK_S } from './ShrinkRay.js'
+import { RANGE as GRAPPLE_RANGE } from './Grapple.js'
 import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
 import { QUIET_HEAR } from './Rides.js'
 import { MIN_DROP as BUNGEE_MIN_DROP } from './Bungee.js'
@@ -116,6 +117,8 @@ export const ITEMS = {
   waterGun: { key: 'invWaterGun', water: true },
   // Shrink Ray (ShrinkRay.js, 2026-11-27): a rare find, never used up.
   shrinkRay: { key: 'invShrinkRay', shrink: true },
+  // Grappling Hook (Grapple.js, 2026-11-28): bought or crafted, never used up.
+  grappleHook: { key: 'invGrapple', grapple: true },
   brainSnack: { key: 'invBrainSnack', petTreat: true },
   // Cooked on a Campfire (Hunger.js, 2026-11-06): heal and fill you more.
   cookedMeat: { key: 'invCookedMeat', heal: 40 },
@@ -201,6 +204,7 @@ export const ICON_PIXELS = {
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
   timeMachine: ['................', '.....cccccc.....', '....cwccccwc....', '...yyyyyyyyyy...', '...vvvvvvvvvv...', '..yvvvwwwwvvvy..', '..yvvwk..wwvvy..', '..yvvw.k..wvvy..', '..yvvwwwwwwvvy..', '...yyyyyyyyyy...', '...dddddddddd...', '..dddddddddddd..'],
   timePass: ['................', '................', '.yyyyyyyyyyyyyy.', '.y############y.', '.y#wwwwwwwwww#y.', '.y#w..k...ccw#y.', '.y#w...k..ccw#y.', '.y#w..kkk.ccw#y.', '.y#wwwwwwwwww#y.', '.y############y.', '.yyyyyyyyyyyyyy.'],
+  grappleHook: ['.........dddd...', '........d...d...', '...........dd...', '..........d.d...', '.........d..d...', '........k.......', '.......k........', '......k.........', '.....k..........', '....k...........', '...k............', '..kk............', '..k.............'],
   shrinkRay: ['................', '............s...', '...........sss..', '.dddddddddssws..', '.diiiiiiiisswws.', '.dddddddddssws..', '...dd.d....sss..', '...dd.......s...', '..dd............', '..dd............'],
   waterGun: ['................', '................', '..oooooooooo....', '.occcccccccoo...', '.oooooooooooocc.', '.....ooo..o.....', '.....ooo........', '....ooo.........', '....ooo.........', '...ooo..........'],
   brainSnack: ['................', '.....pppppp.....', '...ppfppfpppp...', '..pfpppfppfppp..', '..ppfpppfpppfp..', '..pppfpppfpppp..', '...pppppppppp...', '.....pppppp.....', '.......kk.......', '.......kk.......', '.......kk.......'],
@@ -550,6 +554,9 @@ export class PlayInventory {
     } else if (def?.rod) {
       // Cast or reel in - the rod itself is never used up.
       return !!s.fishing?.use()
+    } else if (def?.grapple) {
+      // Zip - the hook is never used up (Grapple.js).
+      return !!s.grapple?.use()
     } else if (def?.bugNet) {
       // Swish - the net is never used up (BugNet.js).
       return !!s.bugNet?.use()
@@ -734,6 +741,7 @@ export class PlayInventory {
     if (item.timePass) return t('invTipTimePass')
     if (item.fuel) return t('invTipHeliFuel', { s: HELI_FUEL_S })
     if (item.rod) return t('invTipFishingRod')
+    if (item.grapple) return t('invTipGrapple', { n: GRAPPLE_RANGE })
     if (item.bugNet) return t('invTipBugNet')
     if (item.bugJar) return t('invTipBugJar')
     if (item.treasure) return t('invTipTreasureMap')
