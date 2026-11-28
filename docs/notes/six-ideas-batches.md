@@ -26,8 +26,20 @@ questions asked on 2026-11-27 are written into each batch.
    (`camp.race`, `race.lib` for tests), text `i18n/race-*.js`, test camp
    "Pet Races: ...". Guessed numbers: TRACK 18, pace 1.8 b/s (~10 s
    races), luck 0.6-1.4, form +/-12%.
-3. **Fossil digs** - dinosaur bones underground; dig them up and build full
-   skeletons in the Camp Museum.
+3. **Fossil digs** - DONE (2026-11-27). Answers: both ways to find bones -
+   any underground block of the world's own rock (y -3 or lower) has a 1%
+   chance, and Bone Block pockets (Underground.js ORES, -6..-170) always
+   give one per block; every dinosaur (DINO_IDS, new ones join by
+   themselves) has 5 bones (Skull, Ribs, Spine, Legs, Tail), the famous 6
+   on the front row; small skeletons; 150 camp coins per finished one. A
+   bone is always a missing one. The camp has no free ground, so the
+   "Fossil Hall" is the museum's sky wing (HALL_Y 130, TempBlocks, glass
+   rim): Museum screen > Visit the Fossil Hall; Use goes back down. Solo
+   visits only; bones anywhere. Code: `src/game/Fossils.js` (bones, KEY
+   `gayz-fossils`, `digForBone` from BuildSurvival.onBlockMined),
+   `src/game/CampFossils.js` (`camp.fossils`, skeletons from DinoKinds
+   boxes), text `i18n/fossil-*.js`, test camp "Fossil digs: ...". Guessed
+   numbers: 1% chance, Bone Block 0.003, 150 coins.
 4. **Bug net** - catch the flying insects (creatures already exist) and fill
    a Bug Book, like the Zombie Book / Pet Book.
 5. **Camp shop stand** - sell spare loot (food, materials, extra items) to

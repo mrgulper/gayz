@@ -168,6 +168,8 @@ const ORES = [
   ['ironore', 'deepslateironore', -8, -130, 0.014],
   ['copperore', 'deepslatecopperore', -8, -70, 0.012],
   ['coalore', 'deepslatecoalore', -3, -60, 0.018],
+  // Fossil spots (Fossils.js, 2026-11-27): a little pocket of Bone Block, a bone in each.
+  ['boneblock', 'boneblock', -6, -170, 0.003],
 ]
 const SOFT_ROCK = new Set(['stone', 'granite', 'diorite', 'andesite'])
 

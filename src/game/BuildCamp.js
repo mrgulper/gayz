@@ -35,6 +35,7 @@ import { CampPlaza, WIDE as PLAZA_WIDE } from './CampPlaza.js'
 import { CampMuseum, WIDE as MUSEUM_WIDE } from './CampMuseum.js'
 import { Campaign, WIDE as LAB_WIDE } from './Campaign.js'
 import { CampRace } from './CampRace.js'
+import { CampFossils } from './CampFossils.js'
 import { paintStyledName } from './NameChatStyles.js'
 
 export const COIN_PER_KILL = 10
@@ -157,6 +158,8 @@ export class BuildCamp {
     this.lab?.dispose()
     this.race?.dispose()
     this.race = null
+    this.fossils?.dispose()
+    this.fossils = null
     this.lab = null
     this.s?.pizza?.disposeCounter()
     if (this._prompt) this._prompt.style.display = 'none'
@@ -189,6 +192,8 @@ export class BuildCamp {
     const shop = this.s.shop
     if (!shop) return false
     if (shop.panelOpen) return true
+    // In the Museum's Fossil Hall (CampFossils.js): back down.
+    if (this.fossils?.use()) return true
     // Pet Races (CampRace.js): the post, or Cheer during a race.
     if (this.race?.use()) return true
     // The Lucky Wheel (CampWheel.js).
@@ -266,6 +271,8 @@ export class BuildCamp {
       // The Pet Races post, on open ground (CampRace.js, 2026-11-27).
       this.race = new CampRace(this)
       this.race.build(taken)
+      // The Museum's Fossil Hall, up in the sky when you visit (CampFossils.js).
+      this.fossils = new CampFossils(this)
       this.taken = taken
     }
     this.museum?.update()
@@ -275,6 +282,15 @@ export class BuildCamp {
     this.zoo?.update(dt)
     this.wheel?.update(dt)
     this.race?.update(dt)
+    this.fossils?.update(dt)
+    if (this.fossils?.inside) {
+      if (this._prompt && this._promptFor !== 'fossils') {
+        this._promptFor = 'fossils'
+        this._prompt.textContent = t('fossilLeavePrompt')
+      }
+      if (this._prompt) this._prompt.style.display = 'block'
+      return
+    }
     const npc = this.s.shop?.panelOpen ? null : this._facingNpc()
     const wheel = !npc && !this.s.shop?.panelOpen && !!this.wheel?.near()
     const tree = !npc && !wheel && !this.s.shop?.panelOpen && !!this.treehouse?.near()

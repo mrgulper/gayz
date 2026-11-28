@@ -20,6 +20,7 @@ import { findCampSpot, makeLabel } from './CampTrophies.js'
 import { loadBook, BOOK_IDS, bookName } from './ZombieBook.js'
 import { itemIconCanvas, itemName } from './PlayInventory.js'
 import { openScreen } from './CampScreen.js'
+import { loadFossils, fossilCounts, DINO_IDS, PARTS, dinoName } from './Fossils.js'
 
 export const KEY = 'gayz-museum'
 export const WIDE = 6
@@ -187,10 +188,11 @@ export class CampMuseum {
     const book = loadBook()
     const mus = loadMuseum()
     const n = this.counts()
+    const camp = this.camp
     this.last = openScreen(s, {
       title: t('museumTitle'),
       wide: true,
-      build(body) {
+      build(body, close) {
         const section = (title, rows) => {
           const h = document.createElement('b')
           h.textContent = title
@@ -207,6 +209,26 @@ export class CampMuseum {
         section(t('museumStatues', { n: n.statues, max: n.statuesMax }), BOOK_IDS.map((id) => [bookName(id), !!book[id]]))
         section(t('museumCases', { n: n.items, max: n.itemsMax }), EXHIBITS.map((id) => [itemName(id), mus.items.includes(id)]))
         section(t('museumBosses', { n: n.bosses, max: n.bossesMax }), BOSSES.map((id) => [t(`museumBoss_${id}`), mus.bosses.includes(id)]))
+        // The Fossil Hall (Fossils.js / CampFossils.js): bones found, and a visit.
+        const fos = loadFossils()
+        const fc = fossilCounts(fos)
+        section(t('fossilSection', { n: fc.done, max: fc.doneMax, bones: fc.bones, bonesMax: fc.bonesMax }), DINO_IDS.map((id) => [`${dinoName(id)} ${fos[id]?.length || 0}/${PARTS.length}`, !!fos[id]]))
+        const note = document.createElement('p')
+        note.className = 'museum-fossil-note'
+        note.textContent = t('fossilHowTo')
+        body.appendChild(note)
+        const hall = camp.fossils
+        if (hall?.canVisit()) {
+          const go = document.createElement('button')
+          go.type = 'button'
+          go.className = 'camp-screen-btn museum-fossil-go'
+          go.textContent = t('fossilVisit')
+          go.addEventListener('click', () => {
+            close()
+            hall.visit()
+          })
+          body.appendChild(go)
+        }
       },
     })
     return true
