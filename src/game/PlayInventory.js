@@ -31,6 +31,7 @@ import { PLAY_WEAPONS, DEFAULT_PLAY_WEAPON, canPlayWeapon } from './PlayWeapons.
 import { PlayCrafting } from './PlayCrafting.js'
 import { HELI_FUEL_S } from './Vehicles.js'
 import { TANK as WATER_TANK } from './WaterGun.js'
+import { SHRINK_S } from './ShrinkRay.js'
 import { OPEN_H as WING_OPEN_H } from './Wingsuit.js'
 import { QUIET_HEAR } from './Rides.js'
 import { MIN_DROP as BUNGEE_MIN_DROP } from './Bungee.js'
@@ -113,6 +114,8 @@ export const ITEMS = {
   timePass: { key: 'invTimePass', timePass: true },
   // Water Gun (WaterGun.js) and Brain Snack (PetZombie.js), 2026-11-06.
   waterGun: { key: 'invWaterGun', water: true },
+  // Shrink Ray (ShrinkRay.js, 2026-11-27): a rare find, never used up.
+  shrinkRay: { key: 'invShrinkRay', shrink: true },
   brainSnack: { key: 'invBrainSnack', petTreat: true },
   // Cooked on a Campfire (Hunger.js, 2026-11-06): heal and fill you more.
   cookedMeat: { key: 'invCookedMeat', heal: 40 },
@@ -198,6 +201,7 @@ export const ICON_PIXELS = {
   rocket: ['.......r........', '......rrr.......', '......www.......', '.....wwwww......', '.....wwcww......', '.....wwwww......', '.....wwwww......', '.....wwwww......', '....rwwwwwr.....', '...rrwwwwwrr....', '...r.dddd..r....', '.......o........', '......ooo.......'],
   timeMachine: ['................', '.....cccccc.....', '....cwccccwc....', '...yyyyyyyyyy...', '...vvvvvvvvvv...', '..yvvvwwwwvvvy..', '..yvvwk..wwvvy..', '..yvvw.k..wvvy..', '..yvvwwwwwwvvy..', '...yyyyyyyyyy...', '...dddddddddd...', '..dddddddddddd..'],
   timePass: ['................', '................', '.yyyyyyyyyyyyyy.', '.y############y.', '.y#wwwwwwwwww#y.', '.y#w..k...ccw#y.', '.y#w...k..ccw#y.', '.y#w..kkk.ccw#y.', '.y#wwwwwwwwww#y.', '.y############y.', '.yyyyyyyyyyyyyy.'],
+  shrinkRay: ['................', '............s...', '...........sss..', '.dddddddddssws..', '.diiiiiiiisswws.', '.dddddddddssws..', '...dd.d....sss..', '...dd.......s...', '..dd............', '..dd............'],
   waterGun: ['................', '................', '..oooooooooo....', '.occcccccccoo...', '.oooooooooooocc.', '.....ooo..o.....', '.....ooo........', '....ooo.........', '....ooo.........', '...ooo..........'],
   brainSnack: ['................', '.....pppppp.....', '...ppfppfpppp...', '..pfpppfppfppp..', '..ppfpppfpppfp..', '..pppfpppfpppp..', '...pppppppppp...', '.....pppppp.....', '.......kk.......', '.......kk.......', '.......kk.......'],
   cookedMeat: ['................', '..........ww....', '.........wwww...', '........wwww....', '.....kkkkww.....', '....kmkkmk......', '...kkkmkkkkk....', '...kmkkkkmkk....', '...kkkkmkkkk....', '....kkkkkk......'],
@@ -533,6 +537,9 @@ export class PlayInventory {
     } else if (def?.wing) {
       s._message(t('wingHint', { n: WING_OPEN_H }), 3)
       return false
+    } else if (def?.shrink) {
+      // Zap - the ray itself is never used up (ShrinkRay.js).
+      return !!s.shrinkRay?.zap()
     } else if (def?.water) {
       // Squirt - the gun itself is never used up (WaterGun.js).
       return !!s.water?.squirt()
@@ -719,6 +726,7 @@ export class PlayInventory {
     if (item.vehicle) return t(item.vehicle === 'jetski' ? 'invTipJetSki' : item.vehicle === 'boat' ? 'invTipBoat' : item.vehicle === 'sub' ? 'invTipSubmarine' : item.vehicle === 'balloon' ? 'invTipBalloon' : 'invTipHelicopter')
     if (item.rocket) return t('invTipRocket')
     if (item.water) return t('invTipWaterGun', { n: WATER_TANK })
+    if (item.shrink) return t('invTipShrinkRay', { s: SHRINK_S })
     if (item.petTreat) return t('invTipBrainSnack')
     if (item.wing) return t('invTipWingsuit', { n: WING_OPEN_H })
     if (item.cure) return t('invTipTheCure')

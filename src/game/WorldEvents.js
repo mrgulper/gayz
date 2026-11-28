@@ -37,6 +37,7 @@
 import * as THREE from 'three'
 import { audioEngine } from './Audio.js'
 import { t } from './i18n.js'
+import { CRATE_CHANCE as SHRINK_CRATE_CHANCE } from './ShrinkRay.js'
 import { goldenRunner } from './GoldenRunner.js'
 import { escortMission } from './EscortMission.js'
 import { WORLD_EVENT_KINDS } from './LiveLists.js'
@@ -251,6 +252,9 @@ export class WorldEvents {
     s.reserve += s._chestAmmo() * 2
     s.inv.add({ kind: 'item', id: 'healthpack', n: 2 })
     s.inv.add({ kind: 'item', id: 'ammobox', n: 1 })
+    // Now and then the rare Shrink Ray (ShrinkRay.js).
+    const ray = s.shrinkRay?.roll(s.inv, SHRINK_CRATE_CHANCE) && s.inv.add({ kind: 'item', id: 'shrinkRay', n: 1 }) < 1
+    if (ray) setTimeout(() => s.active && s._message(t('shrinkFound'), 4), 4200)
     const trap = s._trapSupplies()
     s._earn(CRATE_COINS, 'chests')
     s._message(`${t('buildPlayEventSupplyGot', { n: CRATE_COINS })} ${trap}`, 4)

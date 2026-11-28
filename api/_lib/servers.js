@@ -13,7 +13,7 @@
 //                                         firing, dead, emote, hat, cape, sit, t,
 //                                         hurt, credits, caught,
 //                                         say } },
-//                       hits: { key: { id, dmg, by, tame, catch, freeze, boo } },
+//                       hits: { key: { id, dmg, by, tame, catch, freeze, boo, shrink } },
 //                       edits: { "x,y,z": { b, s, by } } }
 //   serverSecrets/{id}/{pid}  the player's token (never sent to others)
 //   serverSkins/{id}/{pid}    the player's skin picture (sent once on ask)
@@ -411,6 +411,12 @@ function cleanZombie(z) {
     ...(ZOMBIE_SHINE_IDS.has(z.sh) ? { sh: z.sh } : {}),
     // The kill effect it bursts with (src/game/KillEffects.js).
     ...(typeof z.fx === 'string' && /^[A-Za-z]{1,20}$/.test(z.fx) ? { fx: z.fx } : {}),
+    // A hiding lurker, a screaming screamer, a meteor's mutant, and one
+    // tiny from a Shrink Ray (src/game/ShrinkRay.js).
+    ...(z.hd ? { hd: 1 } : {}),
+    ...(z.ys ? { ys: 1 } : {}),
+    ...(z.mu ? { mu: 1 } : {}),
+    ...(z.sk ? { sk: 1 } : {}),
   }
 }
 
@@ -899,7 +905,7 @@ export async function syncServer(db, body = {}, now = Date.now()) {
       // u (Tug of War): how many times they pulled (u + count).
       // n: a vote for the next party mode (n + PARTY_MODES index, PartyVote.js).
       if (!h || !(/^[za]\d{1,9}$/.test(h.id) || (['infection', 'ctf', 'koth', 'laser', 'dodge'].includes(server.mode) && /^s(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'paint' && /^p-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'kart' && /^k-?\d{1,6}_-?\d{1,6}$/.test(h.id)) || (server.mode === 'parkour' && /^f\d{4,8}$/.test(h.id)) || (['duel', 'dm', 'tdm'].includes(server.mode) && /^d(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'golf' && /^g-?\d{1,5}$/.test(h.id)) || (['bomb', 'werewolf'].includes(server.mode) && /^[sw](?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (server.mode === 'tug' && /^u\d{1,2}$/.test(h.id)) || (server.mode === 'prop' && /^(?:s(?:b\d{1,4}|[A-Za-z0-9]{4,40})|q\d{1,2})$/.test(h.id)) || (server.mode === 'build' && /^v(?:b\d{1,4}|[A-Za-z0-9]{4,40})$/.test(h.id)) || (VOTE_CODES.has(server.mode) && /^n\d{1,2}$/.test(h.id)) || h.id === 'x1' || (ESCAPE_MODES.includes(server.mode) && /^e[swb]\d(?:_\d{1,2})?$/.test(h.id)))) continue
-      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}) }
+      updates[`${base}/hits/${newId(8)}`] = { id: h.id, dmg: num(h.dmg, 0, 5000), by: playerId, ...(h.tame === true && h.id[0] === 'a' ? { tame: true } : {}), ...(h.catch === true ? { catch: true } : {}), ...(h.freeze === true && h.id[0] === 'z' ? { freeze: true } : {}), ...(h.boo === true && h.id[0] === 'z' ? { boo: true } : {}), ...(h.shrink === true && h.id[0] === 'z' ? { shrink: true } : {}) }
     }
   }
   // A custom lobby with friendly fire on: my ring hit another player

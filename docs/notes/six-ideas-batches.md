@@ -67,7 +67,20 @@ questions asked on 2026-11-27 are written into each batch.
    `src/game/CampStand.js` (`camp.stand`, `stand.lib` for tests), text
    `i18n/stand-*.js`, test camp "Shop Stand: ...". Guessed numbers: all of
    `FAIR`, want 0.75-1.3 x fair, haggle up to 1.5 x, 15 s to answer.
-6. **Shrink ray** - a rare loot gun (chests / crates) that makes zombies tiny
-   and squeaky for a few seconds.
+6. **Shrink ray** - DONE (2026-11-27). Answers: weaker too (bites for 1/3,
+   takes x2 damage while tiny); battery refills (8 zaps, one back every 4 s,
+   never used up); bosses / big ones shrink less and shorter (0.6 size, 3 s;
+   others 0.35 size, 6 s); servers: the host shrinks it so everyone sees it
+   (snapshot `sk`, guest zap = hit `shrink: true` via PlayNet.queueShrink,
+   api/_lib/servers.js passes it; cleanZombie now also passes hd/ys/mu, which
+   it used to drop). Found in Loot Chests (3%) and supply crates (15%), only
+   if you don't have one; Couch Co-op Player 2's chests never give it. Beam
+   24 blocks, walls stop it (not glass/leaves). Tiny zombies squeak instead
+   of moaning (Audio `squeak`, caption). Corpses now keep the zombie's size
+   (mutants too). Code: `src/game/ShrinkRay.js` (`s.shrinkRay`, `.lib` for
+   tests), text `i18n/shrink-*.js`, test zombies "Shrink Ray: ...". Guessed
+   numbers: all of the above.
+
+All six batches done.
 
 Guessed numbers (ask how they feel when the area comes up): vote time 12 s.
