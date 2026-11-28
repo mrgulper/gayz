@@ -2176,6 +2176,20 @@ test('the Zombie Blimp, Zombie Bingo, Pizza Delivery, Tug of War and Quiz Show',
     out.quizAsk = Q.sub === 'ask' && Q.n === 1 && Q.answerOn(Q.rightPad) === Q.current.answers[0]
     const card = document.getElementById('quiz-card')
     out.quizCard = !!card && card.style.display !== 'none' && card.querySelectorAll('.quiz-a').length === 4 && card.querySelector('.quiz-q').textContent.length > 3
+    // Straight above a camp NPC in the sky arena: no camp prompt, and the
+    // use key doesn't open the shop down below.
+    const npc = s.camp?.npcs?.[0]
+    if (npc) {
+      const tmq = s.bm.tryMode
+      const keep = tmq.pos.clone()
+      tmq.pos.set(npc.x + 1, 206, npc.z)
+      s.bm._yaw = Math.PI / 2
+      s.camp.update(0.05)
+      const pr = document.getElementById('play-npc-prompt')
+      out.quizNoCampPrompt = !pr || pr.style.display === 'none'
+      out.quizNoCampUse = s.camp.use() === false && !s.shop?.panelOpen
+      tmq.pos.copy(keep)
+    } else out.quizNoCampPrompt = out.quizNoCampUse = true
     out.quizSigns = Q._signs.length === 4 && Q._signs.every((sp) => sp.visible)
     // Me on the right pad from the start: full points plus the speed bonus.
     const rp = Q.padMiddle(Q.rightPad)
