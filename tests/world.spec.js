@@ -356,7 +356,9 @@ test('Map 1 has 500 layers underground with ores, caves, walk-in entrances and t
     let floor = null
     for (let y = my; y > my - 5; y--) if (b._blocks.has(`${mx},${y},${mz}`)) { floor = y; break }
     out.tunnelHasFloor = floor !== null
-    // The bar along the top: GayZ | mode | FPS | x y z.
+    // The bar along the top: GayZ | mode | FPS | x y z. (Top Bar Tech
+    // Info starts off on a new device, like this test's browser.)
+    window.__game.settings.topBarTech = true
     await new Promise((res) => setTimeout(res, 400))
     const bar = document.getElementById('top-bar')
     out.bar = bar && getComputedStyle(bar).display !== 'none' ? bar.innerText.replace(/\s+/g, ' ') : ''

@@ -2728,10 +2728,11 @@ export class BuildSurvival {
     let kind = !boss && this.wave >= SKELETON_FROM_WAVE && skeletonsReady() && Math.random() < SKELETON_CHANCE
       ? SKELETON_KIND_IDS[Math.floor(Math.random() * SKELETON_KIND_IDS.length)] : null
     // A first game's first wave is plain zombies only - no Brutes, Blobs
-    // or tough rare ones yet (2026-11-27 first-5-minutes check-up).
+    // or tough rare ones yet (2026-11-27 first-5-minutes check-up). (A
+    // realm's own zombies still come - you're never there in wave 1.)
     const gentle = !boss && this.onboard?.active && this.wave <= 1
     if (!kind && !boss && !gentle && this.wave >= MONSTER_FROM_WAVE && Math.random() < MONSTER_CHANCE) kind = MONSTER_KIND_IDS[Math.floor(Math.random() * MONSTER_KIND_IDS.length)]
-    if (realm && !boss && !gentle) kind = REALM_KINDS[realm][Math.floor(Math.random() * REALM_KINDS[realm].length)]
+    if (realm && !boss) kind = REALM_KINDS[realm][Math.floor(Math.random() * REALM_KINDS[realm].length)]
     // Its rarity and silly name (ZombieNames.js): rarer = tougher.
     const tier = gentle ? 'common' : rollZombieTier(boss)
     const health = zombieHealth(this.wave, this.cfg.escalation) * this.cfg.zombieHealthMult * (boss ? BOSS_HEALTH_MULT : 1) * (kindOf(kind)?.hp ?? 1) * ZOMBIE_TIERS[tier].hp * (cave ? CAVE_HP_MULT : 1)
